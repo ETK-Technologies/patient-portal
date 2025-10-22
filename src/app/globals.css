@@ -1,26 +1,47 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  --background: #fbfaf9;
   --foreground: #171717;
+}
+.headers-font {
+  font-family: var(--font-fellix-bold);
+}
+
+.subheaders-font {
+  font-family: var(--font-fellix);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-poppins);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-poppins), system-ui, sans-serif;
+}
+
+/* Hide scrollbar for horizontal scrolling */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+  scrollbar-width: none; /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Safari and Chrome */
+}
+
+.main-shadow {
+  box-shadow: 0px 0px 16px 0px #00000014;
+}
+
+.treatment-card {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 65.69%,
+    rgba(0, 0, 0, 0.8) 100%
+  );
 }
