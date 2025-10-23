@@ -63,18 +63,12 @@ export default function DashboardLayout({ children }) {
           />
         </aside>
 
-        {/* Mobile sidebar overlay */}
-        {/* {sidebarOpen && (
-          <div
-            className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
-            onClick={handleMobileClose}
-          />
-        )} */}
-
         {/* Main content area */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Page content */}
-          <div className="flex-1 overflow-y-auto p-6 pl-[36px]">{children}</div>
+          <div className="flex-1 overflow-y-auto p-5 pt-0 md:p-6 md:pt-0 md:pl-[60px]">
+            {children}
+          </div>
         </main>
       </div>
     </div>
