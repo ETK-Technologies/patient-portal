@@ -1,11 +1,15 @@
+import EssentialSupplementsSection from "@/components/home/EssentialSupplementsSection";
 import PageContainer from "@/components/PageContainer";
+import ShopSection from "@/components/shop/ShopSection";
+import Section from "@/components/utils/Section";
 
 export default function Shop() {
   return (
     <PageContainer title="Shop">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <p className="text-gray-600">Shop items will appear here.</p>
-      </div>
+      <ShopSection />
+      <Section>
+        <EssentialSupplementsSection />
+      </Section>
     </PageContainer>
   );
 }
