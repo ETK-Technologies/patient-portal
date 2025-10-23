@@ -2,7 +2,7 @@
 
 import CustomImage from "@/components/utils/CustomImage";
 import AccountDropdown from "./AccountDropdown";
-import NotificationDropdown from "./NotificationDropdown";
+// import NotificationDropdown from "./NotificationDropdown";
 import { RxHamburgerMenu } from "react-icons/rx";
 
 export default function Navbar({ onMenuClick }) {
@@ -22,7 +22,7 @@ export default function Navbar({ onMenuClick }) {
 
       {/* Right side - Notifications, Account dropdown, and Mobile menu button */}
       <div className="flex items-center ">
-        <NotificationDropdown />
+        {/* <NotificationDropdown /> */}
         {/* Hide account dropdown on mobile - it will be in sidebar */}
         <div className="hidden lg:block">
           <AccountDropdown />
