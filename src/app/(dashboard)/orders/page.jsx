@@ -1,11 +1,10 @@
 import PageContainer from "@/components/PageContainer";
+import OrdersSection from "@/components/orders/OrdersSection";
 
 export default function Orders() {
   return (
     <PageContainer title="My Orders">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <p className="text-gray-600">Your orders will appear here.</p>
-      </div>
+      <OrdersSection />
     </PageContainer>
   );
 }
