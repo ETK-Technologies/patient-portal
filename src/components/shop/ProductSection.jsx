@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import ProductCard from "./ProductCard";
 import ScrollArrows from "@/components/utils/ScrollArrows";
-import ScrollIndicator from "@/components/treatments/ScrollIndicator";
+import ScrollIndicator from "@/components/utils/ScrollIndicator";
 
 export default function ProductSection({
   title,

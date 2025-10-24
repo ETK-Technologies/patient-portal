@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import EssentialSupplementsCard from "./EssentialSupplementsCard";
 import ScrollArrows from "../utils/ScrollArrows";
-import ScrollIndicator from "../treatments/ScrollIndicator";
+import ScrollIndicator from "../utils/ScrollIndicator";
 
 export default function EssentialSupplementsSection({ className = "" }) {
   const scrollContainerRef = useRef(null);
