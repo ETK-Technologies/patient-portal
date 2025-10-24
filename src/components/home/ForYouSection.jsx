@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import ForYouCard from "./ForYouCard";
-import ScrollIndicator from "../treatments/ScrollIndicator";
+import ScrollIndicator from "../utils/ScrollIndicator";
 import ScrollArrows from "../utils/ScrollArrows";
 
 export default function ForYouSection({ className }) {

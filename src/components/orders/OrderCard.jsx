@@ -4,6 +4,7 @@ import { useState } from "react";
 import { GoChevronDown, GoChevronUp } from "react-icons/go";
 import CustomImage from "../utils/CustomImage";
 import CustomButton from "../utils/CustomButton";
+import StatusBadge from "../utils/StatusBadge";
 import { FaArrowRight } from "react-icons/fa";
 
 const OrderCard = ({ order }) => {
@@ -11,36 +12,6 @@ const OrderCard = ({ order }) => {
 
   const toggleExpanded = () => {
     setIsExpanded(!isExpanded);
-  };
-
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case "canceled":
-        return "bg-[#A50E0E]";
-      case "medical review":
-        return "bg-yellow-500";
-      case "shipped":
-        return "bg-green-500";
-      case "delivered":
-        return "bg-blue-500";
-      default:
-        return "bg-gray-500";
-    }
-  };
-
-  const getStatusContainerClasses = (status) => {
-    switch (status?.toLowerCase()) {
-      case "canceled":
-        return "bg-gradient-to-r from-red-100/30 to-white border-[#FAD2CF]";
-      case "medical review":
-        return "bg-gradient-to-r from-yellow-100/30 to-white border-[#FEEFC3]";
-      case "shipped":
-        return "bg-gradient-to-r from-green-100/30 to-white border-[#C3FACF]";
-      case "delivered":
-        return "bg-gradient-to-r from-blue-100/30 to-white border-[#C3E6FA]";
-      default:
-        return "bg-gradient-to-r from-gray-100/30 to-white border-[#E0E0E0]";
-    }
   };
 
   return (
@@ -131,27 +102,16 @@ const OrderCard = ({ order }) => {
 
           {/* Status and Action Button */}
           <div className=" flex flex-col md:flex-row md:items-center md:justify-between ">
-            <div
-              className={`flex items-center justify-center gap-1 mb-4 md:mb-0 w-fit mx-auto md:mx-0 py-[3px] px-2 rounded-[8px] border ${getStatusContainerClasses(
-                order.status?.text
-              )}`}
-            >
-              <div
-                className={`w-[6px] h-[6px] rounded-full ${getStatusColor(
-                  order.status?.text
-                )}`}
-              ></div>
-              <span className="text-[10px] font-[400] text-[#212121] leading-[140%] ">
-                {order.status?.text}
-              </span>
-            </div>
+            <StatusBadge
+              status={order.status?.text}
+              className="mb-4 md:mb-0 mx-auto md:mx-0"
+            />
             <CustomButton
               text="Order Details"
               icon={<FaArrowRight />}
-              variant="secondary"
               size="small"
               width="auto"
-              className="md:w-auto h-[40px] md:px-6"
+              className="md:w-auto h-[40px] md:px-6 bg-white border border-[#E2E2E1] text-[#585857] hover:bg-[#F9F9F9]"
             />
           </div>
         </div>

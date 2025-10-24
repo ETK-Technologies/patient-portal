@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import TreatmentCard from "./TreatmentCard";
-import ScrollIndicator from "./ScrollIndicator";
+import ScrollIndicator from "../utils/ScrollIndicator";
 
 export default function TreatmentsGrid({ treatments, showAll = false }) {
   const displayTreatments = showAll ? treatments : treatments.slice(0, 3);
