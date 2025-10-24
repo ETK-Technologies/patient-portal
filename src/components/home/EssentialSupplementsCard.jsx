@@ -32,10 +32,9 @@ export default function EssentialSupplementsCard({
               <CustomButton
                 href={ctaLink}
                 text={ctaText}
-                variant="ghost"
                 size="small"
                 width="fit"
-                className="text-[14px] md:text-[16px] text-black fon-[500] underline !p-0 h-auto"
+                className="text-[14px] md:text-[16px] text-black fon-[500] underline !p-0 h-auto bg-transparent border border-transparent text-[#585857] hover:bg-[#F9F9F9]"
               />
             </div>
           </div>

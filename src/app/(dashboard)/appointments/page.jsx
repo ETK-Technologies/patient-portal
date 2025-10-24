@@ -1,11 +1,21 @@
 import PageContainer from "@/components/PageContainer";
+import AppointmentsSection from "@/components/appointments/AppointmentsSection";
+import { upcomingAppointments, pastAppointments } from "@/components/appointments/appointmentsData";
 
 export default function Appointments() {
   return (
     <PageContainer title="My Appointments">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <p className="text-gray-600">Your appointments will appear here.</p>
-      </div>
+      <AppointmentsSection 
+        title="Upcoming Appointments" 
+        appointments={upcomingAppointments} 
+      />
+      
+      {pastAppointments.length > 0 && (
+        <AppointmentsSection 
+          title="Past Appointments" 
+          appointments={pastAppointments} 
+        />
+      )}
     </PageContainer>
   );
 }

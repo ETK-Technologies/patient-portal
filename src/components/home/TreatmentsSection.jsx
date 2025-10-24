@@ -23,9 +23,9 @@ export default function TreatmentsSection({
             href={exploreButtonHref}
             text={exploreButtonText}
             icon={<FaArrowRight />}
-            variant="default"
             size="medium"
             width="full"
+            className="bg-[#F1F0EF] border border-[#E2E2E1] text-[#000000] hover:bg-[#E8E7E6]"
           />
         </div>
       )}
