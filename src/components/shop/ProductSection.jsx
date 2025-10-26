@@ -9,6 +9,7 @@ export default function ProductSection({
   title,
   products,
   showScrollIndicator = true,
+  onProductClick,
 }) {
   const scrollContainerRef = useRef(null);
 
@@ -32,7 +33,11 @@ export default function ProductSection({
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              onClick={() => onProductClick(product)}
+            />
           ))}
         </div>
       </div>
