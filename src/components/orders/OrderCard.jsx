@@ -15,7 +15,7 @@ const OrderCard = ({ order }) => {
   };
 
   return (
-    <div className="bg-white shadow-[0px_0px_16px_0px_#00000014] rounded-[16px] mb-3 overflow-hidden p-5 md:p-6">
+    <div className="bg-white main-shadow rounded-[16px] mb-3 overflow-hidden p-5 md:p-6">
       {/* Order Header - Always Visible */}
       <div
         className=" cursor-pointer hover:bg-gray-50 transition-colors"

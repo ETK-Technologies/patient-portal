@@ -22,7 +22,7 @@ export default function Sidebar({ isOpen, isClosing, onClose }) {
   return (
     <>
       {/* Desktop sidebar - always visible */}
-      <div className="hidden lg:block lg:w-[260px] ">
+      <div className="hidden lg:block lg:w-[260px] lg:h-screen lg:overflow-y-auto">
         <div className="h-full" style={{ backgroundColor: "#FBFAF9" }}>
           <div className="flex flex-col h-full">
             {/* Navigation */}

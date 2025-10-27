@@ -13,14 +13,14 @@ export default function TreatmentCard({
       href="#"
       className={`${
         isScrollable ? "w-[256px]" : "w-full"
-      } h-[335px] md:w-[256px] md:h-[341px] relative rounded-[16px] overflow-hidden flex-shrink-0`}
+      } h-[335px] md:w-[256px] md:h-[341px] relative rounded-[16px] z-[1] overflow-hidden flex-shrink-0`}
     >
-      <div className="absolute top-0 left-0 right-0 bottom-0 z-[1] treatment-card w-full h-full"></div>
-      <div className="w-full h-full relative overflow-hidden">
+      <div className="absolute top-0 left-0 right-0 bottom-0 z-[2] treatment-card w-full h-full"></div>
+      <div className="w-full h-full relative overflow-hidden z-[1]">
         <CustomImage src={imageUrl} alt={title} fill />
       </div>
       {/* Content */}
-      <div className="absolute bottom-0 left-0 right-0 p-6 text-white z-[2]">
+      <div className="absolute bottom-0 left-0 right-0 p-6 text-white z-[3]">
         <h3 className="font-medium text-xl md:text-[24px] leading-[140%] tracking-[0px] align-middle mb-1 ">
           {title}
         </h3>
