@@ -10,8 +10,10 @@ import CancelWhatToExpectFlow from "./CancelWhatToExpectFlow";
 import CancelFinalFeedbackFlow from "./CancelFinalFeedbackFlow";
 import Section from "../utils/Section";
 import CustomButton from "../utils/CustomButton";
-import { FaRegCalendarAlt, FaRegClock } from "react-icons/fa";
+import { FaRegCalendarAlt } from "react-icons/fa";
 import { FaArrowRight } from "react-icons/fa6";
+import { FaArrowsRotate } from "react-icons/fa6";
+import { FaRegCalendar } from "react-icons/fa6";
 
 export default function SubscriptionFlow({
   subscription,
@@ -160,7 +162,7 @@ export default function SubscriptionFlow({
           >
             <div className="flex flex-col">
               <div className="text-[22px] mb-2">
-                <FaRegClock size={22} />
+                <FaArrowsRotate size={16} />
               </div>
               <div className="text-[16px] font-medium leading-[140%]">
                 Get refill
@@ -176,7 +178,7 @@ export default function SubscriptionFlow({
           >
             <div className="flex flex-col">
               <div className="text-[22px] mb-2">
-                <FaRegCalendarAlt size={22} />
+                <FaRegCalendar size={16} />
               </div>
               <div className="text-[16px] font-medium leading-[140%]">
                 Change refill date

@@ -13,7 +13,7 @@ export default function CancelWhatToExpectFlow({
   const reactivationDate = subscription?.reactivationDate || "{date}";
 
   return (
-    <div className="pb-24 max-w-[800px] mx-auto px-5">
+    <div className="pb-24 max-w-[800px] mx-auto px-5 md:px-0">
       <h2 className="text-[18px] font-medium mb-2 leading-[115%]">
         What to expect after cancelling
       </h2>
@@ -29,11 +29,12 @@ export default function CancelWhatToExpectFlow({
 
       <div className="rounded-[16px] border border-[#E5E7EB] bg-white mb-4 flex items-center justify-center">
         {productImage ? (
-          <div className="relative w-full h-[188px]">
+          <div className="relative w-full md:h-[335px] h-[188px] md:mx-auto">
             <CustomImage
               src={productImage}
               alt="Product"
-              fill
+              width={335}
+              height={188}
               className="rounded-[12px] w-full h-full object-contain"
             />
           </div>
@@ -42,7 +43,7 @@ export default function CancelWhatToExpectFlow({
         )}
       </div>
 
-      <div className="rounded-[16px] space-y-6 flex flex-col justify-between h-[368px] border border-[#E5E7EB] bg-white p-5 mb-6">
+      <div className="rounded-[16px] space-y-6 flex flex-col justify-between h-[368px] md:h-auto border border-[#E5E7EB] bg-white p-5 mb-6">
         <div>
           <div className="font-semibold mb-1">Subscription ends</div>
           <p className="text-sm text-[#4B5563]">

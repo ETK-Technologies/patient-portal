@@ -22,7 +22,7 @@ export default function PauseCancelFlow({ subscription, onBack, onNavigate }) {
   }
 
   return (
-    <div className=" pb-24 max-w-[800px] mx-auto px-5">
+    <div className=" pb-24 max-w-[800px] mx-auto px-5 md:px-0">
       <h2 className="font-medium text-[18px] leading-[115%] mb-4">
         Pause or cancel subscription
       </h2>

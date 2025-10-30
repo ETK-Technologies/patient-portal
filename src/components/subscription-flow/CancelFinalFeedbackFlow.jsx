@@ -1,18 +1,27 @@
 "use client";
 import React, { useState } from "react";
+import Link from "next/link";
 
 export default function CancelFinalFeedbackFlow({ onBack, onSubmit }) {
   const [text, setText] = useState("");
 
   return (
-    <div className="pb-24 max-w-[800px] mx-auto px-5">
+    <div className="pb-24 max-w-[800px] mx-auto ">
       <h2 className="text-[18px] font-medium mb-2 leading-[115%]">
         Tell us how we can serve you better.
       </h2>
       <p className="mb-6 text-[#595A5A] text-[14px] leading-[140%]">
         Be brutally honest.
       </p>
-
+      <p className="mb-6 text-[#595A5A] text-[14px] leading-[140%]">
+        Changed your mind? {""}
+        <Link
+          href="/subscriptions"
+          className="underline underline-offset-2 text-[#212121]"
+        >
+          Back to subscription
+        </Link>
+      </p>
       <div className="rounded-[16px]">
         <textarea
           value={text}

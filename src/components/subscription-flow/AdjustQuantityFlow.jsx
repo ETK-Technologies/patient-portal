@@ -21,7 +21,7 @@ export default function AdjustQuantityFlow({ onBack, onComplete }) {
       selectedValue={selected}
       onChange={setSelected}
       color="#AE7E56"
-      containerClassName="max-w-[800px] mx-auto px-5"
+      containerClassName="max-w-[800px] mx-auto "
       onContinue={(value) => onComplete?.(value)}
       onBack={onBack}
     />
