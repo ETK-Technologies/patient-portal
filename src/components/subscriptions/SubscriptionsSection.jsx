@@ -5,9 +5,16 @@ import SubscriptionCard from "./SubscriptionCard";
 import { subscriptionsData } from "./subscriptionsData";
 import ScrollIndicator from "../utils/ScrollIndicator";
 import ScrollArrows from "../utils/ScrollArrows";
+import SubscriptionFlow from "../subscription-flow/SubscriptionFlow";
+import SubscriptionActionPanel from "./SubscriptionActionPanel";
+import { FiArrowLeft, FiChevronLeft } from "react-icons/fi";
+import { FaArrowLeft } from "react-icons/fa";
 
 export default function SubscriptionsSection() {
   const [activeTab, setActiveTab] = useState("all");
+  const [subscriptionFlow, setSubscriptionFlow] = useState(null); // {sub, action}
+  const [showHeader, setShowHeader] = useState(true);
+  const [headerVariant, setHeaderVariant] = useState("full"); // 'full' | 'backOnly'
 
   const tabs = [
     { id: "all", label: "All" },
@@ -33,8 +40,97 @@ export default function SubscriptionsSection() {
     return acc;
   }, {});
 
+  // FLOW HANDLER
+  const handleCardAction = (subscription, action) => {
+    setSubscriptionFlow({ subscription, action });
+    setHeaderVariant(action === "Manage subscription" ? "full" : "backOnly");
+  };
+
+  const handleCloseFlow = () => {
+    setSubscriptionFlow(null);
+    setShowHeader(true);
+  };
+
+  if (subscriptionFlow) {
+    const { subscription, action } = subscriptionFlow;
+
+    const Header = () => {
+      if (headerVariant === "full") {
+        return (
+          <div className="flex flex-col items-start gap-2">
+            <div className="flex items-start mb-4">
+              <button
+                onClick={handleCloseFlow}
+                className="inline-flex items-center justify-center border-none w-10 h-10 md:w-10 md:h-10 rounded-full  text-[black] "
+                aria-label="Back to subscriptions"
+              >
+                <FiChevronLeft size={20} />
+              </button>
+            </div>
+
+            <div>
+              <nav
+                className="text-[13px] text-[#23221C] mb-1"
+                aria-label="Breadcrumb"
+              >
+                <ol className="list-none p-0 flex gap-1">
+                  <li>Subscriptions</li>
+                  <li>
+                    <span className="mx-1">&gt;</span>
+                  </li>
+                  <li className="text-[#212121] font-medium">
+                    Subscription details
+                  </li>
+                </ol>
+              </nav>
+              <h1 className="text-[22px] md:text-[24px] font-semibold leading-[120%] mb-4">
+                Subscription details
+              </h1>
+            </div>
+          </div>
+        );
+      }
+      return (
+        <div className="flex items-start mb-4">
+          <button
+            onClick={handleCloseFlow}
+            className="inline-flex items-center justify-center border-none w-10 h-10 md:w-10 md:h-10 rounded-full  text-[black] "
+            aria-label="Back to subscriptions"
+          >
+            <FiChevronLeft size={20} />
+          </button>
+        </div>
+      );
+    };
+
+    if (action === "Manage subscription") {
+      return (
+        <div>
+          {showHeader && <Header />}
+          <SubscriptionFlow
+            subscription={subscription}
+            action={action}
+            setShowHeader={setShowHeader}
+            setHeaderVariant={setHeaderVariant}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        {showHeader && <Header />}
+        <SubscriptionActionPanel action={action} subscription={subscription} />
+      </div>
+    );
+  }
+
   return (
     <div>
+      {/* Page title (shown only when not in a flow) */}
+      <h1 className="text-[26px] md:text-[32px]  mb-6 md:mb-10 headers-font">
+        My Subscriptions
+      </h1>
       {/* Note */}
       <div className="mb-6">
         <p className="text-[12px] md:text-[14px] font-[400] leading-[140%] text-[#585857]">
@@ -85,7 +181,10 @@ export default function SubscriptionsSection() {
                       >
                         {subscriptions.map((subscription) => (
                           <div key={subscription.id}>
-                            <SubscriptionCard subscription={subscription} />
+                            <SubscriptionCard
+                              subscription={subscription}
+                              onAction={handleCardAction}
+                            />
                           </div>
                         ))}
                       </div>
