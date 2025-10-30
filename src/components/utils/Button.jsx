@@ -4,6 +4,7 @@ export default function CustomButton({
   href,
   text,
   icon,
+  children,
   variant = "default",
   size = "medium",
   width = "full",
@@ -49,7 +50,7 @@ export default function CustomButton({
 
   const buttonContent = (
     <>
-      {text}
+      {children || text}
       {icon && <span className="flex items-center">{icon}</span>}
     </>
   );

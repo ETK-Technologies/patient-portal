@@ -110,6 +110,15 @@ export const shopData = {
       image:
         "https://myrocky.b-cdn.net/WP%20Images/patient-portal/order-card-1.png",
       type: "supplement",
+      description:
+        "Essential T-Boost is inspired by the wisdom of Ayurveda and powered by nature's most trusted ingredients.",
+      details:
+        "Premium testosterone support formula for enhanced vitality and energy.",
+      howToUse:
+        "Take one capsule daily with a meal or as directed by your healthcare provider.",
+      ingredients:
+        "Tribulus Terrestris, Ashwagandha, Fenugreek, Zinc, Vitamin D3",
+      relatedProducts: [12, 13, 14],
     },
     {
       id: 16,
