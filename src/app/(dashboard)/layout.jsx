@@ -45,10 +45,10 @@ export default function DashboardLayout({ children }) {
       </div>
 
       {/* Main content area with sidebar */}
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside
-          className={`fixed lg:static inset-y-0 right-0  transform transition-all duration-300 ease-in-out ${
+          className={`fixed lg:sticky lg:top-0 lg:self-start inset-y-0 right-0 z-[9999] transform transition-all duration-300 ease-in-out ${
             sidebarOpen && !sidebarClosing
               ? "translate-x-0 "
               : "translate-x-full lg:translate-x-0"
