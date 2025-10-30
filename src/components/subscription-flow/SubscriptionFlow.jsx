@@ -10,6 +10,7 @@ import CancelWhatToExpectFlow from "./CancelWhatToExpectFlow";
 import CancelFinalFeedbackFlow from "./CancelFinalFeedbackFlow";
 import Section from "../utils/Section";
 import CustomButton from "../utils/CustomButton";
+import UpdateModal from "../utils/UpdateModal";
 import { FaRegCalendarAlt } from "react-icons/fa";
 import { FaArrowRight } from "react-icons/fa6";
 import { FaArrowsRotate } from "react-icons/fa6";
@@ -22,6 +23,26 @@ export default function SubscriptionFlow({
   setHeaderVariant,
 }) {
   const [activeSubpanel, setActiveSubpanel] = useState(null); // null | 'pauseCancel' | 'adjustQuantity' | 'treatmentFeedback' | 'cancelReasonText' | 'cancelReasonChecklist' | 'cancelInfo' | 'cancelFinal'
+  const [isQuantityModalOpen, setIsQuantityModalOpen] = useState(false);
+  const [isShippingFrequencyModalOpen, setIsShippingFrequencyModalOpen] =
+    useState(false);
+  const [localQuantity, setLocalQuantity] = useState(
+    subscription?.quantity || "8 pills / month"
+  );
+  const [localShippingFrequency, setLocalShippingFrequency] = useState(
+    subscription?.shippingFrequency || "3 months"
+  );
+  const [isShippingAddressModalOpen, setIsShippingAddressModalOpen] =
+    useState(false);
+  const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] =
+    useState(false);
+  const [localShippingAddress, setLocalShippingAddress] = useState(
+    subscription?.shippingAddress ||
+      "15 – 5270 Solar Dr Mississauga, ON L4W 5M8"
+  );
+  const [localPaymentMethod, setLocalPaymentMethod] = useState(
+    subscription?.paymentMethod || "•••• •••• 3344"
+  );
 
   useEffect(() => {
     // Keep header visible; switch variant based on whether we're on the main details panel
@@ -33,6 +54,22 @@ export default function SubscriptionFlow({
     }
   }, [activeSubpanel, setShowHeader, setHeaderVariant]);
 
+  useEffect(() => {
+    // Sync local state when subscription changes
+    if (subscription?.quantity) {
+      setLocalQuantity(subscription.quantity);
+    }
+    if (subscription?.shippingFrequency) {
+      setLocalShippingFrequency(subscription.shippingFrequency);
+    }
+    if (subscription?.shippingAddress) {
+      setLocalShippingAddress(subscription.shippingAddress);
+    }
+    if (subscription?.paymentMethod) {
+      setLocalPaymentMethod(subscription.paymentMethod);
+    }
+  }, [subscription]);
+
   const {
     productName,
     productSubtitle,
@@ -43,12 +80,10 @@ export default function SubscriptionFlow({
     category,
   } = subscription || {};
 
-  const quantityText = subscription?.quantity || "8 pills / month";
-  const shippingFrequencyText = subscription?.shippingFrequency || "3 months";
-  const shippingAddress =
-    subscription?.shippingAddress ||
-    "15 – 5270 Solar Dr Mississauga, ON L4W 5M8";
-  const paymentMethod = subscription?.paymentMethod || "•••• •••• 3344";
+  const quantityText = localQuantity;
+  const shippingFrequencyText = localShippingFrequency;
+  const shippingAddress = localShippingAddress;
+  const paymentMethod = localPaymentMethod;
   const treatmentInstructions =
     subscription?.treatmentInstructions ||
     "Take 1 tablet by mouth as needed 2 hours before sex. Do not take more than 1 tablet daily.";
@@ -206,6 +241,7 @@ export default function SubscriptionFlow({
                 size="small"
                 variant="rounded"
                 className="text-[14px] font-medium text-[#111827] underline h-auto p-0"
+                onClick={() => setIsQuantityModalOpen(true)}
               >
                 Adjust
               </CustomButton>
@@ -224,6 +260,7 @@ export default function SubscriptionFlow({
                 size="small"
                 variant="rounded"
                 className="text-[14px] font-medium text-[#111827] underline h-auto p-0"
+                onClick={() => setIsShippingFrequencyModalOpen(true)}
               >
                 Adjust
               </CustomButton>
@@ -248,6 +285,7 @@ export default function SubscriptionFlow({
               size="small"
               variant="rounded"
               className="text-[14px] font-medium text-[#111827] underline h-auto p-0"
+              onClick={() => setIsShippingAddressModalOpen(true)}
             >
               Edit
             </CustomButton>
@@ -269,6 +307,7 @@ export default function SubscriptionFlow({
               size="small"
               variant="rounded"
               className="text-[14px] font-medium text-[#111827] underline h-auto p-0"
+              onClick={() => setIsPaymentMethodModalOpen(true)}
             >
               Edit
             </CustomButton>
@@ -354,6 +393,44 @@ export default function SubscriptionFlow({
           </button>
         </div>
       </section>
+
+      {/* Update Modals */}
+      <UpdateModal
+        isOpen={isQuantityModalOpen}
+        onClose={() => setIsQuantityModalOpen(false)}
+        title="Adjust Quantity"
+        label="Quantity"
+        currentValue={localQuantity}
+        onSave={(value) => setLocalQuantity(value)}
+        placeholder="Enter quantity"
+      />
+      <UpdateModal
+        isOpen={isShippingFrequencyModalOpen}
+        onClose={() => setIsShippingFrequencyModalOpen(false)}
+        title="Adjust Shipping Frequency"
+        label="Shipping Frequency"
+        currentValue={localShippingFrequency}
+        onSave={(value) => setLocalShippingFrequency(value)}
+        placeholder="Enter shipping frequency"
+      />
+      <UpdateModal
+        isOpen={isShippingAddressModalOpen}
+        onClose={() => setIsShippingAddressModalOpen(false)}
+        title="Edit Shipping Address"
+        label="Shipping Address"
+        currentValue={localShippingAddress}
+        onSave={(value) => setLocalShippingAddress(value)}
+        placeholder="Enter shipping address"
+      />
+      <UpdateModal
+        isOpen={isPaymentMethodModalOpen}
+        onClose={() => setIsPaymentMethodModalOpen(false)}
+        title="Edit Payment Method"
+        label="Payment Method"
+        currentValue={localPaymentMethod}
+        onSave={(value) => setLocalPaymentMethod(value)}
+        placeholder="Enter payment method"
+      />
     </Section>
   );
 }
