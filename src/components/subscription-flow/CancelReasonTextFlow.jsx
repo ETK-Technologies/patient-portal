@@ -5,7 +5,7 @@ export default function CancelReasonTextFlow({ onBack, onComplete }) {
   const [text, setText] = useState("");
 
   return (
-    <div className="pb-24 max-w-[800px] mx-auto px-5 md:px-0">
+    <div className="pb-24 max-w-[800px] mx-auto md:px-0">
       <h2 className="text-[18px] font-medium mb-2 leading-[115%]">
         If your treatment worked for you, what’s the reason you’d like to
         cancel?

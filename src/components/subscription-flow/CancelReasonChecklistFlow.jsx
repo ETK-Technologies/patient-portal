@@ -26,7 +26,7 @@ export default function CancelReasonChecklistFlow({ onBack, onComplete }) {
       selectedValues={selected}
       onChange={setSelected}
       color="#AE7E56"
-      containerClassName="max-w-[800px] mx-auto px-5 md:px-0"
+      containerClassName="max-w-[800px] mx-auto  md:px-0"
       onContinue={(values) => onComplete?.(values)}
       onBack={onBack}
     />

@@ -22,7 +22,7 @@ export default function PauseCancelFlow({ subscription, onBack, onNavigate }) {
   }
 
   return (
-    <div className=" pb-24 max-w-[800px] mx-auto px-5 md:px-0">
+    <div className=" pb-24 max-w-[800px] mx-auto  md:px-0">
       <h2 className="font-medium text-[18px] leading-[115%] mb-4">
         Pause or cancel subscription
       </h2>
@@ -74,7 +74,7 @@ export default function PauseCancelFlow({ subscription, onBack, onNavigate }) {
         </div>
       </div>
       {/* Actions fixed at the bottom of the page */}
-      <div className="fixed left-0 right-0 bottom-0 z-20 py-5 bg-[#FBFAF9] ">
+      <div className="fixed left-0 right-0 bottom-0 z-20 py-5 bg-[#FBFAF9]  ">
         <div className="space-y-[10px] max-w-[800px] mx-auto px-5">
           <CustomButton
             onClick={() => setShowPauseInstead(true)}
