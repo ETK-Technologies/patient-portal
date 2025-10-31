@@ -3,7 +3,7 @@ import SubscriptionsSection from "@/components/subscriptions/SubscriptionsSectio
 
 export default function Subscriptions() {
   return (
-    <PageContainer title="My Subscriptions">
+    <PageContainer>
       <SubscriptionsSection />
     </PageContainer>
   );
