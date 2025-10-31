@@ -1,13 +1,9 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import CustomImage from "../utils/CustomImage";
-import PauseCancelFlow from "./PauseCancelFlow";
-import AdjustQuantityFlow from "./AdjustQuantityFlow";
-import TreatmentFeedbackFlow from "./TreatmentFeedbackFlow";
-import CancelReasonTextFlow from "./CancelReasonTextFlow";
-import CancelReasonChecklistFlow from "./CancelReasonChecklistFlow";
-import CancelWhatToExpectFlow from "./CancelWhatToExpectFlow";
-import CancelFinalFeedbackFlow from "./CancelFinalFeedbackFlow";
+import { useSubscriptionFlow } from "./hooks/useSubscriptionFlow";
+import { subscriptionFlowConfig } from "./config/subscriptionFlowConfig";
+import SubscriptionStepRenderer from "./SubscriptionStepRenderer";
 import Section from "../utils/Section";
 import CustomButton from "../utils/CustomButton";
 import UpdateModal from "../utils/UpdateModal";
@@ -22,7 +18,12 @@ export default function SubscriptionFlow({
   setShowHeader,
   setHeaderVariant,
 }) {
-  const [activeSubpanel, setActiveSubpanel] = useState(null); // null | 'pauseCancel' | 'adjustQuantity' | 'treatmentFeedback' | 'cancelReasonText' | 'cancelReasonChecklist' | 'cancelInfo' | 'cancelFinal'
+  // Initialize flow state - start at null (main view) unless action indicates otherwise
+  const initialStep = action === "Manage subscription" ? null : null;
+  const flowState = useSubscriptionFlow(subscription, initialStep);
+  const { stepIndex, handleNavigate } = flowState;
+
+  // Local state for modals and subscription details
   const [isQuantityModalOpen, setIsQuantityModalOpen] = useState(false);
   const [isShippingFrequencyModalOpen, setIsShippingFrequencyModalOpen] =
     useState(false);
@@ -50,9 +51,9 @@ export default function SubscriptionFlow({
       setShowHeader(true);
     }
     if (typeof setHeaderVariant === "function") {
-      setHeaderVariant(activeSubpanel === null ? "full" : "backOnly");
+      setHeaderVariant(stepIndex === null ? "full" : "backOnly");
     }
-  }, [activeSubpanel, setShowHeader, setHeaderVariant]);
+  }, [stepIndex, setShowHeader, setHeaderVariant]);
 
   useEffect(() => {
     // Sync local state when subscription changes
@@ -88,66 +89,26 @@ export default function SubscriptionFlow({
     subscription?.treatmentInstructions ||
     "Take 1 tablet by mouth as needed 2 hours before sex. Do not take more than 1 tablet daily.";
 
-  // Subpanel routing
-  if (activeSubpanel === "pauseCancel") {
+  // If we're in a flow step, render the step renderer
+  if (stepIndex !== null) {
     return (
-      <PauseCancelFlow
+      <SubscriptionStepRenderer
+        stepIndex={flowState.stepIndex}
         subscription={subscription}
-        onBack={() => setActiveSubpanel(null)}
-        onNavigate={(panel) => setActiveSubpanel(panel)}
-      />
-    );
-  }
-  if (activeSubpanel === "adjustQuantity") {
-    return (
-      <AdjustQuantityFlow
-        onBack={() => setActiveSubpanel("pauseCancel")}
-        onComplete={() => setActiveSubpanel("treatmentFeedback")}
-      />
-    );
-  }
-  if (activeSubpanel === "treatmentFeedback") {
-    return (
-      <TreatmentFeedbackFlow
-        onBack={() => setActiveSubpanel("adjustQuantity")}
-        onComplete={(answer) =>
-          setActiveSubpanel(
-            answer === "yes" ? "cancelReasonText" : "cancelReasonChecklist"
-          )
-        }
-      />
-    );
-  }
-  if (activeSubpanel === "cancelReasonText") {
-    return (
-      <CancelReasonTextFlow
-        onBack={() => setActiveSubpanel("treatmentFeedback")}
-        onComplete={() => setActiveSubpanel("cancelInfo")}
-      />
-    );
-  }
-  if (activeSubpanel === "cancelReasonChecklist") {
-    return (
-      <CancelReasonChecklistFlow
-        onBack={() => setActiveSubpanel("treatmentFeedback")}
-        onComplete={() => setActiveSubpanel("cancelInfo")}
-      />
-    );
-  }
-  if (activeSubpanel === "cancelInfo") {
-    return (
-      <CancelWhatToExpectFlow
-        subscription={subscription}
-        onBack={() => setActiveSubpanel("treatmentFeedback")}
-        onDone={() => setActiveSubpanel("cancelFinal")}
-      />
-    );
-  }
-  if (activeSubpanel === "cancelFinal") {
-    return (
-      <CancelFinalFeedbackFlow
-        onBack={() => setActiveSubpanel("cancelInfo")}
-        onSubmit={() => setActiveSubpanel(null)}
+        answers={flowState.answers}
+        addAnswer={flowState.addAnswer}
+        setAnswers={flowState.setAnswers}
+        handleContinue={flowState.handleContinue}
+        handleBack={flowState.handleBack}
+        handleNavigate={flowState.handleNavigate}
+        submitCurrentStepData={flowState.submitCurrentStepData}
+        submitFormData={flowState.submitFormData}
+        onComplete={(data) => {
+          // Handle flow completion if needed
+          console.log("Flow completed with data:", data);
+          // Log all answers saved in object format
+          console.log("All answers (object format):", flowState.answers);
+        }}
       />
     );
   }
@@ -344,7 +305,7 @@ export default function SubscriptionFlow({
             </div>
           </button>
           <button
-            onClick={() => setActiveSubpanel("cancelReasonText")}
+            onClick={() => handleNavigate("cancelReasonText")}
             className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 mt-4"
           >
             <div className="w-full">
@@ -360,7 +321,7 @@ export default function SubscriptionFlow({
             </div>
           </button>
           <button
-            onClick={() => setActiveSubpanel("pauseCancel")}
+            onClick={() => handleNavigate("pauseCancel")}
             className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 mt-4"
           >
             <div className="w-full">
@@ -376,7 +337,7 @@ export default function SubscriptionFlow({
             </div>
           </button>
           <button
-            onClick={() => setActiveSubpanel("pauseCancel")}
+            onClick={() => handleNavigate("pauseCancel")}
             className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 mt-4"
           >
             <div className="w-full">

@@ -1,25 +1,14 @@
 "use client";
 import React, { useState } from "react";
 import CustomImage from "../utils/CustomImage";
-import PauseInsteadFlow from "./PauseInsteadFlow";
 import CustomButton from "../utils/CustomButton";
 
 export default function PauseCancelFlow({ subscription, onBack, onNavigate }) {
-  const [showPauseInstead, setShowPauseInstead] = useState(false);
   const [selected] = useState(true);
 
   const { productName, productSubtitle, productImage, dosage } =
     subscription || {};
   const total = subscription?.total || "$121.00";
-
-  if (showPauseInstead) {
-    return (
-      <PauseInsteadFlow
-        onBack={() => setShowPauseInstead(false)}
-        onComplete={() => onNavigate?.("adjustQuantity")}
-      />
-    );
-  }
 
   return (
     <div className=" pb-24 max-w-[800px] mx-auto  md:px-0">
@@ -77,7 +66,7 @@ export default function PauseCancelFlow({ subscription, onBack, onNavigate }) {
       <div className="fixed left-0 right-0 bottom-0 z-20 py-5 bg-[#FBFAF9]  ">
         <div className="space-y-[10px] max-w-[800px] mx-auto px-5">
           <CustomButton
-            onClick={() => setShowPauseInstead(true)}
+            onClick={() => onNavigate?.("pauseInstead")}
             variant="rounded"
             width="full"
             size="medium"

@@ -1,5 +1,6 @@
 import React from "react";
 import CheckboxOption from "./CheckboxOption";
+import CustomButton from "./CustomButton";
 
 export default function CheckboxOptionsScreen({
   title,
@@ -55,22 +56,28 @@ export default function CheckboxOptionsScreen({
 
       <div className="fixed left-0 right-0 bottom-0 z-20 py-5 bg-[#FBFAF9]">
         <div className="space-y-[10px] max-w-[800px] mx-auto px-5">
-          <button
-            className="w-full h-12 rounded-full text-white text-[15px] font-medium disabled:bg-[#E5E7EB] disabled:text-[#7D7C77] bg-black hover:opacity-90"
+          <CustomButton
+            width="full"
+            size="medium"
+            variant="pill"
             disabled={!hasSelection}
             onClick={() =>
               hasSelection && onContinue?.(Array.from(selectedValues))
             }
+            className="text-white text-[15px] font-medium disabled:bg-[#E5E7EB] disabled:text-[#7D7C77] disabled:opacity-100 bg-black hover:opacity-90 h-12"
           >
             {continueText}
-          </button>
+          </CustomButton>
           {onBack ? (
-            <button
+            <CustomButton
+              width="full"
+              size="medium"
+              variant="pill"
               onClick={onBack}
-              className="w-full h-12 rounded-full border border-[#E2E2E1] text-[14px] bg-white text-[black] font-medium hover:bg-[#F9FAFB]"
+              className="border border-[#E2E2E1] text-[14px] bg-white text-[black] font-medium hover:bg-[#F9FAFB] h-12"
             >
               {backText}
-            </button>
+            </CustomButton>
           ) : null}
         </div>
       </div>

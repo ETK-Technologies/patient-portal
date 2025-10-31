@@ -3,6 +3,7 @@ import React from "react";
 import CustomImage from "../utils/CustomImage";
 import { FaArrowRight } from "react-icons/fa6";
 import Link from "next/link";
+import CustomButton from "../utils/CustomButton";
 
 export default function CancelWhatToExpectFlow({
   subscription,
@@ -130,19 +131,25 @@ export default function CancelWhatToExpectFlow({
 
       <div className="fixed left-0 right-0 bottom-0 z-20 py-5 bg-[#FBFAF9]">
         <div className="space-y-[10px] max-w-[800px] mx-auto px-5">
-          <button
+          <CustomButton
+            width="full"
+            size="medium"
+            variant="pill"
             onClick={onDone}
-            className="w-full h-12 rounded-full text-white text-[15px] font-medium bg-black hover:opacity-90"
+            className="text-white text-[15px] font-medium bg-black hover:opacity-90 h-12"
           >
             Continue with cancellation
-          </button>
+          </CustomButton>
           {onBack ? (
-            <button
+            <CustomButton
+              width="full"
+              size="medium"
+              variant="pill"
               onClick={onBack}
-              className="w-full h-12 rounded-full border border-[#E2E2E1] text-[14px] bg-white text-[black] font-medium hover:bg-[#F9FAFB]"
+              className="border border-[#E2E2E1] text-[14px] bg-white text-[black] font-medium hover:bg-[#F9FAFB] h-12"
             >
               Never mind
-            </button>
+            </CustomButton>
           ) : null}
         </div>
       </div>

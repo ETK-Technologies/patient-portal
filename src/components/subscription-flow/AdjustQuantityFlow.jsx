@@ -2,26 +2,25 @@
 import React, { useState } from "react";
 import RadioOptionsScreen from "../utils/RadioOptionsScreen";
 
-const QUANTITY_OPTIONS = [12, 16, 24, 30, 36, 42, "no_thanks"];
-
-export default function AdjustQuantityFlow({ onBack, onComplete }) {
+export default function AdjustQuantityFlow({ stepConfig, onBack, onComplete }) {
   const [selected, setSelected] = useState(null);
 
-  const options = QUANTITY_OPTIONS.map((opt) => ({
-    value: opt,
-    label: opt === "no_thanks" ? "No thanks" : `${opt} pills`,
-    description: opt === "no_thanks" ? "" : "shipped every 3 months",
+  // Transform config options to RadioOptionsScreen format
+  const options = (stepConfig?.options || []).map((opt) => ({
+    value: opt.id,
+    label: opt.label,
+    description: opt.description || "",
   }));
 
   return (
     <RadioOptionsScreen
-      title="Need less right now?"
-      description="Pick what works better for your needs and save money while you're at it."
+      title={stepConfig?.title || ""}
+      description={stepConfig?.description || ""}
       options={options}
       selectedValue={selected}
       onChange={setSelected}
       color="#AE7E56"
-      containerClassName="max-w-[800px] mx-auto "
+      containerClassName="max-w-[800px] mx-auto md:px-0"
       onContinue={(value) => onComplete?.(value)}
       onBack={onBack}
     />
