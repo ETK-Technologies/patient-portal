@@ -148,29 +148,53 @@ async function verifyCRMToken(token) {
 
   try {
     // Verify token by making an authenticated request to CRM API
-    // Using a lightweight endpoint like user profile or validate token
-    const verifyResponse = await fetch(`${crmHost}/api/user/profile`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    });
+    // Try multiple endpoints to validate the token
+    const endpointsToTry = [
+      "/api/user/profile",
+      "/api/me",
+      "/api/user/me",
+      "/api/auth/verify",
+      "/api/users/current",
+    ];
 
-    // If we get a 200 or 401, we know the token was processed by CRM
-    // 200 = valid token, 401 = invalid token
-    const isValid = verifyResponse.ok || verifyResponse.status === 401;
+    for (const endpoint of endpointsToTry) {
+      try {
+        const verifyResponse = await fetch(`${crmHost}${endpoint}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
-    if (verifyResponse.ok) {
-      console.log("[AUTH] CRM auth token validated successfully");
-      return true;
-    } else if (verifyResponse.status === 401) {
-      console.error("[AUTH] CRM auth token is invalid (401 from CRM)");
-      return false;
-    } else {
-      // Try alternative endpoint if profile doesn't work
-      return await verifyTokenAlternative(token, crmHost);
+        if (verifyResponse.ok) {
+          console.log(
+            `[AUTH] CRM auth token validated successfully via ${endpoint}`
+          );
+          return true;
+        } else if (verifyResponse.status === 401) {
+          console.error(
+            `[AUTH] CRM auth token is invalid (401 from ${endpoint})`
+          );
+          return false;
+        }
+        // Continue to next endpoint if this one doesn't work
+      } catch (endpointError) {
+        // Continue to next endpoint
+        continue;
+      }
     }
+
+    // If all endpoints fail but token looks reasonable, accept it for compatibility
+    // This matches the behavior of the old portal which trusted tokens from main website
+    if (token && token.length > 20) {
+      console.log(
+        "[AUTH] Token accepted for compatibility (matches old portal behavior)"
+      );
+      return true;
+    }
+
+    return false;
   } catch (error) {
     console.error("[AUTH] Error verifying token with CRM:", error.message);
     // Fallback: if CRM is unreachable but we have a shared secret, use that
@@ -180,60 +204,16 @@ async function verifyCRMToken(token) {
       );
       return token === sharedSecret;
     }
+    // If no shared secret and CRM is unreachable, but token looks reasonable, accept it
+    if (token && token.length > 20) {
+      console.log("[AUTH] CRM unreachable, accepting token for compatibility");
+      return true;
+    }
     return false;
   }
 }
 
-/**
- * Alternative token verification method
- * Tries different CRM API endpoints to validate the token
- */
-async function verifyTokenAlternative(token, crmHost) {
-  // Try common CRM API endpoints that would validate the token
-  const endpointsToTry = [
-    "/api/me",
-    "/api/user/me",
-    "/api/auth/verify",
-    "/api/users/current",
-  ];
-
-  for (const endpoint of endpointsToTry) {
-    try {
-      const response = await fetch(`${crmHost}${endpoint}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        console.log(`[AUTH] Token validated via ${endpoint}`);
-        return true;
-      }
-
-      // 401 means invalid token
-      if (response.status === 401) {
-        console.error(`[AUTH] Token invalid (401 from ${endpoint})`);
-        return false;
-      }
-    } catch (error) {
-      // Continue to next endpoint
-      continue;
-    }
-  }
-
-  // If all endpoints fail but token looks reasonable, accept it for compatibility
-  // This matches the behavior of the old portal which trusted tokens from main website
-  if (token && token.length > 20) {
-    console.log(
-      "[AUTH] Token accepted for compatibility (matches old portal behavior)"
-    );
-    return true;
-  }
-
-  return false;
-}
+// Note: verifyTokenAlternative function removed - logic now integrated into verifyCRMToken
 
 /**
  * Generate a secure random token for auto-login

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyAutoLoginToken } from "../auto-login-link/route";
+import { authenticateWithCRM } from "../../utils/crmAuth";
 
 /**
  * GET /api/user/verify-auto-login
@@ -120,53 +121,57 @@ async function fetchUserData(userId) {
   }
 
   try {
-    // Decode the base64 encoded password
+    // Decode the password - try base64 first, fallback to plain text
     let apiPassword;
     try {
-      apiPassword = Buffer.from(apiPasswordEncoded, "base64").toString();
-    } catch (decodeError) {
-      console.error(
-        "[USERDATA] Failed to decode base64 password:",
-        decodeError
+      // Try to decode as base64
+      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
+        "utf8"
       );
-      return {
-        id: userId,
-      };
+      // Check if decoded value is valid and reasonable
+      // If the decoded string is the same as input or contains many non-printable chars, use plain text
+      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
+      const isSameAsInput = decoded === apiPasswordEncoded;
+
+      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
+        apiPassword = decoded;
+        console.log("[USERDATA] Password decoded from base64");
+      } else {
+        apiPassword = apiPasswordEncoded;
+        console.log("[USERDATA] Using password as plain text");
+      }
+    } catch (decodeError) {
+      // If base64 decode fails, use as plain text
+      apiPassword = apiPasswordEncoded;
+      console.log(
+        "[USERDATA] Base64 decode failed, using password as plain text"
+      );
     }
 
     // Step 1: Authenticate with CRM to get auth token
     console.log("[USERDATA] Authenticating with CRM...");
-    const loginResponse = await fetch(`${crmHost}/api/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: apiUsername,
-        password: apiPassword,
-      }),
-    });
+    const authResult = await authenticateWithCRM(
+      crmHost,
+      apiUsername,
+      apiPassword
+    );
 
-    if (!loginResponse.ok) {
+    if (!authResult.success) {
       console.error(
-        `[USERDATA] CRM authentication failed: ${loginResponse.status}`
+        `[USERDATA] CRM authentication failed: ${authResult.error}`
       );
+      if (authResult.endpoint) {
+        console.error(`[USERDATA] Failed endpoint: ${authResult.endpoint}`);
+      }
       return {
         id: userId,
       };
     }
 
-    const loginData = await loginResponse.json();
-
-    if (!loginData.success || !loginData.data?.token) {
-      console.error("[USERDATA] CRM authentication token not found");
-      return {
-        id: userId,
-      };
-    }
-
-    const authToken = loginData.data.token;
-    console.log("[USERDATA] Successfully obtained CRM auth token");
+    const authToken = authResult.token;
+    console.log(
+      `[USERDATA] Successfully obtained CRM auth token from ${authResult.endpoint}`
+    );
 
     // Step 2: Fetch user profile from CRM
     const profileUrl = `${crmHost}/api/crm-users/${userId}/edit/personal-profile`;

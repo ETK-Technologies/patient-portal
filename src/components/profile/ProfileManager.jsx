@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
+import { toast } from "react-toastify";
 import ProfileField from "./ProfileField";
 import UpdateModal from "@/components/utils/UpdateModal";
 import { initialProfileData, profileFields } from "./profileData";
@@ -10,41 +11,72 @@ import { useUser } from "@/contexts/UserContext";
 function mapUserDataToProfile(userData) {
   if (!userData) return initialProfileData;
 
+  // Extract billing/shipping address if available
+  const billing = userData.billing || {};
+  const shipping = userData.shipping || {};
+
+  // Get first and last name (handle encrypted data gracefully)
+  const firstName = userData.first_name || "";
+  const lastName = userData.last_name || "";
+
+  // Combine first and last name for display, fallback to name if available
+  const fullName = userData.name || `${firstName} ${lastName}`.trim() || "";
+
   return {
-    fullName: userData.full_name || userData.name || "",
+    fullName: fullName,
     email: userData.email || "",
     dateOfBirth: userData.date_of_birth || userData.dob || "",
-    phoneNumber: userData.phone || userData.phone_number || "",
-    address: userData.address || "",
-    city: userData.city || "",
-    province: userData.province || userData.state || "",
-    postalCode: userData.postal_code || userData.zip_code || "",
+    phoneNumber: userData.phone_number || userData.phone || "",
+    address: shipping.address_1 || billing.address_1 || userData.address || "",
+    city: shipping.city || billing.city || userData.city || "",
+    province:
+      shipping.state ||
+      billing.state ||
+      userData.province ||
+      userData.state ||
+      "",
+    postalCode:
+      shipping.postcode ||
+      billing.postcode ||
+      userData.postal_code ||
+      userData.zip_code ||
+      "",
     photoId: userData.photo_id || "",
-    insuranceCard: userData.insurance_card || "",
+    insuranceCard:
+      userData.insurance_card_image || userData.insurance_card || "",
+    // Store first and last name separately for editing
+    firstName: firstName,
+    lastName: lastName,
+    gender: userData.gender || "",
+    avatar: userData.avatar || userData.profile_photo_url || "",
   };
 }
 
 export default function ProfileManager() {
   const { userData, loading, error, refreshUserData } = useUser();
 
-  // Initialize with mapped user data or defaults
-  const [profileData, setProfileData] = useState(() =>
-    mapUserDataToProfile(userData)
+  // Derive mapped profile data from userData
+  const mappedProfileData = useMemo(
+    () => mapUserDataToProfile(userData),
+    [userData]
   );
 
+  // Local state for edited values (only store fields that have been edited)
+  // These persist even when userData refreshes, so user edits aren't lost
+  const [editedFields, setEditedFields] = useState({});
   const [modalState, setModalState] = useState({
     isOpen: false,
     field: null,
   });
 
-  // Update profile data when userData changes
-  // This is valid - synchronizing external data (userData from context) with local state
-  // eslint-disable-next-line react-compiler/react-compiler
-  useEffect(() => {
-    if (userData) {
-      setProfileData(mapUserDataToProfile(userData));
-    }
-  }, [userData]);
+  // Merge mapped data with edited fields
+  const profileData = useMemo(
+    () => ({
+      ...mappedProfileData,
+      ...editedFields,
+    }),
+    [mappedProfileData, editedFields]
+  );
 
   const handleUpdateClick = (field) => {
     setModalState({
@@ -54,18 +86,72 @@ export default function ProfileManager() {
   };
 
   const handleSave = async (newValue) => {
-    // Update local state
-    setProfileData((prev) => ({
-      ...prev,
-      [modalState.field.key]: newValue,
-    }));
+    const fieldKey = modalState.field.key;
 
-    // TODO: Update user data in CRM via API
-    // For now, we just update local state
-    // Later you can add: await updateUserProfile(modalState.field.key, newValue);
+    try {
+      // Update user data in CRM via API
+      const response = await fetch("/api/user/profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          field: fieldKey,
+          value: newValue,
+        }),
+      });
 
-    // Refresh user data after update
-    // await refreshUserData();
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        console.error("Failed to update profile:", result.error);
+        toast.error(
+          `Failed to update ${modalState.field.label}: ${
+            result.error || "Unknown error"
+          }`,
+          {
+            position: "top-right",
+            autoClose: 5000,
+          }
+        );
+        return;
+      }
+
+      // Update local state after successful API call
+      if (fieldKey === "fullName" && typeof newValue === "object") {
+        // newValue is an object with firstName and lastName
+        setEditedFields((prev) => ({
+          ...prev,
+          firstName: newValue.firstName,
+          lastName: newValue.lastName,
+          fullName: `${newValue.firstName} ${newValue.lastName}`.trim(),
+        }));
+      } else {
+        // Store edited value
+        setEditedFields((prev) => ({
+          ...prev,
+          [fieldKey]: newValue,
+        }));
+      }
+
+      // Refresh user data from server to get latest data
+      await refreshUserData();
+
+      // Show success message
+      toast.success(`${modalState.field.label} updated successfully`, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast.error(
+        `Failed to update ${modalState.field.label}: ${error.message}`,
+        {
+          position: "top-right",
+          autoClose: 5000,
+        }
+      );
+    }
   };
 
   const handleCloseModal = () => {
@@ -88,12 +174,18 @@ export default function ProfileManager() {
     const isFileUpload =
       field.key === "photoId" || field.key === "insuranceCard";
 
+    // Special handling for fullName - pass both first and last name
+    const isNameField = field.key === "fullName";
+
     return {
       title: `Update ${field.label}`,
       label: field.label,
-      currentValue: profileData[field.key],
+      currentValue: isNameField
+        ? { firstName: profileData.firstName, lastName: profileData.lastName }
+        : profileData[field.key],
       inputType: inputTypeMap[field.key] || "text",
       isFileUpload: isFileUpload,
+      isNameField: isNameField,
       placeholder: `Enter your ${field.label.toLowerCase()}`,
     };
   };

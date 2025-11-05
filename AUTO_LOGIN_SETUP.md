@@ -167,14 +167,24 @@ Create a `.env.local` file with the following variables:
 
 ```env
 # CRM Configuration
-CRM_HOST=https://crm.myrocky.ca
+# Staging: https://crm-stg.myrocky.ca
+# Production: https://crm.myrocky.ca
+CRM_HOST=https://crm-stg.myrocky.ca
+
+# CRM API Credentials (for fetching user data from CRM)
+CRM_API_USERNAME=abhishek.tester@w3mg.in
+# Password can be plain text or base64 encoded (will auto-detect)
+CRM_API_PASSWORD=qwert
+
+# Optional: Shared secret token for backward compatibility
+# If not set, tokens will be verified via CRM API (recommended)
 CRM_API_TOKEN=your_secure_token_here
 
 # Patient Portal Configuration
-PORTAL_HOST=https://portal.myrocky.ca
-
-# For local development
-# PORTAL_HOST=http://localhost:3000
+# For local development:
+PORTAL_HOST=http://localhost:3001
+# For staging: PORTAL_HOST=https://stg-account.myrocky.ca
+# For production: PORTAL_HOST=https://account.myrocky.ca
 ```
 
 ## Security Considerations
