@@ -8,47 +8,76 @@ import { initialProfileData, profileFields } from "./profileData";
 import { useUser } from "@/contexts/UserContext";
 
 // Helper function to map CRM data to profile format
+// This handles both login response data and profile API response data
 function mapUserDataToProfile(userData) {
   if (!userData) return initialProfileData;
 
-  // Extract billing/shipping address if available
+  // Extract billing/shipping address if available (from profile API or login response)
+  // Login response may have billing_address_id and shipping_address_id, but not the actual address objects
   const billing = userData.billing || {};
   const shipping = userData.shipping || {};
 
-  // Get first and last name (handle encrypted data gracefully)
+  // Get first and last name from login response or profile API
   const firstName = userData.first_name || "";
   const lastName = userData.last_name || "";
 
   // Combine first and last name for display, fallback to name if available
+  // Login response has 'name' field directly
   const fullName = userData.name || `${firstName} ${lastName}`.trim() || "";
+
+  // Map email from login response or profile API
+  const email = userData.email || "";
+
+  // Map date of birth from login response or profile API
+  const dateOfBirth = userData.date_of_birth || userData.dob || "";
+
+  // Map phone number from login response or profile API
+  const phoneNumber = userData.phone_number || userData.phone || "";
+
+  // Map province from login response (login response has 'province' field directly)
+  const province =
+    shipping.state ||
+    billing.state ||
+    userData.province ||
+    userData.state ||
+    "";
+
+  // Map address fields - login response doesn't have full address, so use from shipping/billing or empty
+  const address = shipping.address_1 || billing.address_1 || userData.address || "";
+  const city = shipping.city || billing.city || userData.city || "";
+  const postalCode =
+    shipping.postcode ||
+    billing.postcode ||
+    userData.postal_code ||
+    userData.zip_code ||
+    "";
+
+  // Map photo ID and insurance card from login response
+  const photoId = userData.photo_id || "";
+  const insuranceCard =
+    userData.insurance_card_image || userData.insurance_card || "";
+
+  // Map avatar from login response (has 'avatar' and 'profile_photo_url' fields)
+  const avatar = userData.avatar || userData.profile_photo_url || "";
 
   return {
     fullName: fullName,
-    email: userData.email || "",
-    dateOfBirth: userData.date_of_birth || userData.dob || "",
-    phoneNumber: userData.phone_number || userData.phone || "",
-    address: shipping.address_1 || billing.address_1 || userData.address || "",
-    city: shipping.city || billing.city || userData.city || "",
-    province:
-      shipping.state ||
-      billing.state ||
-      userData.province ||
-      userData.state ||
-      "",
-    postalCode:
-      shipping.postcode ||
-      billing.postcode ||
-      userData.postal_code ||
-      userData.zip_code ||
-      "",
-    photoId: userData.photo_id || "",
-    insuranceCard:
-      userData.insurance_card_image || userData.insurance_card || "",
+    email: email,
+    dateOfBirth: dateOfBirth,
+    phoneNumber: phoneNumber,
+    address: address,
+    city: city,
+    province: province,
+    postalCode: postalCode,
+    photoId: photoId,
+    insuranceCard: insuranceCard,
     // Store first and last name separately for editing
     firstName: firstName,
     lastName: lastName,
     gender: userData.gender || "",
-    avatar: userData.avatar || userData.profile_photo_url || "",
+    avatar: avatar,
+    // Store additional fields that might be useful
+    wp_user_id: userData.wp_user_id || userData.id || "",
   };
 }
 
@@ -106,8 +135,7 @@ export default function ProfileManager() {
       if (!response.ok || !result.success) {
         console.error("Failed to update profile:", result.error);
         toast.error(
-          `Failed to update ${modalState.field.label}: ${
-            result.error || "Unknown error"
+          `Failed to update ${modalState.field.label}: ${result.error || "Unknown error"
           }`,
           {
             position: "top-right",
@@ -190,7 +218,9 @@ export default function ProfileManager() {
     };
   };
 
-  if (loading) {
+  // If we have userData from login, show it even if loading (profile API might be fetching additional data)
+  // Only show loading if we have no userData at all
+  if (loading && !userData) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
         <div className="flex items-center justify-center">
