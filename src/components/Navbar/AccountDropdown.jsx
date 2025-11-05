@@ -3,10 +3,13 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { RiAccountCircleLine } from "react-icons/ri";
+import { useAuth } from "@/contexts/UserContext";
+import { toast } from "react-toastify";
 
 export default function AccountDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const { logout, userData } = useAuth();
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -23,6 +26,17 @@ export default function AccountDropdown() {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isOpen]);
+
+  const handleLogout = async () => {
+    setIsOpen(false);
+    try {
+      await logout();
+      toast.success("Logged out successfully");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Error logging out");
+    }
+  };
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -109,10 +123,7 @@ export default function AccountDropdown() {
 
           {/* Log out */}
           <button
-            onClick={() => {
-              setIsOpen(false);
-              // Add logout logic here
-            }}
+            onClick={handleLogout}
             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
           >
             Log out
