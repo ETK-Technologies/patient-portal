@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import CustomButton from "@/components/utils/Button";
 import { IoMdClose } from "react-icons/io";
 
@@ -13,15 +13,37 @@ export default function UpdateModal({
   onSave,
   inputType = "text",
   isFileUpload = false,
+  isNameField = false,
   acceptedFormats = "image/*,.pdf",
   placeholder = "",
 }) {
-  const [value, setValue] = useState(currentValue);
+  // Handle name field with two inputs (first and last)
+  const getInitialValue = () => {
+    if (isNameField && typeof currentValue === "object") {
+      return { firstName: currentValue.firstName || "", lastName: currentValue.lastName || "" };
+    }
+    return isNameField ? { firstName: "", lastName: "" } : currentValue;
+  };
+  
+  const [value, setValue] = useState(getInitialValue());
+
+  // Update value when currentValue changes (e.g., when modal reopens with new data)
+  useEffect(() => {
+    if (isOpen) {
+      setValue(getInitialValue());
+    }
+  }, [isOpen, currentValue, isNameField]);
 
   if (!isOpen) return null;
 
   const handleSave = () => {
-    onSave(value);
+    if (isNameField) {
+      // For name field, pass the object with firstName and lastName
+      onSave(value);
+    } else {
+      // For other fields, pass the value directly
+      onSave(value);
+    }
     onClose();
   };
 
@@ -69,6 +91,33 @@ export default function UpdateModal({
               <p className="text-xs text-gray-500">
                 Accepted formats: JPG, PNG, PDF (Max 5MB)
               </p>
+            </div>
+          ) : isNameField ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  value={value.firstName || ""}
+                  onChange={(e) => setValue({ ...value, firstName: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                  placeholder="Enter your first name"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  value={value.lastName || ""}
+                  onChange={(e) => setValue({ ...value, lastName: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                  placeholder="Enter your last name"
+                />
+              </div>
             </div>
           ) : (
             <input
