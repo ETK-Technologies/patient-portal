@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import CustomImage from "@/components/utils/CustomImage";
-import AccountDropdown from "./navbar/AccountDropdown";
+import AccountDropdown from "./Navbar/AccountDropdown";
 
 const navigationItems = [
   { name: "Home", href: "/home" },
