@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 /**
- * Auto-Login Page
- *
- * This page handles the auto-login flow when users are redirected from the main website.
- * It verifies the auto-login token, logs the user in, and redirects them immediately.
+ * Auto-Login Content Component
+ * Handles the auto-login logic
  */
-export default function AutoLoginPage() {
+function AutoLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -60,6 +58,20 @@ export default function AutoLoginPage() {
 
   // Return null - no UI is shown, just redirect happens
   return null;
+}
+
+/**
+ * Auto-Login Page
+ *
+ * This page handles the auto-login flow when users are redirected from the main website.
+ * It verifies the auto-login token, logs the user in, and redirects them immediately.
+ */
+export default function AutoLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <AutoLoginContent />
+    </Suspense>
+  );
 }
 
 /**
