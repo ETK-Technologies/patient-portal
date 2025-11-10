@@ -17,11 +17,38 @@ export default function SubscriptionFlow({
   action,
   setShowHeader,
   setHeaderVariant,
+  onBackHandler,
 }) {
   // Initialize flow state - start at null (main view) unless action indicates otherwise
   const initialStep = action === "Manage subscription" ? null : null;
   const flowState = useSubscriptionFlow(subscription, initialStep);
-  const { stepIndex, handleNavigate } = flowState;
+  const { stepIndex, handleNavigate, handleBack } = flowState;
+
+  // Pass handleBack and stepIndex to parent component for header back button
+  // Use a ref to store the callback to avoid infinite loops
+  const onBackHandlerRef = React.useRef(onBackHandler);
+
+  React.useEffect(() => {
+    onBackHandlerRef.current = onBackHandler;
+  }, [onBackHandler]);
+
+  // Update immediately on mount and when stepIndex changes
+  useEffect(() => {
+    if (typeof onBackHandlerRef.current === "function") {
+      onBackHandlerRef.current({ handleBack, stepIndex });
+    }
+    // Only depend on stepIndex - handleBack is stable from the hook
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepIndex]);
+
+  // Also update on mount to ensure handler is set when flow is reopened
+  useEffect(() => {
+    if (typeof onBackHandler === "function") {
+      onBackHandler({ handleBack, stepIndex });
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Local state for modals and subscription details
   const [isQuantityModalOpen, setIsQuantityModalOpen] = useState(false);

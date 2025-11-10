@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import CustomImage from "../utils/CustomImage";
 import CustomButton from "../utils/CustomButton";
 
-export default function PauseCancelFlow({ subscription, onBack, onNavigate }) {
+export default function PauseCancelFlow({ subscription, onNavigate }) {
   const [selected] = useState(true);
 
   const { productName, productSubtitle, productImage, dosage } =
@@ -73,12 +73,6 @@ export default function PauseCancelFlow({ subscription, onBack, onNavigate }) {
             className=" w-full h-12 rounded-full border font-medium bg-black text-white text-[14px]"
           >
             Proceed To Cancel
-          </CustomButton>
-          <CustomButton
-            onClick={onBack}
-            className="w-full h-12 rounded-full border border-[#E2E2E1] text-[14px] bg-white text-[black] font-medium hover:bg-[#F9FAFB]"
-          >
-            Go Back
           </CustomButton>
         </div>
       </div>
