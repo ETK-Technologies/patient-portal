@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import SubscriptionCard from "./SubscriptionCard";
 import { subscriptionsData } from "./subscriptionsData";
 import ScrollIndicator from "../utils/ScrollIndicator";
@@ -15,6 +15,21 @@ export default function SubscriptionsSection() {
   const [subscriptionFlow, setSubscriptionFlow] = useState(null); // {sub, action}
   const [showHeader, setShowHeader] = useState(true);
   const [headerVariant, setHeaderVariant] = useState("full"); // 'full' | 'backOnly'
+  const [flowBackHandler, setFlowBackHandler] = useState(null); // { handleBack, stepIndex }
+
+  // Store the back handler from the flow
+  // Must be defined at top level (not conditionally) to follow Rules of Hooks
+  // Only update if stepIndex actually changed to prevent unnecessary re-renders
+  const handleBackHandler = useCallback(({ handleBack, stepIndex }) => {
+    setFlowBackHandler((prev) => {
+      // Only update if stepIndex changed
+      if (prev?.stepIndex !== stepIndex) {
+        return { handleBack, stepIndex };
+      }
+      // Return same reference if nothing changed to prevent re-renders
+      return prev;
+    });
+  }, []);
 
   const tabs = [
     { id: "all", label: "All" },
@@ -49,22 +64,45 @@ export default function SubscriptionsSection() {
   const handleCloseFlow = () => {
     setSubscriptionFlow(null);
     setShowHeader(true);
+    // Reset the flow back handler when closing the flow
+    setFlowBackHandler(null);
   };
 
   if (subscriptionFlow) {
     const { subscription, action } = subscriptionFlow;
 
     const Header = () => {
+      // Determine which back handler to use
+      // Use handleBack if we're in a flow step, otherwise close the flow
+      const handleBackClick = () => {
+        if (
+          flowBackHandler &&
+          flowBackHandler.stepIndex !== null &&
+          typeof flowBackHandler.handleBack === "function"
+        ) {
+          // Use the handleBack function directly, just like the bottom back button
+          flowBackHandler.handleBack();
+        } else {
+          handleCloseFlow();
+        }
+      };
+
       if (headerVariant === "full") {
         return (
           <div className="flex flex-col items-start gap-2">
-            <div className="flex items-start mb-4">
+            <div className="flex items-center justify-between w-full mb-4">
               <button
-                onClick={handleCloseFlow}
+                onClick={handleBackClick}
                 className="inline-flex items-center justify-center border-none w-10 h-10 md:w-10 md:h-10 rounded-full  text-[black] "
                 aria-label="Back to subscriptions"
               >
                 <FiChevronLeft size={20} />
+              </button>
+              <button
+                onClick={handleCloseFlow}
+                className="flex h-6 px-4 py-0 justify-center items-center gap-[10px] rounded-[24px] border border-[#E2E2E1] bg-white text-[black] text-[14px] font-medium hover:bg-[#F9FAFB] shadow-[0_0_16px_0_rgba(0,0,0,0.08)]"
+              >
+                Back to subscription
               </button>
             </div>
 
@@ -91,13 +129,19 @@ export default function SubscriptionsSection() {
         );
       }
       return (
-        <div className="flex items-start mb-4">
+        <div className="flex items-center justify-between w-full mb-4">
           <button
-            onClick={handleCloseFlow}
+            onClick={handleBackClick}
             className="inline-flex items-center justify-center border-none w-10 h-10 md:w-10 md:h-10 rounded-full  text-[black] "
             aria-label="Back to subscriptions"
           >
             <FiChevronLeft size={20} />
+          </button>
+          <button
+            onClick={handleCloseFlow}
+            className="px-4 py-2 rounded-full border border-[#E2E2E1] bg-white text-[black] text-[14px] font-medium hover:bg-[#F9FAFB]"
+          >
+            Back to subscription
           </button>
         </div>
       );
@@ -112,6 +156,7 @@ export default function SubscriptionsSection() {
             action={action}
             setShowHeader={setShowHeader}
             setHeaderVariant={setHeaderVariant}
+            onBackHandler={handleBackHandler}
           />
         </div>
       );

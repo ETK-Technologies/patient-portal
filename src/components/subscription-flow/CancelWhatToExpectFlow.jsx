@@ -7,7 +7,6 @@ import CustomButton from "../utils/CustomButton";
 
 export default function CancelWhatToExpectFlow({
   subscription,
-  onBack,
   onDone,
 }) {
   const { productImage, category } = subscription || {};
@@ -140,17 +139,6 @@ export default function CancelWhatToExpectFlow({
           >
             Continue with cancellation
           </CustomButton>
-          {onBack ? (
-            <CustomButton
-              width="full"
-              size="medium"
-              variant="pill"
-              onClick={onBack}
-              className="border border-[#E2E2E1] text-[14px] bg-white text-[black] font-medium hover:bg-[#F9FAFB] h-12"
-            >
-              Never mind
-            </CustomButton>
-          ) : null}
         </div>
       </div>
     </div>

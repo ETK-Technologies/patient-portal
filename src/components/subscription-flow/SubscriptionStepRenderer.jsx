@@ -40,7 +40,6 @@ const SubscriptionStepRenderer = ({
     return (
       <PauseCancelFlow
         subscription={subscription}
-        onBack={handleBack}
         onNavigate={handleNavigate}
       />
     );
@@ -80,7 +79,6 @@ const SubscriptionStepRenderer = ({
             handleNavigate("adjustQuantity");
           }
         }}
-        onBack={handleBack}
       />
     );
   }
@@ -113,7 +111,6 @@ const SubscriptionStepRenderer = ({
           });
           handleNavigate("treatmentFeedback");
         }}
-        onBack={handleBack}
       />
     );
   }
@@ -152,7 +149,6 @@ const SubscriptionStepRenderer = ({
             }
           }
         }}
-        onBack={handleBack}
       />
     );
   }
@@ -175,7 +171,6 @@ const SubscriptionStepRenderer = ({
           });
           handleNavigate("cancelInfo");
         }}
-        onBack={handleBack}
       />
     );
   }
@@ -213,7 +208,6 @@ const SubscriptionStepRenderer = ({
           });
           handleNavigate("cancelInfo");
         }}
-        onBack={handleBack}
       />
     );
   }
@@ -223,7 +217,6 @@ const SubscriptionStepRenderer = ({
     return (
       <CancelWhatToExpectFlow
         subscription={subscription}
-        onBack={handleBack}
         onDone={() => {
           handleNavigate("cancelFinal");
         }}
@@ -264,7 +257,6 @@ const SubscriptionStepRenderer = ({
           // Navigate back to main view (null)
           handleNavigate("main");
         }}
-        onBack={handleBack}
         linkText="Back to subscription"
         linkHref="/subscriptions"
         bottomMessage="We're sorry to see you leave :("
