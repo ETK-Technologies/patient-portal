@@ -4,25 +4,32 @@ import CustomButton from "../utils/CustomButton";
 import CustomImage from "../utils/CustomImage";
 import StatusBadge from "../utils/StatusBadge";
 import { FaArrowRight } from "react-icons/fa";
+import PropTypes from "prop-types";
 
-export default function SubscriptionCard({ subscription }) {
+export default function SubscriptionCard({ subscription, onAction }) {
+  const handleAction = (actionLabel) => {
+    if (onAction) {
+      onAction(subscription, actionLabel);
+    }
+  };
+
   const actionButtons = [
     {
       label: "See prescription",
-      onClick: () => console.log("See prescription"),
+      onClick: () => handleAction("See prescription"),
     },
     {
       label: "Message provider",
-      onClick: () => console.log("Message provider"),
+      onClick: () => handleAction("Message provider"),
     },
     {
       label: "Request refill",
-      onClick: () => console.log("Request refill"),
+      onClick: () => handleAction("Request refill"),
       disabled: subscription.status === "canceled",
     },
     {
       label: "Manage subscription",
-      onClick: () => console.log("Manage subscription"),
+      onClick: () => handleAction("Manage subscription"),
     },
   ];
 
@@ -94,3 +101,8 @@ export default function SubscriptionCard({ subscription }) {
     </div>
   );
 }
+
+SubscriptionCard.propTypes = {
+  subscription: PropTypes.object.isRequired,
+  onAction: PropTypes.func,
+};
