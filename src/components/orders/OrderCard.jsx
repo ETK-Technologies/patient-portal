@@ -1,18 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { GoChevronDown, GoChevronUp } from "react-icons/go";
 import CustomImage from "../utils/CustomImage";
 import CustomButton from "../utils/CustomButton";
 import StatusBadge from "../utils/StatusBadge";
 import { FaArrowRight } from "react-icons/fa";
+import OrderDetailsModal from "./OrderDetailsModal";
 
 const OrderCard = ({ order }) => {
   const [isExpanded, setIsExpanded] = useState(order.isExpanded || false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const toggleExpanded = () => {
     setIsExpanded(!isExpanded);
   };
+
+  const handleOpenDetails = useCallback(
+    (event) => {
+      event.stopPropagation();
+      setDetailsOpen(true);
+    },
+    [setDetailsOpen]
+  );
+
+  const handleCloseDetails = useCallback(() => {
+    setDetailsOpen(false);
+  }, []);
 
   return (
     <div className="bg-white main-shadow rounded-[16px] mb-3 overflow-hidden p-5 md:p-6">
@@ -112,10 +126,16 @@ const OrderCard = ({ order }) => {
               size="small"
               width="auto"
               className="md:w-auto h-[40px] md:px-6 bg-white border border-[#E2E2E1] text-[#585857] hover:bg-[#F9F9F9]"
+              onClick={handleOpenDetails}
             />
           </div>
         </div>
       </div>
+      <OrderDetailsModal
+        isOpen={detailsOpen}
+        onClose={handleCloseDetails}
+        order={order}
+      />
     </div>
   );
 };

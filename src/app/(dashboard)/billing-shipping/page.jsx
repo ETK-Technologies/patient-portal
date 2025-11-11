@@ -3,7 +3,7 @@ import BillingShippingManager from "@/components/billing-shipping/BillingShippin
 
 export default function BillingShipping() {
   return (
-    <PageContainer title="Billing & Shipping Information">
+    <PageContainer title="Billing Information">
       <BillingShippingManager />
     </PageContainer>
   );

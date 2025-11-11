@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { RiAccountCircleLine } from "react-icons/ri";
 
-export default function AccountDropdown() {
+export default function AccountDropdown({ onSelect }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -48,77 +48,95 @@ export default function AccountDropdown() {
         </svg>
       </button>
 
-      {isOpen && (
-        <div
-          className="absolute right-0 mt-2 w-56 rounded-lg border border-gray-200 py-2 z-50"
-          style={{
-            backgroundColor: "#FFFFFF",
-            boxShadow: "0px 0px 16px 0px #00000014",
+      <div
+        className={`absolute top-full left-0 lg:left-auto lg:right-0 mt-2 w-56 rounded-lg border border-gray-200 py-2 z-50 transition-all duration-200 ease-out origin-top ${
+          isOpen
+            ? "opacity-100 translate-y-0 scale-100 pointer-events-auto"
+            : "opacity-0 -translate-y-2 scale-95 pointer-events-none"
+        }`}
+        style={{
+          backgroundColor: "#FFFFFF",
+          boxShadow: "0px 0px 16px 0px #00000014",
+        }}
+      >
+        {/* Profile - Primary item */}
+        <Link
+          href="/profile"
+          className="block px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100"
+          onClick={() => {
+            setIsOpen(false);
+            onSelect?.();
           }}
         >
-          {/* Profile - Primary item */}
-          <Link
-            href="/profile"
-            className="block px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100"
-            onClick={() => setIsOpen(false)}
-          >
-            Profile
-          </Link>
+          Profile
+        </Link>
 
-          {/* Medical History */}
-          <Link
-            href="/medical-history"
-            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={() => setIsOpen(false)}
-          >
-            Medical History
-          </Link>
+        {/* Medical History */}
+        <Link
+          href="/medical-history"
+          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          onClick={() => {
+            setIsOpen(false);
+            onSelect?.();
+          }}
+        >
+          Medical History
+        </Link>
 
-          {/* Billing and shipping */}
-          <Link
-            href="/billing-shipping"
-            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={() => setIsOpen(false)}
-          >
-            Billing and shipping
-          </Link>
+        {/* Billing and shipping */}
+        <Link
+          href="/billing-shipping"
+          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          onClick={() => {
+            setIsOpen(false);
+            onSelect?.();
+          }}
+        >
+          Billing and shipping
+        </Link>
 
-          {/* Documents */}
-          <Link
-            href="/documents"
-            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={() => setIsOpen(false)}
-          >
-            Documents
-          </Link>
+        {/* Documents */}
+        <Link
+          href="/documents"
+          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          onClick={() => {
+            setIsOpen(false);
+            onSelect?.();
+          }}
+        >
+          Documents
+        </Link>
 
-          {/* First separator */}
-          <hr className="my-2 border-gray-200" />
+        {/* First separator */}
+        <hr className="my-2 border-gray-200" />
 
-          {/* Contact us */}
-          <Link
-            href="/contact"
-            className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            onClick={() => setIsOpen(false)}
-          >
-            Contact us
-          </Link>
+        {/* Contact us */}
+        <Link
+          href="/contact"
+          className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          onClick={() => {
+            setIsOpen(false);
+            onSelect?.();
+          }}
+        >
+          Contact us
+        </Link>
 
-          {/* Second separator */}
-          <hr className="my-2 border-gray-200" />
+        {/* Second separator */}
+        <hr className="my-2 border-gray-200" />
 
-          {/* Log out */}
-          <button
-            onClick={() => {
-              setIsOpen(false);
-              // Add logout logic here
-            }}
-            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-          >
-            Log out
-          </button>
-        </div>
-      )}
+        {/* Log out */}
+        <button
+          onClick={() => {
+            setIsOpen(false);
+            onSelect?.();
+            // Add logout logic here
+          }}
+          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+        >
+          Log out
+        </button>
+      </div>
     </div>
   );
 }

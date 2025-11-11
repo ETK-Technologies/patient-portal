@@ -20,11 +20,14 @@ export default function UpdateModal({
   // Handle name field with two inputs (first and last)
   const getInitialValue = () => {
     if (isNameField && typeof currentValue === "object") {
-      return { firstName: currentValue.firstName || "", lastName: currentValue.lastName || "" };
+      return {
+        firstName: currentValue.firstName || "",
+        lastName: currentValue.lastName || "",
+      };
     }
     return isNameField ? { firstName: "", lastName: "" } : currentValue;
   };
-  
+
   const [value, setValue] = useState(getInitialValue());
 
   // Update value when currentValue changes (e.g., when modal reopens with new data)
@@ -48,7 +51,7 @@ export default function UpdateModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       {/* Modal */}
@@ -101,7 +104,9 @@ export default function UpdateModal({
                 <input
                   type="text"
                   value={value.firstName || ""}
-                  onChange={(e) => setValue({ ...value, firstName: e.target.value })}
+                  onChange={(e) =>
+                    setValue({ ...value, firstName: e.target.value })
+                  }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
                   placeholder="Enter your first name"
                 />
@@ -113,7 +118,9 @@ export default function UpdateModal({
                 <input
                   type="text"
                   value={value.lastName || ""}
-                  onChange={(e) => setValue({ ...value, lastName: e.target.value })}
+                  onChange={(e) =>
+                    setValue({ ...value, lastName: e.target.value })
+                  }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
                   placeholder="Enter your last name"
                 />
