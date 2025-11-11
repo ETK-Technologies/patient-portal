@@ -1,4 +1,5 @@
 import React from "react";
+import { FiCheck } from "react-icons/fi";
 
 export default function CheckboxOption({
   label,
@@ -13,7 +14,9 @@ export default function CheckboxOption({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left rounded-[8px] border p-4 min-h-[52px] flex items-start justify-between transition-colors ${
+      className={`w-full text-left rounded-[8px] border p-4 min-h-[52px] flex ${
+        description ? "items-start" : "items-center"
+      } justify-between transition-colors cursor-pointer ${
         checked ? "border-[1.5px]" : "border"
       } bg-transparent ${className}`}
       style={{ borderColor: checked ? color : "#E2E2E1" }}
@@ -34,31 +37,26 @@ export default function CheckboxOption({
         role="checkbox"
         aria-checked={checked}
         aria-label={checked ? "Checked" : "Unchecked"}
-        className={`inline-flex items-center justify-center ml-3 mt-1 ${
-          checked ? "border" : "invisible border"
-        } w-5 h-5 rounded-[4px]`}
+        className={`inline-flex items-center justify-center ml-3 ${
+          description ? "mt-1" : ""
+        } border w-5 h-5 rounded-[4px] ${
+          checked ? "" : "bg-[#00000033] border-[#E5E7EB]"
+        }`}
         style={{
-          borderColor: color,
-          backgroundColor: checked ? color : undefined,
+          borderColor: checked ? color : "#E5E7EB",
+          backgroundColor: checked ? color : "#E5E7EB",
         }}
       >
         {checked ? (
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              d="M20 6L9 17L4 12"
-              stroke="#FFFFFF"
-              strokeWidth="3.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        ) : null}
+          <FiCheck size={14} color="#FFFFFF" strokeWidth={3.2} />
+        ) : (
+          <FiCheck
+            size={16}
+            color="#FFFFFF"
+            strokeWidth={3.2}
+            className="opacity-40"
+          />
+        )}
       </span>
     </button>
   );

@@ -13,7 +13,9 @@ export default function RadioOption({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full text-left rounded-[8px] border p-4 flex items-start justify-between transition-colors ${
+      className={`w-full text-left rounded-[8px] border p-4 flex ${
+        description ? "items-start" : "items-center"
+      } justify-between transition-colors cursor-pointer ${
         selected ? "border-[1.5px]" : "border"
       } bg-transparent ${className}`}
       style={{ borderColor: selected ? color : "#E2E2E1" }}
@@ -34,9 +36,9 @@ export default function RadioOption({
         role="radio"
         aria-checked={selected}
         aria-label={selected ? "Selected" : "Not selected"}
-        className={`inline-flex items-center justify-center rounded-full ml-3 mt-1 ${
-          selected ? "border" : "invisible border"
-        } w-6 h-6`}
+        className={`inline-flex items-center justify-center rounded-full ml-3 ${
+          description ? "mt-1" : ""
+        } ${selected ? "border" : "invisible border"} w-6 h-6`}
         style={{ borderColor: color }}
       >
         {selected ? (

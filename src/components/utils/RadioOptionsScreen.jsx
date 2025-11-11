@@ -18,7 +18,9 @@ export default function RadioOptionsScreen({
   return (
     <div className={`pb-24 max-w-[800px] mx-auto ${containerClassName}`}>
       {title ? (
-        <h2 className="text-[18px] font-medium mb-2 leading-[115%]">{title}</h2>
+        <h2 className={`text-[18px] font-medium leading-[115%] ${description ? "mb-2" : "mb-8"}`}>
+          {title}
+        </h2>
       ) : null}
       {description ? (
         <p className="mb-6 text-[#595A5A] text-[14px] leading-[140%]">
