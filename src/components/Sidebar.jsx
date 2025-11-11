@@ -109,7 +109,7 @@ export default function Sidebar({ isOpen, isClosing, onClose }) {
           <div className="flex flex-col h-full">
             {/* Mobile Account Menu - Only visible on mobile */}
             <div className="p-4 border-b border-gray-200">
-              <AccountDropdown />
+              <AccountDropdown onSelect={onClose} />
             </div>
 
             {/* Navigation */}

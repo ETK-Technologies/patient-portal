@@ -66,7 +66,7 @@ export default function DashboardLayout({ children }) {
         {/* Main content area */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* Page content */}
-          <div className="flex-1 overflow-y-auto p-5 pt-0 md:p-6 md:pt-0 md:pl-[60px]">
+          <div className="flex-1 overflow-y-auto p-5 md:pt-0 md:p-6 md:pt-0 md:pl-[60px]">
             {children}
           </div>
         </main>
