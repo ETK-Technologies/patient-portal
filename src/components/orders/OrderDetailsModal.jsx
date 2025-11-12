@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { IoMdClose } from "react-icons/io";
 import { FaCheck } from "react-icons/fa";
 import CustomButton from "@/components/utils/Button";
@@ -159,10 +159,51 @@ const OrderSummaryRow = ({
   );
 };
 
+const ANIMATION_DURATION = 300;
+
 const OrderDetailsModal = ({ isOpen, onClose, order }) => {
   const details = order?.details;
   const derivedStatus = details?.status || order?.status?.text;
   const derivedOrderId = details?.orderId || order?.orderNumber;
+  const [isMounted, setIsMounted] = useState(isOpen);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    let mountRafId;
+    let visibilityRafId;
+    let unmountTimeoutId;
+
+    if (isOpen) {
+      mountRafId = window.requestAnimationFrame(() => {
+        setIsVisible(false);
+        setIsMounted(true);
+
+        visibilityRafId = window.requestAnimationFrame(() => {
+          setIsVisible(true);
+        });
+      });
+    } else {
+      mountRafId = window.requestAnimationFrame(() => {
+        setIsVisible(false);
+
+        unmountTimeoutId = window.setTimeout(() => {
+          setIsMounted(false);
+        }, ANIMATION_DURATION);
+      });
+    }
+
+    return () => {
+      if (mountRafId) {
+        window.cancelAnimationFrame(mountRafId);
+      }
+      if (visibilityRafId) {
+        window.cancelAnimationFrame(visibilityRafId);
+      }
+      if (unmountTimeoutId) {
+        window.clearTimeout(unmountTimeoutId);
+      }
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -205,15 +246,30 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
     ].filter((entry) => entry.value);
   }, [details?.billingDetails, order?.trackingNumber]);
 
-  if (!isOpen || !details) {
+  if (!isMounted || !details) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center pt-[36px] md:p-8">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+    <div
+      className={`fixed inset-0 z-[10000] flex items-end justify-center pt-[36px] md:items-center md:p-8 transition-opacity duration-300 ${
+        isOpen
+          ? "opacity-100 pointer-events-auto"
+          : "opacity-0 pointer-events-none"
+      }`}
+    >
+      <div
+        className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
+          isVisible ? "opacity-100" : "opacity-0"
+        }`}
+        onClick={onClose}
+      />
 
-      <div className="relative bg-white rounded-t-[24px] w-full max-w-[760px] max-h-full shadow-xl flex flex-col">
+      <div
+        className={`relative bg-white rounded-t-[24px] md:rounded-[24px] w-full max-w-[760px] max-h-full shadow-xl flex flex-col transform transition-transform duration-300 ease-out ${
+          isVisible ? "translate-y-0" : "translate-y-full"
+        } md:translate-y-0`}
+      >
         <CustomButton
           variant="ghost"
           size="small"
