@@ -74,9 +74,9 @@ const OrderCard = ({ order }) => {
       >
         <div className=" pt-5 md:pt-6">
           {/* Mobile Layout */}
-          <div className="flex flex-col md:flex-row gap-5 md:gap-[119px] ">
-            <div className="flex gap-5 md:gap-[119px]">
-              <div className="min-w-[140px] md:min-w-fit">
+          <div className="flex flex-col md:flex-row  gap-5 md:gap-0 ">
+            <div className="flex gap-4 md:gap-0">
+              <div className="w-[140px]  md:w-[187px]">
                 <p className="text-[12px] font-[500] leading-[140%] mb-1 text-[#00000099]">
                   Order number
                 </p>
@@ -84,7 +84,7 @@ const OrderCard = ({ order }) => {
                   {order.orderNumber}
                 </p>
               </div>
-              <div className="min-w-[140px] md:min-w-fit">
+              <div className="w-[140px]  md:w-[227px]">
                 <p className="text-[12px] font-[500] leading-[140%] mb-1 text-[#00000099]">
                   Tracking Number
                 </p>
@@ -93,8 +93,8 @@ const OrderCard = ({ order }) => {
                 </p>
               </div>
             </div>
-            <div className="flex flex-row-reverse md:flex-row gap-5 md:gap-[119px] ">
-              <div className="min-w-[140px] md:min-w-fit">
+            <div className="flex flex-row-reverse md:flex-row justify-end gap-4 md:gap-0 ">
+              <div className="w-[140px]  md:w-[208px]">
                 <p className="text-[12px] font-[500] leading-[140%] mb-1 text-[#00000099]">
                   Type
                 </p>
@@ -102,7 +102,7 @@ const OrderCard = ({ order }) => {
                   {order.type}
                 </p>
               </div>
-              <div className="min-w-[140px] md:min-w-fit">
+              <div className="w-[140px]  md:w-[35px]">
                 <p className="text-[12px] font-[500] leading-[140%] mb-1 text-[#00000099]">
                   Total
                 </p>
