@@ -4,12 +4,13 @@ import CustomImage from "@/components/utils/CustomImage";
 import AccountDropdown from "./AccountDropdown";
 // import NotificationDropdown from "./NotificationDropdown";
 import { RxHamburgerMenu } from "react-icons/rx";
+import Link from "next/link";
 
 export default function Navbar({ onMenuClick }) {
   return (
     <nav className="px-2 md:px-[40px] py-3 h-[56px] flex items-center justify-between">
       {/* Left side - Logo */}
-      <div className="flex items-center">
+      <Link href="/home" className="flex items-center">
         <div className="relative ml-3 md:ml-0 w-[98px] h-[24px]">
           <CustomImage
             src="https://myrocky.b-cdn.net/WP%20Images/patient-portal/Rocky-portal-logo.png"
@@ -18,7 +19,7 @@ export default function Navbar({ onMenuClick }) {
             className="object-contain"
           />
         </div>
-      </div>
+      </Link>
 
       {/* Right side - Notifications, Account dropdown, and Mobile menu button */}
       <div className="flex items-center ">
