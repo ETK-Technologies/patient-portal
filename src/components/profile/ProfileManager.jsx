@@ -4,8 +4,15 @@ import { useState, useMemo } from "react";
 import { toast } from "react-toastify";
 import ProfileField from "./ProfileField";
 import UpdateModal from "@/components/utils/UpdateModal";
-import { initialProfileData, profileFields } from "./profileData";
+import {
+  initialProfileData,
+  profileFields,
+  dummyProfileData,
+} from "./profileData";
 import { useUser } from "@/contexts/UserContext";
+
+// TODO: Set to false when APIs are ready
+const USE_DUMMY_DATA = true;
 
 // Helper function to map CRM data to profile format
 function mapUserDataToProfile(userData) {
@@ -56,10 +63,13 @@ export default function ProfileManager() {
   const { userData, loading, error, refreshUserData } = useUser();
 
   // Derive mapped profile data from userData
-  const mappedProfileData = useMemo(
-    () => mapUserDataToProfile(userData),
-    [userData]
-  );
+  // Use dummy data when USE_DUMMY_DATA is true or when userData is not available
+  const mappedProfileData = useMemo(() => {
+    if (USE_DUMMY_DATA) {
+      return dummyProfileData;
+    }
+    return mapUserDataToProfile(userData);
+  }, [userData]);
 
   // Local state for edited values (only store fields that have been edited)
   // These persist even when userData refreshes, so user edits aren't lost
@@ -88,6 +98,43 @@ export default function ProfileManager() {
   const handleSave = async (newValue) => {
     const fieldKey = modalState.field.key;
 
+    // TODO: Remove this block when APIs are ready - use dummy data for now
+    if (USE_DUMMY_DATA) {
+      // Simulate API call delay
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Update local state for dummy data
+      if (fieldKey === "fullName" && typeof newValue === "object") {
+        // newValue is an object with firstName and lastName
+        setEditedFields((prev) => ({
+          ...prev,
+          firstName: newValue.firstName,
+          lastName: newValue.lastName,
+          fullName: `${newValue.firstName} ${newValue.lastName}`.trim(),
+        }));
+      } else if (fieldKey === "password") {
+        // Password is masked, don't update the display value
+        setEditedFields((prev) => ({
+          ...prev,
+          [fieldKey]: "••••••••••",
+        }));
+      } else {
+        // Store edited value
+        setEditedFields((prev) => ({
+          ...prev,
+          [fieldKey]: newValue,
+        }));
+      }
+
+      // Show success message
+      toast.success(`${modalState.field.label} updated successfully`, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+      return;
+    }
+
+    // API Logic - This will be used when APIs are ready
     try {
       // Update user data in CRM via API
       const response = await fetch("/api/user/profile", {
@@ -169,6 +216,7 @@ export default function ProfileManager() {
       email: "email",
       dateOfBirth: "date",
       phoneNumber: "tel",
+      password: "password",
     };
 
     const isFileUpload =
@@ -182,6 +230,8 @@ export default function ProfileManager() {
       label: field.label,
       currentValue: isNameField
         ? { firstName: profileData.firstName, lastName: profileData.lastName }
+        : field.key === "password"
+        ? "" // Don't show the masked password in the input
         : profileData[field.key],
       inputType: inputTypeMap[field.key] || "text",
       isFileUpload: isFileUpload,
@@ -190,7 +240,8 @@ export default function ProfileManager() {
     };
   };
 
-  if (loading) {
+  // Show loading state only when not using dummy data
+  if (!USE_DUMMY_DATA && loading) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
         <div className="flex items-center justify-center">
@@ -201,7 +252,8 @@ export default function ProfileManager() {
     );
   }
 
-  if (error) {
+  // Show error state only when not using dummy data
+  if (!USE_DUMMY_DATA && error) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
         <div className="text-red-600">
