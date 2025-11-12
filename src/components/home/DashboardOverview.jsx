@@ -3,14 +3,20 @@ import DashboardCard from "./DashboardCard";
 export default function DashboardOverview() {
   const dashboardData = [
     {
+      title: "Orders",
+      count: "4",
+      link: "/orders",
+      linkText: "View Messages",
+    },
+    {
       title: "Messages",
-      count: "0",
+      count: "2",
       link: "/messages",
       linkText: "View Messages",
     },
     {
       title: "Subscriptions",
-      count: "0",
+      count: "1",
       link: "/subscriptions",
       linkText: "View Subscriptions",
     },
