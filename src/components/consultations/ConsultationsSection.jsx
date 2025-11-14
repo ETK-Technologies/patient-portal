@@ -129,6 +129,7 @@ export default function ConsultationsSection() {
   const [mappedConsultations, setMappedConsultations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showAllPending, setShowAllPending] = useState(false);
 
   // Fetch consultations when component mounts
   useEffect(() => {
@@ -164,7 +165,9 @@ export default function ConsultationsSection() {
 
         // Map the consultations data - ensure we have an array
         const consultationsRaw = data.consultations || data.data;
-        const consultations = Array.isArray(consultationsRaw) ? consultationsRaw : [];
+        const consultations = Array.isArray(consultationsRaw)
+          ? consultationsRaw
+          : [];
         const mapped = consultations.map((consultation, index) => {
           const mappedConsultation = mapConsultation(consultation);
           // Ensure ID is always valid
@@ -282,27 +285,33 @@ export default function ConsultationsSection() {
 
           {/* Both Mobile and Desktop: Vertical stack, full width */}
           <div className="flex flex-col gap-4">
-            {pendingConsultations.map((consultation, index) => (
+            {(showAllPending
+              ? pendingConsultations
+              : pendingConsultations.slice(0, 3)
+            ).map((consultation, index) => (
               <ConsultationCard
                 key={`pending-${consultation.id}-${index}`}
                 consultation={consultation}
               />
             ))}
           </div>
+
+          {/* View All Button - Only show if there are more than 3 pending consultations */}
+          {pendingConsultations.length > 3 && !showAllPending && (
+            <div className="mt-6">
+              <CustomButton
+                text="View All"
+                size="medium"
+                width="full"
+                variant="pill"
+                justify="center"
+                className="bg-[#F1F0EF] border border-[#E2E2E1] text-[#000000] hover:bg-[#E8E7E6]"
+                onClick={() => setShowAllPending(true)}
+              />
+            </div>
+          )}
         </div>
       )}
-
-      {/* View All Button */}
-      <div className="mt-6">
-        <CustomButton
-          text="View All"
-          size="medium"
-          width="full"
-          variant="pill"
-          justify="center"
-          className="bg-[#F1F0EF] border border-[#E2E2E1] text-[#000000] hover:bg-[#E8E7E6]"
-        />
-      </div>
     </div>
   );
 }
