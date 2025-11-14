@@ -2,7 +2,6 @@
 
 import { useRef, useEffect, useState } from "react";
 import ConsultationCard from "./ConsultationCard";
-import { consultationsData } from "./consultationsData";
 import ScrollIndicator from "../utils/ScrollIndicator";
 import ScrollArrows from "../utils/ScrollArrows";
 import CustomButton from "../utils/CustomButton";
@@ -129,6 +128,7 @@ export default function ConsultationsSection() {
   const completedScrollRef = useRef(null);
   const [mappedConsultations, setMappedConsultations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Fetch consultations when component mounts
   useEffect(() => {
@@ -136,6 +136,7 @@ export default function ConsultationsSection() {
       try {
         console.log("[CONSULTATIONS_SECTION] Fetching consultations...");
         setLoading(true);
+        setError(null);
 
         const response = await fetch("/api/user/consultations");
 
@@ -145,6 +146,7 @@ export default function ConsultationsSection() {
             "[CONSULTATIONS_SECTION] Error fetching consultations:",
             errorData
           );
+          setError(errorData.error || "Failed to fetch consultations");
           setMappedConsultations([]);
           setLoading(false);
           return;
@@ -185,6 +187,7 @@ export default function ConsultationsSection() {
           "[CONSULTATIONS_SECTION] Error fetching consultations:",
           error
         );
+        setError(error.message || "Failed to fetch consultations");
         setMappedConsultations([]);
         setLoading(false);
       }
@@ -193,9 +196,8 @@ export default function ConsultationsSection() {
     fetchConsultations();
   }, []);
 
-  // Use mapped consultations if available, otherwise fall back to static data
-  const consultationsToDisplay =
-    mappedConsultations.length > 0 ? mappedConsultations : consultationsData;
+  // Use only mapped consultations from API - no fallback data
+  const consultationsToDisplay = mappedConsultations;
 
   // Filter consultations by status
   const completedConsultations = consultationsToDisplay.filter(
@@ -209,6 +211,23 @@ export default function ConsultationsSection() {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <p className="text-gray-600 text-center">Loading consultations...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <p className="text-gray-600 text-center">Error: {error}</p>
+      </div>
+    );
+  }
+
+  // Show empty state if no consultations
+  if (consultationsToDisplay.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <p className="text-gray-600 text-center">No consultations available</p>
       </div>
     );
   }

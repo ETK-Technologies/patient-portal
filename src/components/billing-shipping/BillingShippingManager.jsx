@@ -14,6 +14,8 @@ export default function BillingShippingManager() {
   );
   const [shippingData, setShippingData] = useState(null);
   const [isShippingModalOpen, setIsShippingModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Log component mount and initial state
   useEffect(() => {
@@ -41,13 +43,26 @@ export default function BillingShippingManager() {
     const fetchShippingAddress = async () => {
       try {
         console.log("[BILLING_SHIPPING] Fetching shipping address");
+        setLoading(true);
+        setError(null);
+
         const response = await fetch(`/api/user/shipping-address`);
 
         if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const errorMessage =
+            errorData.error ||
+            `Failed to fetch shipping address (${response.status})`;
           console.error(
             "[BILLING_SHIPPING] Failed to fetch shipping address:",
-            response.status
+            errorMessage
           );
+          setError(errorMessage);
+          setShippingData(null);
+          setBillingShippingData((prev) => ({
+            ...prev,
+            shippingAddress: "Error loading address",
+          }));
           return;
         }
 
@@ -72,12 +87,34 @@ export default function BillingShippingManager() {
             ...prev,
             shippingAddress: displayAddress,
           }));
+          setError(null); // Clear any previous errors on success
+        } else {
+          // Handle case where response is not successful or data structure is unexpected
+          const errorMessage =
+            data.error || "Invalid response format from server";
+          console.error(
+            "[BILLING_SHIPPING] Invalid response format:",
+            errorMessage
+          );
+          setError(errorMessage);
+          setShippingData(null);
         }
       } catch (error) {
         console.error(
           "[BILLING_SHIPPING] Error fetching shipping address:",
           error
         );
+        const errorMessage =
+          error.message ||
+          "An unexpected error occurred while fetching address";
+        setError(errorMessage);
+        setShippingData(null);
+        setBillingShippingData((prev) => ({
+          ...prev,
+          shippingAddress: "Error loading address",
+        }));
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -97,6 +134,7 @@ export default function BillingShippingManager() {
 
     try {
       console.log("[BILLING_SHIPPING] Updating shipping address in CRM");
+      setError(null); // Clear any previous errors
       const response = await fetch(`/api/user/shipping-address`, {
         method: "POST",
         headers: {
@@ -106,12 +144,15 @@ export default function BillingShippingManager() {
       });
 
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage =
+          errorData.error ||
+          `Failed to update shipping address (${response.status})`;
         console.error(
           "[BILLING_SHIPPING] Failed to update shipping address:",
-          response.status
+          errorMessage
         );
-        const errorData = await response.json();
-        console.error("[BILLING_SHIPPING] Error details:", errorData);
+        setError(errorMessage);
         return;
       }
 
@@ -120,6 +161,17 @@ export default function BillingShippingManager() {
         "[BILLING_SHIPPING] Shipping address updated successfully:",
         data
       );
+
+      // Check if the response indicates success
+      if (!data.success) {
+        const errorMessage = data.error || "Failed to update shipping address";
+        console.error(
+          "[BILLING_SHIPPING] Update was not successful:",
+          errorMessage
+        );
+        setError(errorMessage);
+        return;
+      }
 
       // Update local state with new shipping data
       setShippingData(formData);
@@ -130,11 +182,15 @@ export default function BillingShippingManager() {
         ...prev,
         shippingAddress: displayAddress,
       }));
+      setError(null); // Clear any previous errors on success
     } catch (error) {
       console.error(
         "[BILLING_SHIPPING] Error updating shipping address:",
         error
       );
+      const errorMessage =
+        error.message || "An unexpected error occurred while updating address";
+      setError(errorMessage);
     }
   };
 
