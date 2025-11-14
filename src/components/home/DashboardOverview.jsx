@@ -1,6 +1,45 @@
+"use client";
+
+import { useState, useEffect } from "react";
 import DashboardCard from "./DashboardCard";
 
 export default function DashboardOverview() {
+  const [subscriptionCount, setSubscriptionCount] = useState("0");
+  const [loading, setLoading] = useState(true);
+
+  // Fetch subscription count from API
+  useEffect(() => {
+    const fetchSubscriptionCount = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch("/api/user/subscriptions/count");
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Error fetching subscription count:", errorData.error);
+          setSubscriptionCount("0");
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.success && typeof data.count === "number") {
+          setSubscriptionCount(String(data.count));
+        } else {
+          console.error("Invalid response format:", data);
+          setSubscriptionCount("0");
+        }
+      } catch (error) {
+        console.error("Error fetching subscription count:", error);
+        setSubscriptionCount("0");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSubscriptionCount();
+  }, []);
+
   const dashboardData = [
     {
       title: "Orders",
@@ -16,7 +55,7 @@ export default function DashboardOverview() {
     },
     {
       title: "Subscriptions",
-      count: "1",
+      count: loading ? "..." : subscriptionCount,
       link: "/subscriptions",
       linkText: "View Subscriptions",
     },

@@ -4,70 +4,84 @@ import { useState, useMemo } from "react";
 import { toast } from "react-toastify";
 import ProfileField from "./ProfileField";
 import UpdateModal from "@/components/utils/UpdateModal";
-import {
-  initialProfileData,
-  profileFields,
-  dummyProfileData,
-} from "./profileData";
+import { initialProfileData, profileFields } from "./profileData";
 import { useUser } from "@/contexts/UserContext";
-
-// TODO: Set to false when APIs are ready
-const USE_DUMMY_DATA = true;
 
 // Helper function to map CRM data to profile format
 function mapUserDataToProfile(userData) {
   if (!userData) return initialProfileData;
 
+  // Handle different response structures:
+  // 1. New structure: { status: true, message: "...", user: {...} }
+  // 2. Old structure: { status: true, message: "...", data: { user: {...} } }
+  // 3. Direct user object: { id, email, first_name, ... }
+  let actualUserData = userData;
+
+  // Check if it's the new response structure with user at top level
+  if (userData.status && userData.user) {
+    actualUserData = userData.user;
+  }
+  // Check if it's the old response structure with data.user
+  else if (userData.status && userData.data && userData.data.user) {
+    actualUserData = userData.data.user;
+  }
+  // Check if it's a data object containing user
+  else if (userData.data && userData.data.user) {
+    actualUserData = userData.data.user;
+  }
+  // Otherwise, assume it's already the user object
+
   // Extract billing/shipping address if available
-  const billing = userData.billing || {};
-  const shipping = userData.shipping || {};
+  const billing = actualUserData.billing || {};
+  const shipping = actualUserData.shipping || {};
 
   // Get first and last name (handle encrypted data gracefully)
-  const firstName = userData.first_name || "";
-  const lastName = userData.last_name || "";
+  const firstName = actualUserData.first_name || "";
+  const lastName = actualUserData.last_name || "";
 
   // Combine first and last name for display, fallback to name if available
-  const fullName = userData.name || `${firstName} ${lastName}`.trim() || "";
+  const fullName =
+    actualUserData.name || `${firstName} ${lastName}`.trim() || "";
 
   return {
     fullName: fullName,
-    email: userData.email || "",
-    dateOfBirth: userData.date_of_birth || userData.dob || "",
-    phoneNumber: userData.phone_number || userData.phone || "",
-    address: shipping.address_1 || billing.address_1 || userData.address || "",
-    city: shipping.city || billing.city || userData.city || "",
+    email: actualUserData.email || "",
+    dateOfBirth: actualUserData.date_of_birth || actualUserData.dob || "",
+    phoneNumber: actualUserData.phone_number || actualUserData.phone || "",
+    address:
+      shipping.address_1 || billing.address_1 || actualUserData.address || "",
+    city: shipping.city || billing.city || actualUserData.city || "",
     province:
       shipping.state ||
       billing.state ||
-      userData.province ||
-      userData.state ||
+      actualUserData.province ||
+      actualUserData.state ||
       "",
     postalCode:
       shipping.postcode ||
       billing.postcode ||
-      userData.postal_code ||
-      userData.zip_code ||
+      actualUserData.postal_code ||
+      actualUserData.zip_code ||
       "",
-    photoId: userData.photo_id || "",
+    photoId: actualUserData.photo_id || "",
     insuranceCard:
-      userData.insurance_card_image || userData.insurance_card || "",
+      actualUserData.insurance_card_image ||
+      actualUserData.insurance_card ||
+      "",
     // Store first and last name separately for editing
     firstName: firstName,
     lastName: lastName,
-    gender: userData.gender || "",
-    avatar: userData.avatar || userData.profile_photo_url || "",
+    gender: actualUserData.gender || "",
+    avatar: actualUserData.avatar || actualUserData.profile_photo_url || "",
   };
 }
 
 export default function ProfileManager() {
   const { userData, loading, error, refreshUserData } = useUser();
+  console.log("[PROFILE_MANAGER] User data:", userData);
 
   // Derive mapped profile data from userData
-  // Use dummy data when USE_DUMMY_DATA is true or when userData is not available
   const mappedProfileData = useMemo(() => {
-    if (USE_DUMMY_DATA) {
-      return dummyProfileData;
-    }
     return mapUserDataToProfile(userData);
   }, [userData]);
 
@@ -98,43 +112,7 @@ export default function ProfileManager() {
   const handleSave = async (newValue) => {
     const fieldKey = modalState.field.key;
 
-    // TODO: Remove this block when APIs are ready - use dummy data for now
-    if (USE_DUMMY_DATA) {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Update local state for dummy data
-      if (fieldKey === "fullName" && typeof newValue === "object") {
-        // newValue is an object with firstName and lastName
-        setEditedFields((prev) => ({
-          ...prev,
-          firstName: newValue.firstName,
-          lastName: newValue.lastName,
-          fullName: `${newValue.firstName} ${newValue.lastName}`.trim(),
-        }));
-      } else if (fieldKey === "password") {
-        // Password is masked, don't update the display value
-        setEditedFields((prev) => ({
-          ...prev,
-          [fieldKey]: "••••••••••",
-        }));
-      } else {
-        // Store edited value
-        setEditedFields((prev) => ({
-          ...prev,
-          [fieldKey]: newValue,
-        }));
-      }
-
-      // Show success message
-      toast.success(`${modalState.field.label} updated successfully`, {
-        position: "top-right",
-        autoClose: 3000,
-      });
-      return;
-    }
-
-    // API Logic - This will be used when APIs are ready
+    // API Logic
     try {
       // Update user data in CRM via API
       const response = await fetch("/api/user/profile", {
@@ -172,6 +150,12 @@ export default function ProfileManager() {
           firstName: newValue.firstName,
           lastName: newValue.lastName,
           fullName: `${newValue.firstName} ${newValue.lastName}`.trim(),
+        }));
+      } else if (fieldKey === "password") {
+        // Password is masked, don't update the display value
+        setEditedFields((prev) => ({
+          ...prev,
+          [fieldKey]: "••••••••••",
         }));
       } else {
         // Store edited value
@@ -240,8 +224,8 @@ export default function ProfileManager() {
     };
   };
 
-  // Show loading state only when not using dummy data
-  if (!USE_DUMMY_DATA && loading) {
+  // Show loading state
+  if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
         <div className="flex items-center justify-center">
@@ -252,8 +236,8 @@ export default function ProfileManager() {
     );
   }
 
-  // Show error state only when not using dummy data
-  if (!USE_DUMMY_DATA && error) {
+  // Show error state
+  if (error) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
         <div className="text-red-600">
@@ -270,6 +254,19 @@ export default function ProfileManager() {
     );
   }
 
+  // Helper function to format field value - show "NA" for missing/empty values
+  const formatFieldValue = (fieldKey, value) => {
+    // For password field, show masked value or "NA" if not set
+    if (fieldKey === "password") {
+      return value || "NA";
+    }
+    // For all other fields, show "NA" if empty, null, or undefined
+    if (!value || (typeof value === "string" && value.trim() === "")) {
+      return "NA";
+    }
+    return value;
+  };
+
   return (
     <>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -277,7 +274,7 @@ export default function ProfileManager() {
           <ProfileField
             key={field.key}
             label={field.label}
-            value={profileData[field.key]}
+            value={formatFieldValue(field.key, profileData[field.key])}
             onUpdate={() => handleUpdateClick(field)}
           />
         ))}
