@@ -149,7 +149,7 @@ async function fetchUserData(userId) {
     );
 
     // Step 2: Fetch user profile from CRM
-    const profileUrl = `${crmHost}/api/crm-users/${userId}/edit/personal-profile`;
+    const profileUrl = `${crmHost}/api/user/${userId}/profile`;
     console.log(`[USER_PROFILE] Fetching user profile from: ${profileUrl}`);
 
     const profileResponse = await fetch(profileUrl, {
@@ -159,7 +159,7 @@ async function fetchUserData(userId) {
         "Content-Type": "application/json",
       },
     });
-
+    console.log("[USER_PROFILE] Profile response:", profileResponse);
     if (!profileResponse.ok) {
       console.error(
         `[USER_PROFILE] Failed to fetch user profile: ${profileResponse.status} ${profileResponse.statusText}`
@@ -443,8 +443,7 @@ async function updateUserProfile(userId, updateData) {
     });
 
     console.log(
-      `[USER_PROFILE_UPDATE] Total form data fields: user_id + ${
-        Object.keys(updateData).length
+      `[USER_PROFILE_UPDATE] Total form data fields: user_id + ${Object.keys(updateData).length
       } fields`
     );
 

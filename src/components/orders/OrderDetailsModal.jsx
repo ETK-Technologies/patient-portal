@@ -11,7 +11,7 @@ const formatAddress = (address) => {
   if (!address) return null;
   const segments = address.split(",").map((segment) => segment.trim());
   return segments.map((segment, index) => (
-    <span key={segment}>
+    <span key={`address-segment-${index}`}>
       {segment}
       {index !== segments.length - 1 && <br />}
     </span>
@@ -19,7 +19,10 @@ const formatAddress = (address) => {
 };
 
 const InfoRow = ({ label, value }) => {
-  if (!value) return null;
+  // Always render if value is provided (even if empty string)
+  // Only skip if value is null/undefined (which shouldn't happen with our mapping)
+  if (value === null || value === undefined) return null;
+
   return (
     <div>
       <p className="font-normal text-base leading-[140%] tracking-[0px] mb-[4px] text-black">
@@ -88,9 +91,9 @@ const OrderItem = ({ item }) => {
           {item.priceLabel && (
             <div className="flex flex-col items-start md:items-end gap-[2px] text-right">
               {Array.isArray(item.priceLabel) ? (
-                item.priceLabel.map(({ label, value }) => (
+                item.priceLabel.map(({ label, value }, priceIndex) => (
                   <span
-                    key={`${item.id}-price-${label}`}
+                    key={`${item.id}-price-${label}-${priceIndex}`}
                     className="font-normal text-sm leading-[140%] tracking-[0px] text-right"
                   >
                     <span className="text-[#000000]">{label}</span>
@@ -107,15 +110,22 @@ const OrderItem = ({ item }) => {
         </div>
         {item.highlights?.length > 0 && (
           <div className="flex flex-col gap-[2px] md:max-w-[380px]">
-            {item.highlights.map(({ label, value }) => (
-              <p
-                key={`${item.id}-${label}`}
-                className="font-normal text-sm leading-[140%] tracking-[0px]"
-              >
-                <span className="text-[#000000] mr-1">{label}:</span>
-                <span className="text-[#00000099]">{value}</span>
-              </p>
-            ))}
+            {item.highlights
+              .filter(
+                (highlight) =>
+                  highlight.value &&
+                  highlight.value !== "" &&
+                  highlight.value !== "Data not exist in API response"
+              )
+              .map(({ label, value }, highlightIndex) => (
+                <p
+                  key={`${item.id}-highlight-${label}-${highlightIndex}`}
+                  className="font-normal text-sm leading-[140%] tracking-[0px]"
+                >
+                  <span className="text-[#000000] mr-1">{label}:</span>
+                  <span className="text-[#00000099]">{value}</span>
+                </p>
+              ))}
           </div>
         )}
       </div>
@@ -161,12 +171,325 @@ const OrderSummaryRow = ({
 
 const ANIMATION_DURATION = 300;
 
+// Helper function to get value - if field exists (even if empty), return empty string, otherwise return "Data not exist in API response"
+const getValueOrNotExist = (obj, fieldPath) => {
+  // Handle nested paths like "shipping_address.city"
+  const parts = fieldPath.split(".");
+  let current = obj;
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (current && typeof current === "object" && part in current) {
+      current = current[part];
+    } else {
+      // Field doesn't exist in the path
+      return "Data not exist in API response";
+    }
+  }
+
+  // Field exists - return empty string if null/undefined/empty, otherwise return the value
+  if (current === null || current === undefined || current === "") {
+    return "";
+  }
+  return current;
+};
+
+// Helper for simple field access
+const getFieldValue = (obj, fieldName) => {
+  if (obj && typeof obj === "object" && fieldName in obj) {
+    const value = obj[fieldName];
+    // Field exists - return empty string if null/undefined/empty, otherwise return the value
+    if (value === null || value === undefined || value === "") {
+      return "";
+    }
+    return value;
+  }
+  // Field doesn't exist
+  return "Data not exist in API response";
+};
+
+// Map API response to modal structure
+const mapOrderManageData = (apiData) => {
+  // Try different possible response structures
+  const order =
+    apiData?.data?.data?.order || apiData?.data?.order || apiData?.order;
+
+  if (!order) {
+    console.warn(
+      "[ORDER_DETAILS_MODAL] Could not find order in response:",
+      apiData
+    );
+    return null;
+  }
+  const missingData = "Data not exist in API response";
+
+  // Map shipping address - format as comma-separated string for formatAddress function
+  const shippingAddressParts = [];
+  let shippingAddress;
+  if ("shipping_address" in order) {
+    // Field exists in API response
+    if (order.shipping_address) {
+      const firstName = getFieldValue(order.shipping_address, "first_name");
+      const lastName = getFieldValue(order.shipping_address, "last_name");
+      if (
+        firstName !== "Data not exist in API response" ||
+        lastName !== "Data not exist in API response"
+      ) {
+        const fullName = `${
+          firstName !== "Data not exist in API response" ? firstName : ""
+        } ${
+          lastName !== "Data not exist in API response" ? lastName : ""
+        }`.trim();
+        if (fullName) {
+          shippingAddressParts.push(fullName);
+        }
+      }
+
+      const company = getFieldValue(order.shipping_address, "company");
+      if (company !== "Data not exist in API response") {
+        shippingAddressParts.push(company);
+      }
+
+      const address1 = getFieldValue(order.shipping_address, "address_1");
+      if (address1 !== "Data not exist in API response") {
+        shippingAddressParts.push(address1);
+      }
+
+      const address2 = getFieldValue(order.shipping_address, "address_2");
+      if (address2 !== "Data not exist in API response") {
+        shippingAddressParts.push(address2);
+      }
+
+      const city = getFieldValue(order.shipping_address, "city");
+      if (city !== "Data not exist in API response") {
+        shippingAddressParts.push(city);
+      }
+
+      const state = getFieldValue(order.shipping_address, "state");
+      if (state !== "Data not exist in API response") {
+        shippingAddressParts.push(state);
+      }
+
+      const postcode = getFieldValue(order.shipping_address, "postcode");
+      if (postcode !== "Data not exist in API response") {
+        shippingAddressParts.push(postcode);
+      }
+
+      const country = getFieldValue(order.shipping_address, "country");
+      if (country !== "Data not exist in API response") {
+        shippingAddressParts.push(country);
+      }
+    }
+    // If shipping_address exists but is null/empty, shippingAddressParts will be empty, which is correct
+    shippingAddress =
+      shippingAddressParts.length > 0 ? shippingAddressParts.join(", ") : "";
+  } else {
+    // Field doesn't exist in API response
+    shippingAddress = missingData;
+  }
+
+  // Normalize status (handle both "cancelled" and "canceled" from API)
+  const normalizedStatus = order.status?.toLowerCase();
+  const statusMap = {
+    cancelled: "Canceled",
+    canceled: "Canceled",
+    pending: "Pending",
+    shipped: "Shipped",
+    delivered: "Delivered",
+    processing: "Processing",
+  };
+  const statusText = statusMap[normalizedStatus] || order.status || "Unknown";
+
+  // Map timeline from status and dates
+  const timeline = [];
+  if (order.created_at) {
+    timeline.push({
+      label: "Order Placed",
+      date: new Date(order.created_at).toLocaleDateString(),
+      isCompleted: true,
+    });
+  }
+  if (
+    normalizedStatus === "processing" ||
+    normalizedStatus === "shipped" ||
+    normalizedStatus === "delivered"
+  ) {
+    timeline.push({
+      label: "Processing",
+      date: order.updated_at
+        ? new Date(order.updated_at).toLocaleDateString()
+        : "",
+      isCompleted: normalizedStatus !== "pending",
+    });
+  }
+  if (normalizedStatus === "shipped" || normalizedStatus === "delivered") {
+    timeline.push({
+      label: "Shipped",
+      date: order.updated_at
+        ? new Date(order.updated_at).toLocaleDateString()
+        : "",
+      isCompleted:
+        normalizedStatus === "shipped" || normalizedStatus === "delivered",
+    });
+  }
+  if (normalizedStatus === "delivered") {
+    timeline.push({
+      label: "Delivered",
+      date: order.updated_at
+        ? new Date(order.updated_at).toLocaleDateString()
+        : "",
+      isCompleted: true,
+    });
+  }
+  if (normalizedStatus === "cancelled" || normalizedStatus === "canceled") {
+    timeline.push({
+      label: "Canceled",
+      date: order.updated_at
+        ? new Date(order.updated_at).toLocaleDateString()
+        : "",
+      isCompleted: true,
+    });
+  }
+
+  // Map line items
+  const items =
+    order.line_items?.map((item, itemIndex) => {
+      const productName = getFieldValue(item, "product_name");
+      const quantity = getFieldValue(item, "quantity");
+      const total = getFieldValue(item, "total");
+      const image = getFieldValue(item, "product_image");
+      const brand = getFieldValue(item, "brand");
+      const type = getFieldValue(item, "type");
+      const frequency = getFieldValue(item, "tab_frequency");
+
+      return {
+        id:
+          productName !== "Data not exist in API response"
+            ? `${productName}-${itemIndex}`
+            : `unknown-${itemIndex}`,
+        title: productName,
+        quantityLabel:
+          quantity !== "Data not exist in API response"
+            ? quantity !== ""
+              ? `x${quantity}`
+              : ""
+            : missingData,
+        image: image !== "Data not exist in API response" ? image : "",
+        priceLabel:
+          total !== "Data not exist in API response"
+            ? total !== ""
+              ? `$${parseFloat(total).toFixed(2)}`
+              : ""
+            : missingData,
+        highlights: [
+          { label: "Brand", value: brand },
+          { label: "Type", value: type },
+          { label: "Frequency", value: frequency },
+        ].filter(
+          (highlight) =>
+            highlight.value &&
+            highlight.value !== "" &&
+            highlight.value !== "Data not exist in API response"
+        ),
+      };
+    }) || [];
+
+  // Calculate subtotal from line items
+  const subtotal =
+    order.line_items?.reduce(
+      (sum, item) => sum + parseFloat(item.subtotal || 0),
+      0
+    ) || 0;
+
+  // Map summary
+  const discountTotal = getFieldValue(order, "discount_total");
+  const shippingTotal = getFieldValue(order, "shipping_total");
+  const totalTax = getFieldValue(order, "total_tax");
+  const total = getFieldValue(order, "total");
+  const couponCode = order.coupon?.[0]
+    ? getFieldValue(order.coupon[0], "code")
+    : missingData;
+
+  const summary = {
+    subtotal: subtotal > 0 ? `$${subtotal.toFixed(2)}` : "",
+    discount:
+      discountTotal !== missingData
+        ? {
+            value:
+              discountTotal !== ""
+                ? `-$${parseFloat(discountTotal).toFixed(2)}`
+                : "",
+            note:
+              couponCode !== missingData && couponCode !== ""
+                ? `Coupon: ${couponCode}`
+                : "",
+          }
+        : { value: missingData, note: "" },
+    shipping:
+      shippingTotal !== missingData
+        ? {
+            value:
+              shippingTotal !== ""
+                ? `$${parseFloat(shippingTotal).toFixed(2)}`
+                : "",
+            note: "",
+          }
+        : { value: missingData, note: "" },
+    tax:
+      totalTax !== missingData
+        ? totalTax !== ""
+          ? `$${parseFloat(totalTax).toFixed(2)}`
+          : ""
+        : missingData,
+    total:
+      total !== missingData
+        ? total !== ""
+          ? `$${parseFloat(total).toFixed(2)}`
+          : ""
+        : missingData,
+  };
+
+  // Handle tracking number
+  const trackingNumberField = getFieldValue(order, "tracking_number");
+  let trackingNumberValue = missingData;
+  if (trackingNumberField !== missingData) {
+    if (Array.isArray(trackingNumberField) && trackingNumberField.length > 0) {
+      trackingNumberValue = trackingNumberField.join(", ");
+    } else if (trackingNumberField !== "") {
+      trackingNumberValue = trackingNumberField;
+    } else {
+      trackingNumberValue = "";
+    }
+  }
+
+  return {
+    orderId: getFieldValue(order, "id"),
+    status: statusText, // Use normalized status
+    subscriptionLabel: getFieldValue(order, "order_type"),
+    timeline: timeline.length > 0 ? timeline : null,
+    billingDetails: {
+      paymentMethod: missingData, // Not in API response
+      transactionDate: getFieldValue(order, "transaction_date"),
+      customerName: getFieldValue(order, "customer_name"),
+      email: getFieldValue(order, "customer_email"),
+      phoneNumber: getFieldValue(order, "customer_phone"),
+      shippingAddress: shippingAddress,
+      trackingNumber: trackingNumberValue,
+    },
+    items: items,
+    summary: summary,
+    invoiceUrl: null, // Not in API response
+  };
+};
+
 const OrderDetailsModal = ({ isOpen, onClose, order }) => {
   const details = order?.details;
-  const derivedStatus = details?.status || order?.status?.text;
-  const derivedOrderId = details?.orderId || order?.orderNumber;
   const [isMounted, setIsMounted] = useState(isOpen);
   const [isVisible, setIsVisible] = useState(false);
+  const [orderManageData, setOrderManageData] = useState(null);
+  const [mappedOrderData, setMappedOrderData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     let mountRafId;
@@ -217,8 +540,88 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
     };
   }, [isOpen]);
 
+  // Fetch order management data when modal opens
+  useEffect(() => {
+    if (!isOpen || !order?.id) {
+      setOrderManageData(null);
+      setMappedOrderData(null);
+      setError(null);
+      return;
+    }
+
+    const fetchOrderManageData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Extract order ID (could be from order.id or order.details.id)
+        // Handle case where orderNumber might be "#123" format
+        let orderId = order.id || order.details?.id;
+
+        // If orderId is not found, try extracting from orderNumber (remove # prefix)
+        if (!orderId && order.orderNumber) {
+          orderId = order.orderNumber.replace(/^#/, "");
+        }
+
+        if (!orderId) {
+          console.error("[ORDER_DETAILS_MODAL] No order ID found", order);
+          setError("Order ID not found");
+          setLoading(false);
+          return;
+        }
+
+        console.log(
+          `[ORDER_DETAILS_MODAL] Fetching order management data for order: ${orderId}`
+        );
+
+        const response = await fetch(`/api/user/orders/manage/${orderId}`);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error(
+            "[ORDER_DETAILS_MODAL] Error fetching order management data:",
+            errorData
+          );
+          setError(errorData.error || "Failed to fetch order details");
+          setLoading(false);
+          return;
+        }
+
+        const data = await response.json();
+        console.log(
+          "[ORDER_DETAILS_MODAL] Order management data received:",
+          data
+        );
+
+        setOrderManageData(data.data || data);
+
+        // Map the API response to modal structure
+        const mapped = mapOrderManageData(data);
+        setMappedOrderData(mapped);
+
+        setLoading(false);
+      } catch (err) {
+        console.error(
+          "[ORDER_DETAILS_MODAL] Error fetching order management data:",
+          err
+        );
+        setError(err.message || "Failed to fetch order details");
+        setLoading(false);
+      }
+    };
+
+    fetchOrderManageData();
+  }, [isOpen, order?.id]);
+
+  // Use mapped data if available, otherwise fall back to details
+  const displayData = mappedOrderData || details;
+  const derivedStatus = displayData?.status || order?.status?.text;
+  const derivedOrderId = displayData?.orderId || order?.orderNumber;
+
   const billingInfo = useMemo(() => {
-    if (!details?.billingDetails) return [];
+    const billingDetails = displayData?.billingDetails;
+    if (!billingDetails) return [];
+
     const {
       paymentMethod,
       transactionDate,
@@ -227,7 +630,7 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
       phoneNumber,
       shippingAddress,
       trackingNumber,
-    } = details.billingDetails;
+    } = billingDetails;
 
     return [
       { label: "Payment Method", value: paymentMethod },
@@ -237,16 +640,23 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
       { label: "Phone Number", value: phoneNumber },
       {
         label: "Shipping Address",
-        value: shippingAddress ? formatAddress(shippingAddress) : null,
+        value:
+          shippingAddress &&
+          shippingAddress !== "Data not exist in API response"
+            ? formatAddress(shippingAddress)
+            : shippingAddress,
       },
       {
         label: "Tracking Number",
-        value: trackingNumber || order?.trackingNumber,
+        value:
+          trackingNumber ||
+          order?.trackingNumber ||
+          "Data not exist in API response",
       },
-    ].filter((entry) => entry.value);
-  }, [details?.billingDetails, order?.trackingNumber]);
+    ];
+  }, [displayData?.billingDetails, order?.trackingNumber]);
 
-  if (!isMounted || !details) {
+  if (!isMounted) {
     return null;
   }
 
@@ -281,105 +691,122 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
         </CustomButton>
 
         <div className="px-5 py-6 md:px-8 md:py-8 overflow-y-auto">
-          <div className="space-y-4 md:space-y-6">
-            <div className="flex flex-col gap-2 ">
-              <div className="flex flex-wrap items-center gap-4">
-                <h2 className="font-medium text-xl leading-[114.9%] tracking-[-2%] align-middle">
-                  Orders {derivedOrderId}
-                </h2>
-                <StatusBadge status={derivedStatus} />
+          {loading && !mappedOrderData && (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-gray-600">Loading order details...</p>
+            </div>
+          )}
+
+          {error && !mappedOrderData && (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-red-600">Error: {error}</p>
+            </div>
+          )}
+
+          {(!loading || mappedOrderData) && (
+            <div className="space-y-4 md:space-y-6">
+              <div className="flex flex-col gap-2 ">
+                <div className="flex flex-wrap items-center gap-4">
+                  <h2 className="font-medium text-xl leading-[114.9%] tracking-[-2%] align-middle">
+                    Orders {derivedOrderId}
+                  </h2>
+                  <StatusBadge status={derivedStatus} />
+                </div>
+                {displayData?.subscriptionLabel && (
+                  <p className="font-medium text-sm leading-[140%] tracking-[0px] align-middle text-[#00724C]">
+                    {displayData.subscriptionLabel}
+                  </p>
+                )}
               </div>
-              {details.subscriptionLabel && (
-                <p className="font-medium text-sm leading-[140%] tracking-[0px] align-middle text-[#00724C]">
-                  {details.subscriptionLabel}
-                </p>
+
+              {displayData?.timeline?.length > 0 && (
+                <div className="flex flex-row items-start gap-2 overflow-x-auto md:overflow-visible py-4 border-t border-b border-[#E2E2E1]">
+                  {displayData.timeline.map((step, index) => (
+                    <div
+                      key={`${step.label}-${index}`}
+                      className="flex items-center md:flex-1 md:justify-center"
+                    >
+                      <TimelineStep
+                        label={step.label}
+                        date={step.date}
+                        isCompleted={step.isCompleted}
+                      />
+                    </div>
+                  ))}
+                </div>
               )}
-            </div>
 
-            {details.timeline?.length > 0 && (
-              <div className="flex flex-row items-start gap-2 overflow-x-auto md:overflow-visible py-4 border-t border-b border-[#E2E2E1]">
-                {details.timeline.map((step, index) => (
-                  <div
-                    key={`${step.label}-${index}`}
-                    className="flex items-center md:flex-1 md:justify-center"
-                  >
-                    <TimelineStep
-                      label={step.label}
-                      date={step.date}
-                      isCompleted={step.isCompleted}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="space-y-4 pb-4 border-b border-[#E2E2E1]">
-              <h3 className="font-medium text-xl leading-[140%] tracking-[0px] align-middle">
-                Billing & Shipping Details
-              </h3>
-              <div className="grid grid-cols-1 gap-y-4">
-                {billingInfo.map(({ label, value }) => (
-                  <InfoRow key={label} label={label} value={value} />
-                ))}
-              </div>
-            </div>
-
-            {details.items?.length > 0 && (
-              <div className="border-b border-[#E2E2E1]">
-                <h3 className="font-medium text-xl leading-[140%] tracking-[0px] align-middle mb-4">
-                  Items
+              <div className="space-y-4 pb-4 border-b border-[#E2E2E1]">
+                <h3 className="font-medium text-xl leading-[140%] tracking-[0px] align-middle">
+                  Billing & Shipping Details
                 </h3>
-                <div>
-                  {details.items.map((item) => (
-                    <OrderItem key={item.id} item={item} />
+                <div className="grid grid-cols-1 gap-y-4">
+                  {billingInfo.map(({ label, value }) => (
+                    <InfoRow key={label} label={label} value={value} />
                   ))}
                 </div>
               </div>
-            )}
 
-            {details.summary && (
-              <div className="flex flex-col gap-[12px]">
-                <OrderSummaryRow
-                  label="Subtotal"
-                  value={details.summary.subtotal}
-                />
-                <OrderSummaryRow
-                  label="Discount"
-                  value={details.summary.discount?.value}
-                  note={details.summary.discount?.note}
-                />
-                <OrderSummaryRow
-                  label="Shipping"
-                  value={details.summary.shipping?.value}
-                  note={details.summary.shipping?.note}
-                />
-                <OrderSummaryRow label="Tax" value={details.summary.tax} />
-                <div className="pb-4 border-b border-[#E2E2E1]">
-                  <OrderSummaryRow
-                    label="Total"
-                    value={details.summary.total}
-                    emphasis
-                    emphasisClassName="font-medium text-lg"
-                  />
+              {displayData?.items?.length > 0 && (
+                <div className="border-b border-[#E2E2E1]">
+                  <h3 className="font-medium text-xl leading-[140%] tracking-[0px] align-middle mb-4">
+                    Items
+                  </h3>
+                  <div>
+                    {displayData.items.map((item) => (
+                      <OrderItem key={item.id} item={item} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <div>
-              <CustomButton
-                text="Download Invoice"
-                variant="default"
-                size="medium"
-                width="full"
-                className="!w-full md:!w-[174px] !py-[10px] !bg-white !border !border-black !text-black !font-medium !text-sm !leading-[140%] !tracking-[0px] !align-middle hover:!bg-[#E3E3E3] hover:!border-[#E3E3E3] "
-                onClick={() => {
-                  if (details.invoiceUrl) {
-                    window.open(details.invoiceUrl, "_blank");
-                  }
-                }}
-              />
+              {displayData?.summary && (
+                <div className="flex flex-col gap-[12px]">
+                  <OrderSummaryRow
+                    label="Subtotal"
+                    value={displayData.summary.subtotal}
+                  />
+                  <OrderSummaryRow
+                    label="Discount"
+                    value={displayData.summary.discount?.value}
+                    note={displayData.summary.discount?.note}
+                  />
+                  <OrderSummaryRow
+                    label="Shipping"
+                    value={displayData.summary.shipping?.value}
+                    note={displayData.summary.shipping?.note}
+                  />
+                  <OrderSummaryRow
+                    label="Tax"
+                    value={displayData.summary.tax}
+                  />
+                  <div className="pb-4 border-b border-[#E2E2E1]">
+                    <OrderSummaryRow
+                      label="Total"
+                      value={displayData.summary.total}
+                      emphasis
+                      emphasisClassName="font-medium text-lg"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <CustomButton
+                  text="Download Invoice"
+                  variant="default"
+                  size="medium"
+                  width="full"
+                  className="!w-full md:!w-[174px] !py-[10px] !bg-white !border !border-black !text-black !font-medium !text-sm !leading-[140%] !tracking-[0px] !align-middle hover:!bg-[#E3E3E3] hover:!border-[#E3E3E3] "
+                  onClick={() => {
+                    if (displayData?.invoiceUrl) {
+                      window.open(displayData.invoiceUrl, "_blank");
+                    }
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
