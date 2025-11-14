@@ -304,7 +304,7 @@ const mapOrderManageData = (apiData) => {
   const timeline = [];
   if (order.created_at) {
     timeline.push({
-      label: "Order Placed",
+      label: "Order Received",
       date: new Date(order.created_at).toLocaleDateString(),
       isCompleted: true,
     });

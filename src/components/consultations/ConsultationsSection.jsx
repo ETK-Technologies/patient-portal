@@ -162,8 +162,9 @@ export default function ConsultationsSection() {
           JSON.stringify(data, null, 2)
         );
 
-        // Map the consultations data
-        const consultations = data.consultations || data.data || [];
+        // Map the consultations data - ensure we have an array
+        const consultationsRaw = data.consultations || data.data;
+        const consultations = Array.isArray(consultationsRaw) ? consultationsRaw : [];
         const mapped = consultations.map((consultation, index) => {
           const mappedConsultation = mapConsultation(consultation);
           // Ensure ID is always valid
