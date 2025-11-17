@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import OrderCard from "./OrderCard";
+import CustomButton from "@/components/utils/CustomButton";
+import EmptyState from "@/components/utils/EmptyState";
+import { FaArrowRight } from "react-icons/fa";
 
 // Helper function to format date from API format (2025-10-08) to display format (Oct 08, 2025)
 const formatDate = (dateString) => {
@@ -43,6 +46,7 @@ const transformOrder = (apiOrder) => {
     shipped: "Shipped",
     delivered: "Delivered",
     processing: "Processing",
+    trash: "Trash",
   };
   const statusText =
     statusMap[apiOrder.status?.toLowerCase()] || apiOrder.status || "Unknown";
@@ -98,62 +102,133 @@ const groupOrdersByDate = (orders) => {
 const OrdersSection = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState(null);
+
+  // Helper function to process orders from API response
+  const processOrdersData = (data) => {
+    const allOrders = [];
+
+    // Check if we have the grouped data structure from API
+    if (data.orders && Array.isArray(data.orders)) {
+      // API returns: [{date: '2025-10-08', orders: Array(5)}, ...]
+      data.orders.forEach((dateGroup) => {
+        if (dateGroup.orders && Array.isArray(dateGroup.orders)) {
+          dateGroup.orders.forEach((order) => {
+            // Use the date from the group, not from the order
+            const transformedOrder = transformOrder(order);
+            transformedOrder.date = formatDateForGrouping(dateGroup.date);
+            transformedOrder.originalDate = dateGroup.date; // Keep for sorting
+            allOrders.push(transformedOrder);
+          });
+        }
+      });
+    } else if (data.data && Array.isArray(data.data)) {
+      // Fallback: if data is directly an array
+      const transformedOrders = data.data.map(transformOrder);
+      allOrders.push(...transformedOrders);
+    }
+
+    return allOrders;
+  };
 
   // Fetch orders from API
   useEffect(() => {
-    const fetchOrders = async () => {
+    const fetchOrders = async (page = 1) => {
       try {
-        setLoading(true);
+        if (page === 1) {
+          setLoading(true);
+        } else {
+          setLoadingMore(true);
+        }
         setError(null);
 
-        const response = await fetch("/api/user/orders");
+        const response = await fetch(`/api/user/orders?page=${page}`);
 
         if (!response.ok) {
           const errorData = await response.json();
           console.error("[ORDERS_SECTION] Error fetching orders:", errorData);
           setError(errorData.error || "Failed to fetch orders");
-          setOrders([]);
+          if (page === 1) {
+            setOrders([]);
+          }
           return;
         }
 
         const data = await response.json();
         console.log("[ORDERS_SECTION] Orders API response:", data);
 
-        // Check if we have the grouped data structure from API
-        if (data.orders && Array.isArray(data.orders)) {
-          // API returns: [{date: '2025-10-08', orders: Array(5)}, ...]
-          const allOrders = [];
-          data.orders.forEach((dateGroup) => {
-            if (dateGroup.orders && Array.isArray(dateGroup.orders)) {
-              dateGroup.orders.forEach((order) => {
-                // Use the date from the group, not from the order
-                const transformedOrder = transformOrder(order);
-                transformedOrder.date = formatDateForGrouping(dateGroup.date);
-                transformedOrder.originalDate = dateGroup.date; // Keep for sorting
-                allOrders.push(transformedOrder);
-              });
-            }
-          });
-          setOrders(allOrders);
-        } else if (data.data && Array.isArray(data.data)) {
-          // Fallback: if data is directly an array
-          const transformedOrders = data.data.map(transformOrder);
-          setOrders(transformedOrders);
+        const newOrders = processOrdersData(data);
+
+        if (page === 1) {
+          setOrders(newOrders);
         } else {
-          setOrders([]);
+          // Append new orders to existing ones
+          setOrders((prevOrders) => [...prevOrders, ...newOrders]);
+        }
+
+        // Store pagination info from response
+        if (data.data?.pagination) {
+          setPagination(data.data.pagination);
         }
       } catch (error) {
         console.error("[ORDERS_SECTION] Error fetching orders:", error);
         setError(error.message);
-        setOrders([]);
+        if (page === 1) {
+          setOrders([]);
+        }
       } finally {
         setLoading(false);
+        setLoadingMore(false);
       }
     };
 
-    fetchOrders();
+    fetchOrders(1);
   }, []);
+
+  // Load more orders
+  const handleLoadMore = async () => {
+    if (!pagination || !pagination.next_page_url || loadingMore) {
+      return;
+    }
+
+    const nextPage = pagination.current_page + 1;
+    try {
+      setLoadingMore(true);
+      setError(null);
+
+      const response = await fetch(`/api/user/orders?page=${nextPage}`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error(
+          "[ORDERS_SECTION] Error fetching more orders:",
+          errorData
+        );
+        setError(errorData.error || "Failed to fetch more orders");
+        return;
+      }
+
+      const data = await response.json();
+      console.log("[ORDERS_SECTION] Load more orders API response:", data);
+
+      const newOrders = processOrdersData(data);
+
+      // Append new orders to existing ones
+      setOrders((prevOrders) => [...prevOrders, ...newOrders]);
+
+      // Update pagination info
+      if (data.data?.pagination) {
+        setPagination(data.data.pagination);
+      }
+    } catch (error) {
+      console.error("[ORDERS_SECTION] Error loading more orders:", error);
+      setError(error.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Group orders by date
   const groupedOrders = groupOrdersByDate(orders);
@@ -183,9 +258,12 @@ const OrdersSection = () => {
 
   if (sortedDates.length === 0 || orders.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <p className="text-gray-600 text-center">Data not exist</p>
-      </div>
+      <EmptyState
+        title="You have no orders"
+        description="No active orders right now. Discover what's available and get started today."
+        buttonText="Find a treatment"
+        buttonHref="/treatments"
+      />
     );
   }
 
@@ -203,6 +281,22 @@ const OrdersSection = () => {
           </div>
         </div>
       ))}
+
+      {/* View More Button */}
+      {pagination && pagination.next_page_url && (
+        <div className="mt-6 md:mt-4">
+          <CustomButton
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            size="medium"
+            width="full"
+            className="bg-[#F1F0EF] border border-[#E2E2E1] text-[#000000] hover:bg-[#E8E7E6]"
+            icon={!loadingMore && <FaArrowRight />}
+          >
+            {loadingMore ? "Loading..." : "View More"}
+          </CustomButton>
+        </div>
+      )}
     </div>
   );
 };

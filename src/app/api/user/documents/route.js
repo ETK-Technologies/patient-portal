@@ -6,11 +6,11 @@ import { authenticateWithCRM } from "../../utils/crmAuth";
  *
  * Fetches user documents data from CRM for the authenticated user.
  * Returns documents information from the CRM documents endpoint.
- * 
+ *
  * User ID can be provided in two ways:
  * 1. Query parameter: ?id={userData.id} or ?crmUserID={userData.id} (from UserContext)
  * 2. Cookies: userId from cookies (set during auto-login) - used as fallback
- * 
+ *
  * Since userData is already available in UserContext on the frontend,
  * the frontend can pass userData.id as a query parameter.
  *
@@ -42,7 +42,8 @@ export async function GET(request) {
 
     // Check if CRM user ID is passed as query parameter (from frontend context)
     const searchParams = request.nextUrl.searchParams;
-    const crmUserIDFromQuery = searchParams.get("crmUserID") || searchParams.get("id");
+    const crmUserIDFromQuery =
+      searchParams.get("crmUserID") || searchParams.get("id");
 
     // Use CRM user ID from query parameter if available (from userData.id in context),
     // otherwise fall back to userId from cookies
@@ -59,9 +60,13 @@ export async function GET(request) {
     }
 
     if (crmUserIDFromQuery) {
-      console.log(`[USER_DOCUMENTS] Using CRM user ID from query parameter (userData.id): ${crmUserID}`);
+      console.log(
+        `[USER_DOCUMENTS] Using CRM user ID from query parameter (userData.id): ${crmUserID}`
+      );
     } else {
-      console.log(`[USER_DOCUMENTS] Using userId from cookies as CRM user ID: ${crmUserID}`);
+      console.log(
+        `[USER_DOCUMENTS] Using userId from cookies as CRM user ID: ${crmUserID}`
+      );
     }
 
     // Fetch documents from CRM
@@ -89,7 +94,7 @@ export async function GET(request) {
  *
  * Creates or updates user documents data in CRM for the authenticated user.
  * Accepts document data and sends it to the CRM documents endpoint.
- * 
+ *
  * User ID can be provided in two ways:
  * 1. Query parameter: ?id={userData.id} or ?crmUserID={userData.id} (from UserContext)
  * 2. Cookies: userId from cookies (set during auto-login) - used as fallback
@@ -115,7 +120,8 @@ export async function POST(request) {
 
     // Check if CRM user ID is passed as query parameter (from frontend context)
     const searchParams = request.nextUrl.searchParams;
-    const crmUserIDFromQuery = searchParams.get("crmUserID") || searchParams.get("id");
+    const crmUserIDFromQuery =
+      searchParams.get("crmUserID") || searchParams.get("id");
 
     // Use CRM user ID from query parameter if available (from userData.id in context),
     // otherwise fall back to userId from cookies
@@ -132,14 +138,20 @@ export async function POST(request) {
     }
 
     if (crmUserIDFromQuery) {
-      console.log(`[USER_DOCUMENTS_UPDATE] Using CRM user ID from query parameter (userData.id): ${crmUserID}`);
+      console.log(
+        `[USER_DOCUMENTS_UPDATE] Using CRM user ID from query parameter (userData.id): ${crmUserID}`
+      );
     } else {
-      console.log(`[USER_DOCUMENTS_UPDATE] Using userId from cookies as CRM user ID: ${crmUserID}`);
+      console.log(
+        `[USER_DOCUMENTS_UPDATE] Using userId from cookies as CRM user ID: ${crmUserID}`
+      );
     }
 
     // Parse request body
     const body = await request.json();
-    console.log(`[USER_DOCUMENTS_UPDATE] Updating documents for user: ${crmUserID}`);
+    console.log(
+      `[USER_DOCUMENTS_UPDATE] Updating documents for user: ${crmUserID}`
+    );
 
     // Update documents in CRM
     const updateResult = await updateDocuments(crmUserID, body);
@@ -248,7 +260,9 @@ async function fetchDocuments(crmUserID) {
         `[USER_DOCUMENTS] CRM authentication failed: ${authResult.error}`
       );
       if (authResult.endpoint) {
-        console.error(`[USER_DOCUMENTS] Failed endpoint: ${authResult.endpoint}`);
+        console.error(
+          `[USER_DOCUMENTS] Failed endpoint: ${authResult.endpoint}`
+        );
       }
       return {
         id: crmUserID,
@@ -286,9 +300,14 @@ async function fetchDocuments(crmUserID) {
 
     const responseData = await documentsResponse.json();
     console.log("[USER_DOCUMENTS] CRM response received");
-    console.log("[USER_DOCUMENTS] Full CRM response:", JSON.stringify(responseData, null, 2));
+    console.log(
+      "[USER_DOCUMENTS] Full CRM response:",
+      JSON.stringify(responseData, null, 2)
+    );
 
-    console.log(`[USER_DOCUMENTS] ✓ Successfully fetched documents for user: ${crmUserID}`);
+    console.log(
+      `[USER_DOCUMENTS] ✓ Successfully fetched documents for user: ${crmUserID}`
+    );
     return responseData;
   } catch (error) {
     console.error("[USER_DOCUMENTS] Error fetching documents from CRM:", error);
@@ -419,4 +438,3 @@ async function updateDocuments(crmUserID, updateData) {
     };
   }
 }
-

@@ -45,10 +45,17 @@ export async function GET(request) {
       );
     }
 
-    console.log(`[USER_ORDERS] Fetching orders for user: ${wpUserID}`);
+    // Get page parameter from query string
+    const { searchParams } = new URL(request.url);
+    const page = searchParams.get("page") || "1";
+    const pageNumber = parseInt(page, 10) || 1;
+
+    console.log(
+      `[USER_ORDERS] Fetching orders for user: ${wpUserID}, page: ${pageNumber}`
+    );
 
     // Fetch orders from CRM
-    const ordersData = await fetchOrders(wpUserID);
+    const ordersData = await fetchOrders(wpUserID, pageNumber);
 
     return NextResponse.json({
       success: true,
@@ -72,8 +79,10 @@ export async function GET(request) {
  * Fetch orders from CRM API
  * Uses the orders endpoint: /api/user/orders/{wpUserID}
  * wpUserID can be found from user context (userData.id) or cookies (userId)
+ * @param {string} userId - The WordPress user ID
+ * @param {number} page - The page number to fetch (default: 1)
  */
-async function fetchOrders(userId) {
+async function fetchOrders(userId, page = 1) {
   const crmHost = process.env.CRM_HOST;
   const apiUsername = process.env.CRM_API_USERNAME;
   const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
@@ -149,8 +158,10 @@ async function fetchOrders(userId) {
     );
 
     // Step 2: Fetch orders from CRM
-    // Uses the orders endpoint: /api/user/orders/{wpUserID}
-    const ordersUrl = `${crmHost}/api/user/orders/${userId}`;
+    // Uses the orders endpoint: /api/user/orders/{wpUserID}?page={page}
+    const ordersUrl = `${crmHost}/api/user/orders/${userId}${
+      page > 1 ? `?page=${page}` : ""
+    }`;
     console.log(`[USER_ORDERS] Fetching orders from: ${ordersUrl}`);
 
     const ordersResponse = await fetch(ordersUrl, {
@@ -175,16 +186,28 @@ async function fetchOrders(userId) {
 
     const responseData = await ordersResponse.json();
     console.log("[USER_ORDERS] CRM response received");
-    console.log("[USER_ORDERS] Full CRM response:", JSON.stringify(responseData, null, 2));
+    console.log(
+      "[USER_ORDERS] Full CRM response:",
+      JSON.stringify(responseData, null, 2)
+    );
     console.log("[USER_ORDERS] Response status:", responseData.status);
     console.log("[USER_ORDERS] Response keys:", Object.keys(responseData));
-    
+
     // Log the actual orders data structure
     if (responseData.data) {
-      console.log("[USER_ORDERS] Response.data type:", Array.isArray(responseData.data) ? "Array" : typeof responseData.data);
-      console.log("[USER_ORDERS] Response.data:", JSON.stringify(responseData.data, null, 2));
+      console.log(
+        "[USER_ORDERS] Response.data type:",
+        Array.isArray(responseData.data) ? "Array" : typeof responseData.data
+      );
+      console.log(
+        "[USER_ORDERS] Response.data:",
+        JSON.stringify(responseData.data, null, 2)
+      );
       if (responseData.data.orders) {
-        console.log("[USER_ORDERS] Response.data.orders:", JSON.stringify(responseData.data.orders, null, 2));
+        console.log(
+          "[USER_ORDERS] Response.data.orders:",
+          JSON.stringify(responseData.data.orders, null, 2)
+        );
       }
     }
 
@@ -200,16 +223,23 @@ async function fetchOrders(userId) {
           orders: responseData.data,
           count: responseData.data.length,
         };
-        console.log(`[USER_ORDERS] ✓ Found orders array in data: ${ordersData.count} orders`);
+        console.log(
+          `[USER_ORDERS] ✓ Found orders array in data: ${ordersData.count} orders`
+        );
       }
       // Check if orders array exists in data object
-      else if (responseData.data.orders && Array.isArray(responseData.data.orders)) {
+      else if (
+        responseData.data.orders &&
+        Array.isArray(responseData.data.orders)
+      ) {
         ordersData = {
           orders: responseData.data.orders,
           count: responseData.data.orders.length,
           ...responseData.data,
         };
-        console.log(`[USER_ORDERS] ✓ Found orders in data.orders: ${ordersData.count} orders`);
+        console.log(
+          `[USER_ORDERS] ✓ Found orders in data.orders: ${ordersData.count} orders`
+        );
       }
       // If data exists but structure is different
       else {
@@ -227,7 +257,9 @@ async function fetchOrders(userId) {
         orders: responseData,
         count: responseData.length,
       };
-      console.log(`[USER_ORDERS] ✓ Response is array, counted: ${ordersData.count} orders`);
+      console.log(
+        `[USER_ORDERS] ✓ Response is array, counted: ${ordersData.count} orders`
+      );
     }
     // Last fallback: return the response as-is
     else {
@@ -245,7 +277,11 @@ async function fetchOrders(userId) {
       };
     }
 
-    console.log(`[USER_ORDERS] ✓ Successfully fetched orders: ${ordersData.count || ordersData.orders?.length || 0} orders`);
+    console.log(
+      `[USER_ORDERS] ✓ Successfully fetched orders: ${
+        ordersData.count || ordersData.orders?.length || 0
+      } orders`
+    );
     return ordersData;
   } catch (error) {
     console.error("[USER_ORDERS] Error fetching orders from CRM:", error);
@@ -255,4 +291,3 @@ async function fetchOrders(userId) {
     };
   }
 }
-

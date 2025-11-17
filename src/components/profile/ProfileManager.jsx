@@ -114,16 +114,26 @@ export default function ProfileManager() {
 
     // API Logic
     try {
+      // For password, send all three fields
+      const requestBody = fieldKey === "password" && typeof newValue === "object"
+        ? {
+            field: fieldKey,
+            currentPassword: newValue.currentPassword,
+            newPassword: newValue.newPassword,
+            confirmPassword: newValue.confirmPassword,
+          }
+        : {
+            field: fieldKey,
+            value: newValue,
+          };
+
       // Update user data in CRM via API
       const response = await fetch("/api/user/profile", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          field: fieldKey,
-          value: newValue,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const result = await response.json();
@@ -208,9 +218,12 @@ export default function ProfileManager() {
 
     // Special handling for fullName - pass both first and last name
     const isNameField = field.key === "fullName";
+    
+    // Special handling for password - use 3 fields
+    const isPasswordField = field.key === "password";
 
     return {
-      title: `Update ${field.label}`,
+      title: field.key === "password" ? field.label : `Update ${field.label}`,
       label: field.label,
       currentValue: isNameField
         ? { firstName: profileData.firstName, lastName: profileData.lastName }
@@ -220,6 +233,7 @@ export default function ProfileManager() {
       inputType: inputTypeMap[field.key] || "text",
       isFileUpload: isFileUpload,
       isNameField: isNameField,
+      isPasswordField: isPasswordField,
       placeholder: `Enter your ${field.label.toLowerCase()}`,
     };
   };

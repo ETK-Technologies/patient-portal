@@ -35,37 +35,53 @@ const InfoRow = ({ label, value }) => {
   );
 };
 
-const TimelineStep = ({ label, date, isCompleted }) => (
-  <div className="flex flex-col items-center gap-[6px] text-center min-w-[77.75px]">
-    <div
-      className={`flex items-center justify-center w-4 h-4 rounded-full ${
-        isCompleted ? "bg-[#B07A4A] text-white" : "bg-[#F4F1EC] text-[#C9C5BF]"
-      }`}
-    >
-      <FaCheck
-        className={`w-2 h-2 ${isCompleted ? "opacity-100" : "opacity-60"}`}
-      />
-    </div>
-    <div className="flex flex-col gap-[2px]">
-      <p
-        className={`font-normal text-sm leading-[140%] tracking-[0px] text-center ${
-          isCompleted ? "text-black" : "text-[#A5A4A2]"
+const TimelineStep = ({ label, date, isCompleted, isCanceled }) => {
+  const isCanceledStep = isCanceled || label?.toLowerCase() === "canceled";
+
+  return (
+    <div className="flex flex-col items-center gap-[6px] text-center min-w-[77.75px]">
+      <div
+        className={`flex items-center justify-center w-4 h-4 rounded-full ${
+          isCanceledStep && isCompleted
+            ? "bg-[#DC3545] text-white"
+            : isCompleted
+            ? "bg-[#B07A4A] text-white"
+            : "bg-[#F4F1EC] text-[#C9C5BF]"
         }`}
       >
-        {label}
-      </p>
-      {date && (
-        <span
-          className={`font-normal text-xs leading-[140%] tracking-[0px] ${
-            isCompleted ? "text-[#00000099]" : "text-[#BCBAB6]"
+        <FaCheck
+          className={`w-2 h-2 ${isCompleted ? "opacity-100" : "opacity-60"}`}
+        />
+      </div>
+      <div className="flex flex-col gap-[2px]">
+        <p
+          className={`font-normal text-sm leading-[140%] tracking-[0px] text-center ${
+            isCanceledStep && isCompleted
+              ? "text-[#DC3545]"
+              : isCompleted
+              ? "text-black"
+              : "text-[#A5A4A2]"
           }`}
         >
-          {date}
-        </span>
-      )}
+          {label}
+        </p>
+        {date && (
+          <span
+            className={`font-normal text-xs leading-[140%] tracking-[0px] ${
+              isCanceledStep && isCompleted
+                ? "text-[#DC3545]"
+                : isCompleted
+                ? "text-[#00000099]"
+                : "text-[#BCBAB6]"
+            }`}
+          >
+            {date}
+          </span>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const OrderItem = ({ item }) => {
   return (
@@ -297,57 +313,68 @@ const mapOrderManageData = (apiData) => {
     shipped: "Shipped",
     delivered: "Delivered",
     processing: "Processing",
+    trash: "Trash",
   };
   const statusText = statusMap[normalizedStatus] || order.status || "Unknown";
 
   // Map timeline from status and dates
+  // Always show 4 steps: Order Received, Shipped, Out for delivery, Delivered/Canceled
   const timeline = [];
-  if (order.created_at) {
-    timeline.push({
-      label: "Order Received",
-      date: new Date(order.created_at).toLocaleDateString(),
-      isCompleted: true,
-    });
-  }
-  if (
-    normalizedStatus === "processing" ||
+  const isCancelled =
+    normalizedStatus === "cancelled" || normalizedStatus === "canceled";
+
+  // Step 1: Order Received (always completed if order exists)
+  timeline.push({
+    label: "Order Received",
+    date: order.created_at
+      ? new Date(order.created_at).toLocaleDateString()
+      : "",
+    isCompleted: true,
+  });
+
+  // Step 2: Shipped
+  const isShippedCompleted =
     normalizedStatus === "shipped" ||
-    normalizedStatus === "delivered"
-  ) {
-    timeline.push({
-      label: "Processing",
-      date: order.updated_at
+    normalizedStatus === "delivered" ||
+    isCancelled; // If cancelled, it might have been shipped first
+  timeline.push({
+    label: "Shipped",
+    date:
+      isShippedCompleted && order.updated_at
         ? new Date(order.updated_at).toLocaleDateString()
         : "",
-      isCompleted: normalizedStatus !== "pending",
-    });
-  }
-  if (normalizedStatus === "shipped" || normalizedStatus === "delivered") {
-    timeline.push({
-      label: "Shipped",
-      date: order.updated_at
+    isCompleted: isShippedCompleted,
+  });
+
+  // Step 3: Out for delivery
+  const isOutForDeliveryCompleted =
+    normalizedStatus === "delivered" || isCancelled; // If cancelled, it might have been out for delivery
+  timeline.push({
+    label: "Out for delivery",
+    date:
+      isOutForDeliveryCompleted && order.updated_at
         ? new Date(order.updated_at).toLocaleDateString()
         : "",
-      isCompleted:
-        normalizedStatus === "shipped" || normalizedStatus === "delivered",
-    });
-  }
-  if (normalizedStatus === "delivered") {
-    timeline.push({
-      label: "Delivered",
-      date: order.updated_at
-        ? new Date(order.updated_at).toLocaleDateString()
-        : "",
-      isCompleted: true,
-    });
-  }
-  if (normalizedStatus === "cancelled" || normalizedStatus === "canceled") {
+    isCompleted: isOutForDeliveryCompleted,
+  });
+
+  // Step 4: Delivered or Canceled
+  if (isCancelled) {
     timeline.push({
       label: "Canceled",
       date: order.updated_at
         ? new Date(order.updated_at).toLocaleDateString()
         : "",
       isCompleted: true,
+    });
+  } else {
+    timeline.push({
+      label: "Delivered",
+      date:
+        normalizedStatus === "delivered" && order.updated_at
+          ? new Date(order.updated_at).toLocaleDateString()
+          : "",
+      isCompleted: normalizedStatus === "delivered",
     });
   }
 
@@ -357,10 +384,62 @@ const mapOrderManageData = (apiData) => {
       const productName = getFieldValue(item, "product_name");
       const quantity = getFieldValue(item, "quantity");
       const total = getFieldValue(item, "total");
+      const subtotal = getFieldValue(item, "subtotal");
       const image = getFieldValue(item, "product_image");
       const brand = getFieldValue(item, "brand");
       const type = getFieldValue(item, "type");
       const frequency = getFieldValue(item, "tab_frequency");
+
+      // Special handling for Body Optimization Program
+      const isBodyOptimizationProgram =
+        productName?.toLowerCase() === "body optimization program";
+
+      let priceLabel;
+      let highlights = [];
+
+      if (isBodyOptimizationProgram) {
+        // For Body Optimization Program, show initial fee and monthly fee
+        const initialFee =
+          subtotal !== "Data not exist in API response" && subtotal !== ""
+            ? parseFloat(subtotal)
+            : total !== "Data not exist in API response" && total !== ""
+            ? parseFloat(total)
+            : 0;
+        const monthlyFee = 40; // Default monthly fee for Body Optimization Program
+
+        priceLabel = [
+          { label: "Initial fee", value: `$${initialFee.toFixed(2)}` },
+          { label: "Monthly fee", value: `$${monthlyFee.toFixed(2)}` },
+        ];
+
+        // Show "Includes" text instead of regular highlights
+        highlights = [
+          {
+            label: "Includes:",
+            value:
+              "Monthly Prescriptions, Follow-ups with clinicians, Pharmacist counseling",
+          },
+        ];
+      } else {
+        // Regular product handling
+        priceLabel =
+          total !== "Data not exist in API response"
+            ? total !== ""
+              ? `$${parseFloat(total).toFixed(2)}`
+              : ""
+            : missingData;
+
+        highlights = [
+          { label: "Brand", value: brand },
+          { label: "Type", value: type },
+          { label: "Frequency", value: frequency },
+        ].filter(
+          (highlight) =>
+            highlight.value &&
+            highlight.value !== "" &&
+            highlight.value !== "Data not exist in API response"
+        );
+      }
 
       return {
         id:
@@ -375,22 +454,8 @@ const mapOrderManageData = (apiData) => {
               : ""
             : missingData,
         image: image !== "Data not exist in API response" ? image : "",
-        priceLabel:
-          total !== "Data not exist in API response"
-            ? total !== ""
-              ? `$${parseFloat(total).toFixed(2)}`
-              : ""
-            : missingData,
-        highlights: [
-          { label: "Brand", value: brand },
-          { label: "Type", value: type },
-          { label: "Frequency", value: frequency },
-        ].filter(
-          (highlight) =>
-            highlight.value &&
-            highlight.value !== "" &&
-            highlight.value !== "Data not exist in API response"
-        ),
+        priceLabel: priceLabel,
+        highlights: highlights,
       };
     }) || [];
 
@@ -593,9 +658,12 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
           data
         );
 
+        // Store the full response data
         setOrderManageData(data.data || data);
 
         // Map the API response to modal structure
+        // The response structure is: { success: true, data: { status, message, data: { order } } }
+        // So we pass the full response to mapOrderManageData which handles nested paths
         const mapped = mapOrderManageData(data);
         setMappedOrderData(mapped);
 
@@ -690,7 +758,7 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
           <IoMdClose className="w-5 h-5 text-black" />
         </CustomButton>
 
-        <div className="px-5 py-6 md:px-8 md:py-8 overflow-y-auto">
+        <div className="px-5 py-6 md:px-8 md:py-8 overflow-y-auto modal-scrollbar">
           {loading && !mappedOrderData && (
             <div className="flex items-center justify-center py-8">
               <p className="text-gray-600">Loading order details...</p>

@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import SubscriptionCard from "./SubscriptionCard";
-import { subscriptionsData } from "./subscriptionsData";
 import ScrollIndicator from "../utils/ScrollIndicator";
 import ScrollArrows from "../utils/ScrollArrows";
 import SubscriptionFlow from "../subscription-flow/SubscriptionFlow";
 import SubscriptionActionPanel from "./SubscriptionActionPanel";
 import { FiArrowLeft, FiChevronLeft } from "react-icons/fi";
 import { FaArrowLeft } from "react-icons/fa";
+import EmptyState from "../utils/EmptyState";
 
 export default function SubscriptionsSection() {
   const [activeTab, setActiveTab] = useState("all");
@@ -16,6 +16,9 @@ export default function SubscriptionsSection() {
   const [showHeader, setShowHeader] = useState(true);
   const [headerVariant, setHeaderVariant] = useState("full"); // 'full' | 'backOnly'
   const [flowBackHandler, setFlowBackHandler] = useState(null); // { handleBack, stepIndex }
+  const [subscriptionsData, setSubscriptionsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Store the back handler from the flow
   // Must be defined at top level (not conditionally) to follow Rules of Hooks
@@ -29,6 +32,107 @@ export default function SubscriptionsSection() {
       // Return same reference if nothing changed to prevent re-renders
       return prev;
     });
+  }, []);
+
+  // Fetch subscriptions from API
+  useEffect(() => {
+    const fetchSubscriptions = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch("/api/user/subscriptions");
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || "Failed to fetch subscriptions");
+        }
+
+        // Handle the API response structure
+        // Response: { success: true, data: { status: true, message: "...", data: { subscriptions: [...] } } }
+        const responseData = result.data;
+        
+        console.log("[SUBSCRIPTIONS] Full API response:", JSON.stringify(result, null, 2));
+        console.log("[SUBSCRIPTIONS] Response data:", responseData);
+
+        // Extract subscriptions array
+        let subscriptionsArray = [];
+        
+        if (responseData?.data?.subscriptions) {
+          subscriptionsArray = Array.isArray(responseData.data.subscriptions) 
+            ? responseData.data.subscriptions 
+            : [];
+          console.log("[SUBSCRIPTIONS] ✓ Found subscriptions in nested structure:", subscriptionsArray.length, "items");
+        } else if (responseData?.subscriptions) {
+          subscriptionsArray = Array.isArray(responseData.subscriptions) 
+            ? responseData.subscriptions 
+            : [];
+          console.log("[SUBSCRIPTIONS] ✓ Found subscriptions in direct structure:", subscriptionsArray.length, "items");
+        } else {
+          console.warn("[SUBSCRIPTIONS] ⚠️ Could not find subscriptions array in response structure");
+        }
+
+        // Map API response to component format
+        const mappedSubscriptions = subscriptionsArray.map((sub) => {
+          // Get first line item for product info
+          const firstItem = sub.line_items?.[0] || {};
+          
+          // Map status: "on-hold" -> "paused", "cancelled" -> "canceled", "active" -> "active"
+          let mappedStatus = sub.status?.toLowerCase() || "active";
+          if (mappedStatus === "on-hold") {
+            mappedStatus = "paused";
+          } else if (mappedStatus === "cancelled") {
+            mappedStatus = "canceled";
+          }
+
+          // Extract product name and subtitle
+          const productName = firstItem.name || firstItem.parent_name || "Unknown Product";
+          const productSubtitle = firstItem.parent_name && firstItem.name !== firstItem.parent_name 
+            ? firstItem.name 
+            : null;
+
+          // Extract dosage from meta_data
+          const tabsFrequency = firstItem.meta_data?.find(m => m.key === "pa_tabs-frequency")?.display_value || "";
+          const subscriptionType = firstItem.meta_data?.find(m => m.key === "pa_subscription-type")?.display_value || "";
+          const dosage = tabsFrequency && subscriptionType 
+            ? `${tabsFrequency} | ${subscriptionType}`
+            : tabsFrequency || subscriptionType || "Not available";
+
+          // Format next payment date
+          const nextPaymentDate = sub.next_payment_date_gmt 
+            ? new Date(sub.next_payment_date_gmt).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+            : "Not scheduled";
+
+          return {
+            id: sub.id,
+            category: "Sexual Health", // Default category, can be enhanced later
+            status: mappedStatus,
+            productName: productName,
+            productSubtitle: productSubtitle,
+            dosage: dosage,
+            nextRefill: nextPaymentDate,
+            productImage: firstItem.image?.src || "https://myrocky.b-cdn.net/WP%20Images/patient-portal/order-card-1.png",
+            // Store full subscription data for actions
+            _raw: sub,
+          };
+        });
+
+        console.log("[SUBSCRIPTIONS] Mapped subscriptions:", mappedSubscriptions);
+        setSubscriptionsData(mappedSubscriptions);
+      } catch (err) {
+        console.error("[SUBSCRIPTIONS] Error fetching subscriptions:", err);
+        setError(err.message || "Failed to load subscriptions");
+        setSubscriptionsData([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSubscriptions();
   }, []);
 
   const tabs = [
@@ -257,11 +361,20 @@ export default function SubscriptionsSection() {
             }
           )}
         </div>
+      ) : loading ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          <p className="text-gray-600 text-center">Loading subscriptions...</p>
+        </div>
+      ) : error ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          <p className="text-red-600 text-center">Error: {error}</p>
+        </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
-          <p className="text-gray-600">
-            No {activeTab !== "all" ? activeTab : ""} subscriptions found.
-          </p>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <EmptyState
+            title="No Subscriptions"
+            message={`You don't have any ${activeTab !== "all" ? activeTab : ""} subscriptions yet.`}
+          />
         </div>
       )}
     </div>
