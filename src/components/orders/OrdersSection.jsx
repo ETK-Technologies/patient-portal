@@ -54,8 +54,11 @@ const transformOrder = (apiOrder) => {
   // Format total as currency
   const formattedTotal = `$${parseFloat(apiOrder.total || 0).toFixed(2)}`;
 
+  // Use crm_order_id as the primary ID (required for order details API)
+  const orderId = apiOrder.crm_order_id || apiOrder.id;
+  
   return {
-    id: apiOrder.id,
+    id: orderId,
     date: formatDateForGrouping(
       apiOrder.created_at?.split(" ")[0] || apiOrder.created_at
     ),
@@ -64,7 +67,7 @@ const transformOrder = (apiOrder) => {
       subtitle: firstItem.brand || firstItem.type || null,
       image: firstItem.product_image || "",
     },
-    orderNumber: `#${apiOrder.id}`,
+    orderNumber: `#${apiOrder.wp_order_id || orderId}`,
     trackingNumber: trackingNumber,
     type: firstItem.type || "Order",
     total: formattedTotal,
@@ -110,10 +113,27 @@ const OrdersSection = () => {
   const processOrdersData = (data) => {
     const allOrders = [];
 
-    // Check if we have the grouped data structure from API
-    if (data.orders && Array.isArray(data.orders)) {
+    // New API format: { status: true, message: "...", data: { orders: [...], pagination: {...} } }
+    // Old format: { success: true, orders: [...], data: {...} }
+    let ordersData = null;
+    
+    if (data.status && data.data && data.data.orders) {
+      // New format: data.data.orders
+      ordersData = data.data.orders;
+    } else if (data.data && data.data.orders) {
+      // Alternative: data.data.orders
+      ordersData = data.data.orders;
+    } else if (data.orders && Array.isArray(data.orders)) {
+      // Old format: data.orders
+      ordersData = data.orders;
+    } else if (data.data && Array.isArray(data.data)) {
+      // Fallback: data.data is array
+      ordersData = data.data;
+    }
+
+    if (ordersData && Array.isArray(ordersData)) {
       // API returns: [{date: '2025-10-08', orders: Array(5)}, ...]
-      data.orders.forEach((dateGroup) => {
+      ordersData.forEach((dateGroup) => {
         if (dateGroup.orders && Array.isArray(dateGroup.orders)) {
           dateGroup.orders.forEach((order) => {
             // Use the date from the group, not from the order
@@ -124,10 +144,6 @@ const OrdersSection = () => {
           });
         }
       });
-    } else if (data.data && Array.isArray(data.data)) {
-      // Fallback: if data is directly an array
-      const transformedOrders = data.data.map(transformOrder);
-      allOrders.push(...transformedOrders);
     }
 
     return allOrders;
@@ -149,7 +165,7 @@ const OrdersSection = () => {
         if (!response.ok) {
           const errorData = await response.json();
           console.error("[ORDERS_SECTION] Error fetching orders:", errorData);
-          setError(errorData.error || "Failed to fetch orders");
+          setError(errorData.message || errorData.error || "Failed to fetch orders");
           if (page === 1) {
             setOrders([]);
           }
@@ -206,7 +222,7 @@ const OrdersSection = () => {
           "[ORDERS_SECTION] Error fetching more orders:",
           errorData
         );
-        setError(errorData.error || "Failed to fetch more orders");
+        setError(errorData.message || errorData.error || "Failed to fetch more orders");
         return;
       }
 

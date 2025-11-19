@@ -31,13 +31,14 @@ const mapMedicalProfileData = (apiData) => {
     };
   }
 
-  // Handle nested data structure: data.data (response has { success: true, data: { data: {...} } })
+  // Handle nested data structure: data.data (response has { status: true, data: {...} })
   let actualData = apiData.data;
   if (actualData && actualData.data) {
     actualData = actualData.data;
   }
 
-  const medicalProfile = actualData?.medicalProfile || [];
+  // API returns medicalProfile_types (array of types) and medicalProfiles (array of entries)
+  const medicalProfileTypes = actualData?.medicalProfile_types || actualData?.medicalProfile || [];
   const medicalProfiles = actualData?.medicalProfiles || [];
 
   // Create a map of meta_key to meta_value (using the most recent entry for each key)
@@ -62,23 +63,22 @@ const mapMedicalProfileData = (apiData) => {
     }
   });
 
-  // Map each category from medicalProfile array
-  // Each category now has a medical_profile object with meta_value
+  // Map each category from medicalProfile_types array
+  // Get values from medicalProfiles array using meta_key
   const mappedData = {};
-  medicalProfile.forEach((category) => {
+  medicalProfileTypes.forEach((category) => {
     const slug = category.slug;
     let value = "";
 
-    // First, try to get value from category.medical_profile.meta_value
-    if (
-      category.medical_profile &&
-      category.medical_profile.meta_value !== undefined
-    ) {
-      value = category.medical_profile.meta_value || "";
-    }
-    // Fall back to medicalProfiles array (use most recent entry)
-    else if (profileMap[slug]) {
-      value = profileMap[slug].value || "";
+    // Get value from medicalProfiles array using meta_key
+    if (profileMap[slug]) {
+      const metaValue = profileMap[slug].value;
+      // meta_value is an array, so join it if it's an array
+      if (Array.isArray(metaValue)) {
+        value = metaValue.join(", ");
+      } else {
+        value = metaValue || "";
+      }
     }
 
     mappedData[slug] = value !== "" ? value : missingData;
@@ -117,18 +117,33 @@ export default function MedicalHistoryManager() {
         setError(null);
 
         // Extract CRM user ID from userData
+        // New format: userData has crm_user_id directly
+        // Old format: userData.id or nested structures
         let crmUserID = null;
         if (userData) {
-          if (userData.id) {
+          // Check for crm_user_id (new format from profile API)
+          if (userData.crm_user_id) {
+            crmUserID = userData.crm_user_id;
+          } 
+          // Fallback to id (old format)
+          else if (userData.id) {
             crmUserID = userData.id;
-          } else if (userData.user && userData.user.id) {
+          } 
+          // Check nested structures
+          else if (userData.user) {
+            if (userData.user.crm_user_id) {
+              crmUserID = userData.user.crm_user_id;
+            } else if (userData.user.id) {
             crmUserID = userData.user.id;
-          } else if (
-            userData.data &&
-            userData.data.user &&
-            userData.data.user.id
-          ) {
+            }
+          } 
+          // Check deeply nested structures
+          else if (userData.data && userData.data.user) {
+            if (userData.data.user.crm_user_id) {
+              crmUserID = userData.data.user.crm_user_id;
+            } else if (userData.data.user.id) {
             crmUserID = userData.data.user.id;
+            }
           }
         }
 
@@ -165,7 +180,10 @@ export default function MedicalHistoryManager() {
         const data = await response.json();
         console.log("[MEDICAL_HISTORY] API response:", data);
 
-        if (data.success && data.data) {
+        // Handle both response formats:
+        // New format: { status: true, message: "...", data: {...} }
+        // Old format: { success: true, data: {...} }
+        if ((data.status && data.data) || (data.success && data.data)) {
           const mapped = mapMedicalProfileData(data);
           setMedicalHistoryData(mapped);
         } else {
@@ -202,18 +220,33 @@ export default function MedicalHistoryManager() {
 
     try {
       // Extract CRM user ID from userData
+      // New format: userData has crm_user_id directly
+      // Old format: userData.id or nested structures
       let crmUserID = null;
       if (userData) {
-        if (userData.id) {
+        // Check for crm_user_id (new format from profile API)
+        if (userData.crm_user_id) {
+          crmUserID = userData.crm_user_id;
+        } 
+        // Fallback to id (old format)
+        else if (userData.id) {
           crmUserID = userData.id;
-        } else if (userData.user && userData.user.id) {
+        } 
+        // Check nested structures
+        else if (userData.user) {
+          if (userData.user.crm_user_id) {
+            crmUserID = userData.user.crm_user_id;
+          } else if (userData.user.id) {
           crmUserID = userData.user.id;
-        } else if (
-          userData.data &&
-          userData.data.user &&
-          userData.data.user.id
-        ) {
+          }
+        } 
+        // Check deeply nested structures
+        else if (userData.data && userData.data.user) {
+          if (userData.data.user.crm_user_id) {
+            crmUserID = userData.data.user.crm_user_id;
+          } else if (userData.data.user.id) {
           crmUserID = userData.data.user.id;
+          }
         }
       }
 
@@ -228,20 +261,25 @@ export default function MedicalHistoryManager() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          crmUserID: crmUserID,
+          crm_user_id: crmUserID,
           slug: fieldKey,
-          medical_profile: newValue,
+          meta_value: newValue,
         }),
       });
 
       const result = await response.json();
 
-      if (!response.ok || !result.success) {
-        console.error("Failed to update medical history:", result.error);
+      // Handle both response formats:
+      // New format: { status: true/false, message: "...", data: {...} }
+      // Old format: { success: true/false, error: "..." }
+      const isSuccess = result.status === true || result.success === true;
+      
+      if (!response.ok || !isSuccess) {
+        console.error("Failed to update medical history:", result.error || result.message);
 
         // Show user-friendly error message
         const errorMessage =
-          result.error || "An unexpected error occurred. Please try again.";
+          result.error || result.message || "An unexpected error occurred. Please try again.";
         toast.error(errorMessage, {
           position: "top-right",
           autoClose: 5000,

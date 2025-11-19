@@ -10,9 +10,24 @@ import { authenticateWithCRM } from "../../utils/crmAuth";
  *
  * Expected Response:
  * {
- *   "success": true,
- *   "orders": [...],
- *   "data": { ... }
+ *   "status": true,
+ *   "message": "Order list fetched successfully.",
+ *   "data": {
+ *     "orders": [
+ *       {
+ *         "date": "2025-10-08",
+ *         "orders": [...]
+ *       }
+ *     ],
+ *     "pagination": {
+ *       "current_page": 1,
+ *       "per_page": 10,
+ *       "total": 58,
+ *       "last_page": 6,
+ *       "next_page_url": "...",
+ *       "prev_page_url": null
+ *     }
+ *   }
  * }
  */
 export async function GET(request) {
@@ -38,7 +53,8 @@ export async function GET(request) {
     if (!wpUserID) {
       return NextResponse.json(
         {
-          success: false,
+          status: false,
+          message: "User not authenticated",
           error: "User not authenticated",
         },
         { status: 401 }
@@ -57,16 +73,22 @@ export async function GET(request) {
     // Fetch orders from CRM
     const ordersData = await fetchOrders(wpUserID, pageNumber);
 
+    // Return in the expected format
+    // Expected: { status: true, message: "...", data: { orders: [...], pagination: {...} } }
     return NextResponse.json({
-      success: true,
-      orders: ordersData.orders || [],
-      data: ordersData,
+      status: true,
+      message: "Order list fetched successfully.",
+      data: {
+        orders: ordersData.orders || [],
+        pagination: ordersData.pagination || null,
+      },
     });
   } catch (error) {
     console.error("Error fetching user orders:", error);
     return NextResponse.json(
       {
-        success: false,
+        status: false,
+        message: "Failed to fetch user orders",
         error: "Failed to fetch user orders",
         details: error.message,
       },
@@ -169,6 +191,7 @@ async function fetchOrders(userId, page = 1) {
       headers: {
         Authorization: `Bearer ${authToken}`,
         "Content-Type": "application/json",
+        "is-patient-portal": "true",
       },
     });
 
@@ -212,75 +235,41 @@ async function fetchOrders(userId, page = 1) {
     }
 
     // Extract orders from the CRM response structure
-    // CRM might return: { status: true, data: { orders: [...], count: 5 } }
-    // or: { status: true, data: [...] } where data is the orders array
-    let ordersData = null;
+    // CRM returns: { status: true, message: "...", data: { orders: [...], pagination: {...} } }
+    // The orders array contains objects with date and orders properties
+    let ordersData = responseData;
 
     if (responseData.status && responseData.data) {
-      // Check if orders array is directly in data
-      if (Array.isArray(responseData.data)) {
-        ordersData = {
-          orders: responseData.data,
-          count: responseData.data.length,
-        };
-        console.log(
-          `[USER_ORDERS] ✓ Found orders array in data: ${ordersData.count} orders`
-        );
-      }
-      // Check if orders array exists in data object
-      else if (
-        responseData.data.orders &&
-        Array.isArray(responseData.data.orders)
-      ) {
-        ordersData = {
-          orders: responseData.data.orders,
-          count: responseData.data.orders.length,
-          ...responseData.data,
-        };
-        console.log(
-          `[USER_ORDERS] ✓ Found orders in data.orders: ${ordersData.count} orders`
-        );
-      }
-      // If data exists but structure is different
-      else {
-        console.log("[USER_ORDERS] Response has data but unexpected structure");
-        console.log("[USER_ORDERS] Data keys:", Object.keys(responseData.data));
-        ordersData = {
-          orders: [],
-          ...responseData.data,
-        };
-      }
-    }
-    // Fallback: if response doesn't have status/data structure
-    else if (Array.isArray(responseData)) {
+      // Extract data from nested structure
       ordersData = {
-        orders: responseData,
-        count: responseData.length,
+        ...responseData.data,
+        // Keep the full response structure for reference
+        _fullResponse: responseData,
       };
       console.log(
-        `[USER_ORDERS] ✓ Response is array, counted: ${ordersData.count} orders`
+        `[USER_ORDERS] ✓ Extracted data from CRM response (data property)`
       );
-    }
-    // Last fallback: return the response as-is
-    else {
+      console.log(
+        `[USER_ORDERS] Orders structure:`,
+        Array.isArray(ordersData.orders)
+          ? `Array with ${ordersData.orders.length} date groups`
+          : typeof ordersData.orders
+      );
+      if (ordersData.pagination) {
+        console.log(
+          `[USER_ORDERS] Pagination: page ${ordersData.pagination.current_page} of ${ordersData.pagination.last_page} (total: ${ordersData.pagination.total})`
+        );
+      }
+    } else if (responseData.data) {
       ordersData = {
-        orders: [],
-        data: responseData,
+        ...responseData.data,
+        _fullResponse: responseData,
       };
-    }
-
-    if (!ordersData) {
-      console.error("[USER_ORDERS] ✗ Failed to extract orders data");
-      return {
-        orders: [],
-        id: userId,
-      };
+      console.log(`[USER_ORDERS] ✓ Using data property from response`);
     }
 
     console.log(
-      `[USER_ORDERS] ✓ Successfully fetched orders: ${
-        ordersData.count || ordersData.orders?.length || 0
-      } orders`
+      `[USER_ORDERS] ✓ Successfully fetched orders for user: ${userId}`
     );
     return ordersData;
   } catch (error) {

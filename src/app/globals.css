@@ -133,3 +133,8 @@ body {
   overflow-x: auto; /* Allow horizontal scrolling for wide content */
   overflow-y: auto; /* Vertical scrolling */
 }
+
+/* Ensure toast notifications appear above modals */
+.Toastify__toast-container {
+  z-index: 10001 !important;
+}

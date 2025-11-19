@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "react-toastify";
 import { IoMdClose } from "react-icons/io";
 import { FaCheck } from "react-icons/fa";
 import CustomButton from "@/components/utils/Button";
@@ -23,13 +24,16 @@ const InfoRow = ({ label, value }) => {
   // Only skip if value is null/undefined (which shouldn't happen with our mapping)
   if (value === null || value === undefined) return null;
 
+  // Convert technical messages to user-friendly ones
+  const displayValue = getUserFriendlyValue(value);
+
   return (
     <div>
       <p className="font-normal text-base leading-[140%] tracking-[0px] mb-[4px] text-black">
         {label}
       </p>
       <p className="font-normal text-sm leading-[140%] tracking-[0px] text-[#00000099]">
-        {value}
+        {displayValue}
       </p>
     </div>
   );
@@ -158,6 +162,9 @@ const OrderSummaryRow = ({
 }) => {
   if (!value) return null;
 
+  // Convert technical messages to user-friendly ones
+  const displayValue = getUserFriendlyValue(value);
+
   return (
     <div className="flex items-start justify-between gap-[4px]">
       <span
@@ -173,7 +180,7 @@ const OrderSummaryRow = ({
             emphasis ? emphasisClassName : ""
           }`}
         >
-          {value}
+          {displayValue}
         </span>
         {note && (
           <span className="font-[400] text-xs leading-[140%] tracking-[0px] text-right text-[#00000099]">
@@ -186,6 +193,21 @@ const OrderSummaryRow = ({
 };
 
 const ANIMATION_DURATION = 300;
+
+// Helper function to convert technical messages to user-friendly ones
+const getUserFriendlyValue = (value) => {
+  if (
+    value === "Data not exist in API response" ||
+    value === null ||
+    value === undefined
+  ) {
+    return "Not available";
+  }
+  if (value === "") {
+    return "Not available";
+  }
+  return value;
+};
 
 // Helper function to get value - if field exists (even if empty), return empty string, otherwise return "Data not exist in API response"
 const getValueOrNotExist = (obj, fieldPath) => {
@@ -489,7 +511,7 @@ const mapOrderManageData = (apiData) => {
                 ? `Coupon: ${couponCode}`
                 : "",
           }
-        : { value: missingData, note: "" },
+        : { value: getUserFriendlyValue(missingData), note: "" },
     shipping:
       shippingTotal !== missingData
         ? {
@@ -499,19 +521,19 @@ const mapOrderManageData = (apiData) => {
                 : "",
             note: "",
           }
-        : { value: missingData, note: "" },
+        : { value: getUserFriendlyValue(missingData), note: "" },
     tax:
       totalTax !== missingData
         ? totalTax !== ""
           ? `$${parseFloat(totalTax).toFixed(2)}`
           : ""
-        : missingData,
+        : getUserFriendlyValue(missingData),
     total:
       total !== missingData
         ? total !== ""
           ? `$${parseFloat(total).toFixed(2)}`
           : ""
-        : missingData,
+        : getUserFriendlyValue(missingData),
   };
 
   // Handle tracking number
@@ -527,8 +549,12 @@ const mapOrderManageData = (apiData) => {
     }
   }
 
+  // Get order ID - prefer wp_order_id for display, fallback to crm_order_id or id
+  const orderIdForDisplay =
+    order.wp_order_id || order.crm_order_id || order.id || null;
+
   return {
-    orderId: getFieldValue(order, "id"),
+    orderId: orderIdForDisplay,
     status: statusText, // Use normalized status
     subscriptionLabel: getFieldValue(order, "order_type"),
     timeline: timeline.length > 0 ? timeline : null,
@@ -555,6 +581,7 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
   const [mappedOrderData, setMappedOrderData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
   useEffect(() => {
     let mountRafId;
@@ -619,13 +646,20 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
         setLoading(true);
         setError(null);
 
-        // Extract order ID (could be from order.id or order.details.id)
-        // Handle case where orderNumber might be "#123" format
-        let orderId = order.id || order.details?.id;
+        // Extract order ID - use crm_order_id (required for order details API)
+        // The API endpoint expects crmOrderID, not wp_order_id
+        let orderId =
+          order.id || order.details?.crm_order_id || order.details?.id;
 
         // If orderId is not found, try extracting from orderNumber (remove # prefix)
+        // Note: orderNumber might be wp_order_id, so prefer crm_order_id from details
         if (!orderId && order.orderNumber) {
           orderId = order.orderNumber.replace(/^#/, "");
+        }
+
+        // Final fallback: try to get crm_order_id from details
+        if (!orderId && order.details) {
+          orderId = order.details.crm_order_id;
         }
 
         if (!orderId) {
@@ -647,7 +681,11 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
             "[ORDER_DETAILS_MODAL] Error fetching order management data:",
             errorData
           );
-          setError(errorData.error || "Failed to fetch order details");
+          setError(
+            errorData.message ||
+              errorData.error ||
+              "Failed to fetch order details"
+          );
           setLoading(false);
           return;
         }
@@ -659,10 +697,12 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
         );
 
         // Store the full response data
+        // New format: { status: true, message: "...", data: { order: {...} } }
+        // Old format: { success: true, data: {...} }
         setOrderManageData(data.data || data);
 
         // Map the API response to modal structure
-        // The response structure is: { success: true, data: { status, message, data: { order } } }
+        // The response structure is: { status: true, message: "...", data: { order: {...} } }
         // So we pass the full response to mapOrderManageData which handles nested paths
         const mapped = mapOrderManageData(data);
         setMappedOrderData(mapped);
@@ -684,7 +724,158 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
   // Use mapped data if available, otherwise fall back to details
   const displayData = mappedOrderData || details;
   const derivedStatus = displayData?.status || order?.status?.text;
-  const derivedOrderId = displayData?.orderId || order?.orderNumber;
+
+  // Get order number for display - prefer orderNumber, then orderId from mapped data, then from order details
+  let derivedOrderId = order?.orderNumber;
+  if (!derivedOrderId || derivedOrderId === "Data not exist in API response") {
+    derivedOrderId = displayData?.orderId;
+  }
+  if (!derivedOrderId || derivedOrderId === "Data not exist in API response") {
+    // Try to get from order details
+    derivedOrderId =
+      order?.details?.wp_order_id || order?.details?.crm_order_id;
+  }
+  if (!derivedOrderId || derivedOrderId === "Data not exist in API response") {
+    // Final fallback - use order.id if it's a valid number/string
+    const fallbackId = order?.id;
+    if (fallbackId && fallbackId !== "Data not exist in API response") {
+      derivedOrderId = fallbackId;
+    }
+  }
+
+  // Format as #orderNumber if it's a valid value
+  if (derivedOrderId && derivedOrderId !== "Data not exist in API response") {
+    derivedOrderId = derivedOrderId.toString().startsWith("#")
+      ? derivedOrderId
+      : `#${derivedOrderId}`;
+  } else {
+    // If still no valid order number, use a default
+    derivedOrderId = order?.orderNumber || "#N/A";
+  }
+
+  // Function to handle invoice download
+  const handleDownloadInvoice = async () => {
+    try {
+      setDownloadingInvoice(true);
+
+      // Extract order ID - use crm_order_id (required for invoice download API)
+      let orderId =
+        order.id || order.details?.crm_order_id || order.details?.id;
+
+      // If orderId is not found, try extracting from orderNumber (remove # prefix)
+      if (!orderId && order.orderNumber) {
+        orderId = order.orderNumber.replace(/^#/, "");
+      }
+
+      // Final fallback: try to get crm_order_id from details
+      if (!orderId && order.details) {
+        orderId = order.details.crm_order_id;
+      }
+
+      // Also try to get from mapped order data
+      if (!orderId && mappedOrderData?.orderId) {
+        orderId = mappedOrderData.orderId;
+      }
+
+      // Try to get from orderManageData
+      if (!orderId && orderManageData?.data?.order?.crm_order_id) {
+        orderId = orderManageData.data.order.crm_order_id;
+      }
+
+      if (!orderId) {
+        console.error(
+          "[ORDER_DETAILS_MODAL] No order ID found for invoice download",
+          order
+        );
+        toast.error("Order ID not found");
+        setDownloadingInvoice(false);
+        return;
+      }
+
+      console.log(
+        `[ORDER_DETAILS_MODAL] Downloading invoice for order: ${orderId}`
+      );
+
+      const response = await fetch(
+        `/api/user/order/invoice/download/${orderId}`
+      );
+
+      if (!response.ok) {
+        let errorMessage = "Failed to download invoice";
+        try {
+          const errorData = await response.json();
+          console.error(
+            "[ORDER_DETAILS_MODAL] Error downloading invoice:",
+            errorData
+          );
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (parseError) {
+          // If response is not JSON, use status text
+          console.error(
+            "[ORDER_DETAILS_MODAL] Error parsing error response:",
+            parseError
+          );
+          errorMessage = `Failed to download invoice: ${response.status} ${response.statusText}`;
+        }
+
+        // Make error message more user-friendly
+        if (
+          errorMessage.includes("404") ||
+          errorMessage.includes("Not Found")
+        ) {
+          errorMessage = "Invoice not found for this order";
+        } else if (
+          errorMessage.includes("401") ||
+          errorMessage.includes("Unauthorized")
+        ) {
+          errorMessage = "You are not authorized to download this invoice";
+        } else if (
+          errorMessage.includes("403") ||
+          errorMessage.includes("Forbidden")
+        ) {
+          errorMessage = "Access denied to download this invoice";
+        } else if (
+          errorMessage.includes("500") ||
+          errorMessage.includes("Internal Server Error")
+        ) {
+          errorMessage = "Server error. Please try again later";
+        } else if (errorMessage.includes("Failed to download invoice:")) {
+          // Extract just the user-friendly part
+          errorMessage = errorMessage.replace(
+            /Failed to download invoice:\s*\d+\s*/i,
+            "Failed to download invoice. "
+          );
+        }
+
+        toast.error(errorMessage);
+        setDownloadingInvoice(false);
+        return;
+      }
+
+      // Get the PDF blob
+      const blob = await response.blob();
+
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `invoice-${orderId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log("[ORDER_DETAILS_MODAL] Invoice downloaded successfully");
+      toast.success("Invoice downloaded successfully");
+      setDownloadingInvoice(false);
+    } catch (err) {
+      console.error("[ORDER_DETAILS_MODAL] Error downloading invoice:", err);
+      toast.error(err.message || "Failed to download invoice");
+      setDownloadingInvoice(false);
+    }
+  };
 
   const billingInfo = useMemo(() => {
     const billingDetails = displayData?.billingDetails;
@@ -701,25 +892,30 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
     } = billingDetails;
 
     return [
-      { label: "Payment Method", value: paymentMethod },
-      { label: "Transaction Date", value: transactionDate },
-      { label: "Customer Name", value: customerName },
-      { label: "Email", value: email },
-      { label: "Phone Number", value: phoneNumber },
+      { label: "Payment Method", value: getUserFriendlyValue(paymentMethod) },
+      {
+        label: "Transaction Date",
+        value: getUserFriendlyValue(transactionDate),
+      },
+      { label: "Customer Name", value: getUserFriendlyValue(customerName) },
+      { label: "Email", value: getUserFriendlyValue(email) },
+      { label: "Phone Number", value: getUserFriendlyValue(phoneNumber) },
       {
         label: "Shipping Address",
         value:
           shippingAddress &&
-          shippingAddress !== "Data not exist in API response"
+          shippingAddress !== "Data not exist in API response" &&
+          shippingAddress !== ""
             ? formatAddress(shippingAddress)
-            : shippingAddress,
+            : getUserFriendlyValue(shippingAddress),
       },
       {
         label: "Tracking Number",
-        value:
+        value: getUserFriendlyValue(
           trackingNumber ||
-          order?.trackingNumber ||
-          "Data not exist in API response",
+            order?.trackingNumber ||
+            "Data not exist in API response"
+        ),
       },
     ];
   }, [displayData?.billingDetails, order?.trackingNumber]);
@@ -861,16 +1057,15 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
 
               <div>
                 <CustomButton
-                  text="Download Invoice"
+                  text={
+                    downloadingInvoice ? "Downloading..." : "Download Invoice"
+                  }
                   variant="default"
                   size="medium"
                   width="full"
-                  className="!w-full md:!w-[174px] !py-[10px] !bg-white !border !border-black !text-black !font-medium !text-sm !leading-[140%] !tracking-[0px] !align-middle hover:!bg-[#E3E3E3] hover:!border-[#E3E3E3] "
-                  onClick={() => {
-                    if (displayData?.invoiceUrl) {
-                      window.open(displayData.invoiceUrl, "_blank");
-                    }
-                  }}
+                  className="!w-full md:!w-[174px] !py-[10px] !bg-white !border !border-black !text-black !font-medium !text-sm !leading-[140%] !tracking-[0px] !align-middle hover:!bg-[#E3E3E3] hover:!border-[#E3E3E3] disabled:!opacity-50 disabled:!cursor-not-allowed"
+                  onClick={handleDownloadInvoice}
+                  disabled={downloadingInvoice}
                 />
               </div>
             </div>

@@ -55,8 +55,9 @@ export async function GET(request) {
     const userData = await fetchUserData(userId);
 
     return NextResponse.json({
-      success: true,
-      userData,
+      status: true,
+      message: "User profile fetched successfully.",
+      user: userData,
     });
   } catch (error) {
     console.error("Error fetching user profile:", error);
@@ -157,6 +158,7 @@ async function fetchUserData(userId) {
       headers: {
         Authorization: `Bearer ${authToken}`,
         "Content-Type": "application/json",
+        "is-patient-portal": "true",
       },
     });
     console.log("[USER_PROFILE] Profile response:", profileResponse);
@@ -184,11 +186,15 @@ async function fetchUserData(userId) {
     }
 
     // Extract user data from the CRM response structure
-    // CRM returns: { status: true, message: "...", data: { user: {...} } }
-    if (responseData.status && responseData.data) {
-      if (responseData.data.user) {
-        const userData = responseData.data.user;
-        console.log("[USER_PROFILE] ✓ Extracted user data from CRM response");
+    // CRM returns: { status: true, message: "...", user: {...} }
+    // or: { status: true, message: "...", data: { user: {...} } }
+    if (responseData.status) {
+      // Check for new structure: { status: true, message: "...", user: {...} }
+      if (responseData.user) {
+        const userData = responseData.user;
+        console.log(
+          "[USER_PROFILE] ✓ Extracted user data from CRM response (top-level user)"
+        );
         console.log(
           "[USER_PROFILE] User data keys:",
           Object.keys(userData).slice(0, 10)
@@ -199,12 +205,31 @@ async function fetchUserData(userId) {
         );
         console.log("[USER_PROFILE] User email:", userData.email);
         return userData;
-      } else {
-        console.error("[USER_PROFILE] Response has data but no user object");
-        console.error(
-          "[USER_PROFILE] Data keys:",
-          Object.keys(responseData.data)
-        );
+      }
+      // Check for old structure: { status: true, message: "...", data: { user: {...} } }
+      else if (responseData.data) {
+        if (responseData.data.user) {
+          const userData = responseData.data.user;
+          console.log(
+            "[USER_PROFILE] ✓ Extracted user data from CRM response (data.user)"
+          );
+          console.log(
+            "[USER_PROFILE] User data keys:",
+            Object.keys(userData).slice(0, 10)
+          );
+          console.log(
+            "[USER_PROFILE] User name:",
+            userData.name || userData.first_name
+          );
+          console.log("[USER_PROFILE] User email:", userData.email);
+          return userData;
+        } else {
+          console.error("[USER_PROFILE] Response has data but no user object");
+          console.error(
+            "[USER_PROFILE] Data keys:",
+            Object.keys(responseData.data)
+          );
+        }
       }
     }
 
@@ -268,11 +293,33 @@ export async function POST(request) {
       );
     }
 
-    // Parse request body
-    const body = await request.json();
-    const { field, value } = body;
+    // Parse request body - handle both JSON and FormData
+    const contentType = request.headers.get("content-type") || "";
+    let field, value, file;
 
-    console.log(`[USER_PROFILE_UPDATE] Updating field: ${field}`);
+    if (contentType.includes("multipart/form-data")) {
+      // Handle FormData (file uploads)
+      const formData = await request.formData();
+      field = formData.get("field");
+      file = formData.get("file");
+
+      console.log(`[USER_PROFILE_UPDATE] File upload for field: ${field}`);
+      console.log(`[USER_PROFILE_UPDATE] File name: ${file?.name}`);
+      console.log(`[USER_PROFILE_UPDATE] File size: ${file?.size} bytes`);
+      console.log(`[USER_PROFILE_UPDATE] File type: ${file?.type}`);
+
+      // For file uploads, we'll handle the file directly
+      value = file;
+    } else {
+      // Handle JSON (regular fields)
+      const body = await request.json();
+      field = body.field;
+      value = body.value;
+
+      console.log(`[USER_PROFILE_UPDATE] Updating field: ${field}`);
+      console.log(`[USER_PROFILE_UPDATE] Field value received:`, value);
+      console.log(`[USER_PROFILE_UPDATE] Field value type:`, typeof value);
+    }
 
     // Map profile field names to CRM API field names
     const fieldMapping = {
@@ -293,8 +340,20 @@ export async function POST(request) {
       city: (val) => ({ city: val }),
       province: (val) => ({ province: val }),
       postalCode: (val) => ({ postal_code: val }),
-      photoId: (val) => ({ photo_id: val }),
-      insuranceCard: (val) => ({ insurance_card_image: val }),
+      photoId: (val) => {
+        // If it's a File object, return it as-is for form-data handling
+        if (val instanceof File) {
+          return { photo_id: val };
+        }
+        return { photo_id: val };
+      },
+      insuranceCard: (val) => {
+        // If it's a File object, return it as-is for form-data handling
+        if (val instanceof File) {
+          return { insurance_card_image: val };
+        }
+        return { insurance_card_image: val };
+      },
     };
 
     const mapper = fieldMapping[field];
@@ -327,7 +386,8 @@ export async function POST(request) {
     if (!updateResult.success) {
       return NextResponse.json(
         {
-          success: false,
+          status: false,
+          message: updateResult.error || "Failed to update profile",
           error: updateResult.error || "Failed to update profile",
           details: updateResult.details,
         },
@@ -336,9 +396,9 @@ export async function POST(request) {
     }
 
     return NextResponse.json({
-      success: true,
-      message: "Profile updated successfully",
-      data: updateResult.data,
+      status: true,
+      message: "Profile updated successfully.",
+      user: updateResult.data,
     });
   } catch (error) {
     console.error("[USER_PROFILE_UPDATE] Error updating profile:", error);
@@ -420,7 +480,7 @@ async function updateUserProfile(userId, updateData) {
     );
 
     // Step 2: Update user profile in CRM
-    const updateUrl = `${crmHost}/api/crm-users/profile-update`;
+    const updateUrl = `${crmHost}/api/user/${userId}/profile/update`;
     console.log(`[USER_PROFILE_UPDATE] Updating profile at: ${updateUrl}`);
     console.log(`[USER_PROFILE_UPDATE] User ID: ${userId}`);
     console.log(`[USER_PROFILE_UPDATE] Update data:`, updateData);
@@ -433,17 +493,63 @@ async function updateUserProfile(userId, updateData) {
     console.log(`[USER_PROFILE_UPDATE] Added user_id to formData: ${userId}`);
 
     // Append all update data fields to form-data
-    Object.keys(updateData).forEach((key) => {
+    // Note: We need to handle File objects asynchronously
+    for (const key of Object.keys(updateData)) {
       const value = updateData[key];
-      if (value !== null && value !== undefined) {
+
+      // Handle File objects (for photo_id and insurance_card_image)
+      if (value instanceof File) {
+        // Convert File to Buffer for form-data package
+        const arrayBuffer = await value.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        formData.append(key, buffer, {
+          filename: value.name,
+          contentType: value.type || "application/octet-stream",
+        });
+        console.log(
+          `[USER_PROFILE_UPDATE] Added file ${key} = ${value.name} (size: ${value.size} bytes, type: ${value.type})`
+        );
+      }
+      // For date_of_birth, always send it even if it's an empty string
+      else if (key === "date_of_birth") {
+        const stringValue =
+          value !== null && value !== undefined ? String(value) : "";
+        formData.append(key, stringValue);
+        console.log(
+          `[USER_PROFILE_UPDATE] Added ${key} = "${stringValue}" (always sent for date_of_birth)`
+        );
+      } else if (value !== null && value !== undefined) {
         const stringValue = String(value);
         formData.append(key, stringValue);
-        console.log(`[USER_PROFILE_UPDATE] Added ${key} = ${stringValue}`);
+        console.log(
+          `[USER_PROFILE_UPDATE] Added ${key} = ${stringValue} (type: ${typeof value})`
+        );
+      } else {
+        console.log(
+          `[USER_PROFILE_UPDATE] Skipping ${key} (value is null/undefined)`
+        );
+      }
+    }
+
+    // Log all form-data entries for debugging
+    console.log(`[USER_PROFILE_UPDATE] Form-data entries being sent:`);
+    console.log(`[USER_PROFILE_UPDATE] - user_id: ${userId}`);
+    Object.keys(updateData).forEach((key) => {
+      const value = updateData[key];
+      if (key === "date_of_birth") {
+        console.log(
+          `[USER_PROFILE_UPDATE] - ${key}: "${
+            value !== null && value !== undefined ? String(value) : ""
+          }"`
+        );
+      } else if (value !== null && value !== undefined) {
+        console.log(`[USER_PROFILE_UPDATE] - ${key}: "${String(value)}"`);
       }
     });
 
     console.log(
-      `[USER_PROFILE_UPDATE] Total form data fields: user_id + ${Object.keys(updateData).length
+      `[USER_PROFILE_UPDATE] Total form data fields: user_id + ${
+        Object.keys(updateData).length
       } fields`
     );
 
@@ -475,6 +581,7 @@ async function updateUserProfile(userId, updateData) {
       method: "POST",
       headers: {
         Authorization: `Bearer ${authToken}`,
+        "is-patient-portal": "true",
         ...formHeaders, // This includes Content-Type with boundary
       },
       body: formData, // Pass the stream directly
@@ -504,11 +611,52 @@ async function updateUserProfile(userId, updateData) {
 
     const responseData = await updateResponse.json();
     console.log("[USER_PROFILE_UPDATE] Profile update response received");
-    console.log("[USER_PROFILE_UPDATE] Response:", responseData);
+    console.log(
+      "[USER_PROFILE_UPDATE] Full Response:",
+      JSON.stringify(responseData, null, 2)
+    );
+
+    // Extract user data from the CRM response structure
+    // CRM returns: { status: true, message: "Profile updated successfully.", user: {...} }
+    // or: { status: true, message: "...", data: { user: {...} } }
+    let userData = null;
+    if (responseData.status) {
+      if (responseData.user) {
+        userData = responseData.user;
+        console.log(
+          "[USER_PROFILE_UPDATE] ✓ Extracted user data from CRM response (top-level user)"
+        );
+        console.log(
+          "[USER_PROFILE_UPDATE] User data keys:",
+          Object.keys(userData)
+        );
+        console.log(
+          "[USER_PROFILE_UPDATE] date_of_birth in response:",
+          userData.date_of_birth
+        );
+      } else if (responseData.data && responseData.data.user) {
+        userData = responseData.data.user;
+        console.log(
+          "[USER_PROFILE_UPDATE] ✓ Extracted user data from CRM response (data.user)"
+        );
+        console.log(
+          "[USER_PROFILE_UPDATE] User data keys:",
+          Object.keys(userData)
+        );
+        console.log(
+          "[USER_PROFILE_UPDATE] date_of_birth in response:",
+          userData.date_of_birth
+        );
+      } else if (responseData.data) {
+        userData = responseData.data;
+        console.log("[USER_PROFILE_UPDATE] ✓ Using data as user data");
+        console.log("[USER_PROFILE_UPDATE] Data keys:", Object.keys(userData));
+      }
+    }
 
     return {
       success: true,
-      data: responseData,
+      data: userData || responseData,
     };
   } catch (error) {
     console.error("[USER_PROFILE_UPDATE] Error updating user profile:", error);

@@ -13,7 +13,7 @@ import CustomImage from "@/components/utils/CustomImage";
 import { handleCheckout } from "@/utils/checkout";
 import { formatPrice } from "@/utils/priceFormatter";
 
-const ProductModal = ({ isOpen, onClose, product }) => {
+const MerchProductModal = ({ isOpen, onClose, product }) => {
   // Use the product data passed from parent component
   const currentProduct = product;
   const [selectedSize, setSelectedSize] = useState(null);
@@ -362,7 +362,7 @@ const ProductModal = ({ isOpen, onClose, product }) => {
         // If colors.length === 0 (like Hoodie), we don't add color to cartItem
       }
 
-      console.log("[ProductModal] Cart item being sent:", cartItem);
+      console.log("[MerchProductModal] Cart item being sent:", cartItem);
       handleCheckout([cartItem], true);
       onClose();
     } catch (error) {
@@ -375,8 +375,6 @@ const ProductModal = ({ isOpen, onClose, product }) => {
 
   if (!isOpen || !currentProduct) return null;
 
-  const isVariableProduct = currentProduct.isVariable;
-
   // Check if selected size is sold out
   const selectedSizeVariationInfo = selectedSize
     ? getVariationInfoForSize(selectedSize)
@@ -386,10 +384,7 @@ const ProductModal = ({ isOpen, onClose, product }) => {
     selectedSizeVariationInfo.stock_status === "outofstock";
 
   const canBuyNow =
-    !isVariableProduct ||
-    (selectedSize &&
-      !isSelectedSizeSoldOut &&
-      (!colors.length || selectedColor));
+    selectedSize && !isSelectedSizeSoldOut && (!colors.length || selectedColor);
   const totalPrice = priceValue > 0 ? priceValue * quantity : 0;
 
   return (
@@ -535,7 +530,7 @@ const ProductModal = ({ isOpen, onClose, product }) => {
               </p>
 
               {/* Color Selection - Only for variable products with colors */}
-              {isVariableProduct && colors.length > 0 && (
+              {colors.length > 0 && (
                 <div className="mb-6">
                   <div className="flex flex-col items-start gap-2">
                     <span className="text-base md:text-lg font-medium text-black tracking-[0%] leading-[140%]">
@@ -555,8 +550,8 @@ const ProductModal = ({ isOpen, onClose, product }) => {
                 </div>
               )}
 
-              {/* Size Selection - Only for variable products */}
-              {isVariableProduct && sizes.length > 0 && (
+              {/* Size Selection */}
+              {sizes.length > 0 && (
                 <div className="mb-4 lg:mb-6">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-base md:text-lg font-medium text-black tracking-[0%] leading-[140%]">
@@ -575,7 +570,6 @@ const ProductModal = ({ isOpen, onClose, product }) => {
                       const isSoldOut =
                         variationInfo &&
                         variationInfo.stock_status === "outofstock";
-                      const isDisabled = isProcessing || isSoldOut;
 
                       return (
                         <button
@@ -645,70 +639,68 @@ const ProductModal = ({ isOpen, onClose, product }) => {
                   </div>
                 )}
 
-                {/* Size and Fit - Only for variable products */}
-                {isVariableProduct && (
-                  <div
-                    className="border-b border-gray-200"
-                    data-section="sizeAndFit"
+                {/* Size and Fit */}
+                <div
+                  className="border-b border-gray-200"
+                  data-section="sizeAndFit"
+                >
+                  <button
+                    onClick={() => toggleSection("sizeAndFit")}
+                    className="flex items-center justify-between w-full py-3 text-left cursor-pointer"
                   >
-                    <button
-                      onClick={() => toggleSection("sizeAndFit")}
-                      className="flex items-center justify-between w-full py-3 text-left cursor-pointer"
-                    >
-                      <span className="font-medium text-gray-900">
-                        Size and Fit
-                      </span>
-                      {openSections.sizeAndFit ? (
-                        <IoChevronUp className="w-5 h-5" />
-                      ) : (
-                        <IoChevronDown className="w-5 h-5" />
-                      )}
-                    </button>
-                    {openSections.sizeAndFit && (
-                      <div className="pb-4 text-[#000000CC] text-sm">
-                        <p className="mb-6">
-                          Fit: {currentProduct?.fit || "true to size"}
+                    <span className="font-medium text-gray-900">
+                      Size and Fit
+                    </span>
+                    {openSections.sizeAndFit ? (
+                      <IoChevronUp className="w-5 h-5" />
+                    ) : (
+                      <IoChevronDown className="w-5 h-5" />
+                    )}
+                  </button>
+                  {openSections.sizeAndFit && (
+                    <div className="pb-4 text-[#000000CC] text-sm">
+                      <p className="mb-6">
+                        Fit: {currentProduct?.fit || "true to size"}
+                      </p>
+                      {isShirt && (
+                        <p className="mb-4">
+                          Model is 5&apos;9 160lbs (175cm / 72kg) and is wearing
+                          a size Medium.
                         </p>
-                        {isShirt && (
-                          <p className="mb-4">
-                            Model is 5&apos;9 160lbs (175cm / 72kg) and is
-                            wearing a size Medium.
-                          </p>
-                        )}
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-6">
-                            {Object.entries(sizeChart)
-                              .slice(0, 2)
-                              .map(([size, measurement]) => (
-                                <div key={size} className="flex flex-col">
-                                  <span className="font-medium text-black">
-                                    {size}
-                                  </span>
-                                  <span className="text-[#000000CC]">
-                                    {measurement}
-                                  </span>
-                                </div>
-                              ))}
-                          </div>
-                          <div className="space-y-6">
-                            {Object.entries(sizeChart)
-                              .slice(2)
-                              .map(([size, measurement]) => (
-                                <div key={size} className="flex flex-col">
-                                  <span className="font-medium text-black">
-                                    {size}
-                                  </span>
-                                  <span className="text-[#000000CC]">
-                                    {measurement}
-                                  </span>
-                                </div>
-                              ))}
-                          </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-6">
+                          {Object.entries(sizeChart)
+                            .slice(0, 2)
+                            .map(([size, measurement]) => (
+                              <div key={size} className="flex flex-col">
+                                <span className="font-medium text-black">
+                                  {size}
+                                </span>
+                                <span className="text-[#000000CC]">
+                                  {measurement}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                        <div className="space-y-6">
+                          {Object.entries(sizeChart)
+                            .slice(2)
+                            .map(([size, measurement]) => (
+                              <div key={size} className="flex flex-col">
+                                <span className="font-medium text-black">
+                                  {size}
+                                </span>
+                                <span className="text-[#000000CC]">
+                                  {measurement}
+                                </span>
+                              </div>
+                            ))}
                         </div>
                       </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
 
                 {/* Care */}
                 <div className="">
@@ -907,4 +899,4 @@ const ProductModal = ({ isOpen, onClose, product }) => {
   );
 };
 
-export default ProductModal;
+export default MerchProductModal;

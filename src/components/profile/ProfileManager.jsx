@@ -109,41 +109,96 @@ export default function ProfileManager() {
     });
   };
 
+  // Helper function to convert date format from MM/DD/YYYY to YYYY-MM-DD
+  const convertDateFormat = (dateValue) => {
+    if (!dateValue) return dateValue;
+
+    // If already in YYYY-MM-DD format, return as is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      return dateValue;
+    }
+
+    // Try to parse MM/DD/YYYY format
+    const mmddyyyyMatch = dateValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mmddyyyyMatch) {
+      const [, month, day, year] = mmddyyyyMatch;
+      // Pad month and day with leading zeros if needed
+      const paddedMonth = month.padStart(2, "0");
+      const paddedDay = day.padStart(2, "0");
+      return `${year}-${paddedMonth}-${paddedDay}`;
+    }
+
+    // If format is not recognized, return as is (let API handle validation)
+    return dateValue;
+  };
+
   const handleSave = async (newValue) => {
     const fieldKey = modalState.field.key;
 
     // API Logic
     try {
-      // For password, send all three fields
-      const requestBody = fieldKey === "password" && typeof newValue === "object"
-        ? {
-            field: fieldKey,
-            currentPassword: newValue.currentPassword,
-            newPassword: newValue.newPassword,
-            confirmPassword: newValue.confirmPassword,
-          }
-        : {
-            field: fieldKey,
-            value: newValue,
-          };
+      // Convert date format if it's dateOfBirth field
+      let processedValue = newValue;
+      if (fieldKey === "dateOfBirth" && typeof newValue === "string") {
+        processedValue = convertDateFormat(newValue);
+        console.log(
+          `[PROFILE_UPDATE] Date conversion: ${newValue} -> ${processedValue}`
+        );
+      }
 
-      // Update user data in CRM via API
-      const response = await fetch("/api/user/profile", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      });
+      // Check if this is a file upload (photoId or insuranceCard)
+      const isFileUpload =
+        fieldKey === "photoId" || fieldKey === "insuranceCard";
+      const isFile = newValue instanceof File;
+
+      let response;
+      if (isFileUpload && isFile) {
+        // For file uploads, use FormData
+        const formData = new FormData();
+        formData.append("field", fieldKey);
+        formData.append("file", newValue);
+
+        response = await fetch("/api/user/profile", {
+          method: "POST",
+          // Don't set Content-Type header - browser will set it with boundary
+          body: formData,
+        });
+      } else {
+        // For other fields, use JSON
+        const requestBody =
+          fieldKey === "password" && typeof newValue === "object"
+            ? {
+                field: fieldKey,
+                currentPassword: newValue.currentPassword,
+                newPassword: newValue.newPassword,
+                confirmPassword: newValue.confirmPassword,
+              }
+            : {
+                field: fieldKey,
+                value: processedValue,
+              };
+
+        response = await fetch("/api/user/profile", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
+      }
 
       const result = await response.json();
 
-      if (!response.ok || !result.success) {
-        console.error("Failed to update profile:", result.error);
+      // Handle both response formats:
+      // New format: { status: true/false, message: "...", user: {...} }
+      // Old format: { success: true/false, error: "...", data: {...} }
+      const isSuccess = result.status === true || result.success === true;
+
+      if (!response.ok || !isSuccess) {
+        const errorMessage = result.error || result.message || "Unknown error";
+        console.error("Failed to update profile:", errorMessage);
         toast.error(
-          `Failed to update ${modalState.field.label}: ${
-            result.error || "Unknown error"
-          }`,
+          `Failed to update ${modalState.field.label}: ${errorMessage}`,
           {
             position: "top-right",
             autoClose: 5000,
@@ -167,6 +222,18 @@ export default function ProfileManager() {
           ...prev,
           [fieldKey]: "••••••••••",
         }));
+      } else if (fieldKey === "dateOfBirth") {
+        // Store the processed (converted) date value
+        setEditedFields((prev) => ({
+          ...prev,
+          [fieldKey]: processedValue,
+        }));
+      } else if (fieldKey === "photoId" || fieldKey === "insuranceCard") {
+        // For file uploads, store the filename for display, but keep the File object for sending
+        setEditedFields((prev) => ({
+          ...prev,
+          [fieldKey]: newValue instanceof File ? newValue.name : newValue,
+        }));
       } else {
         // Store edited value
         setEditedFields((prev) => ({
@@ -175,8 +242,24 @@ export default function ProfileManager() {
         }));
       }
 
+      // Small delay to allow CRM to process the update
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       // Refresh user data from server to get latest data
       await refreshUserData();
+
+      // Clear the edited field from local state after successful update and refresh
+      // This ensures we show the server's version of the data
+      setEditedFields((prev) => {
+        const updated = { ...prev };
+        delete updated[fieldKey];
+        // Also clear firstName/lastName if it was a fullName update
+        if (fieldKey === "fullName") {
+          delete updated.firstName;
+          delete updated.lastName;
+        }
+        return updated;
+      });
 
       // Show success message
       toast.success(`${modalState.field.label} updated successfully`, {
@@ -218,7 +301,7 @@ export default function ProfileManager() {
 
     // Special handling for fullName - pass both first and last name
     const isNameField = field.key === "fullName";
-    
+
     // Special handling for password - use 3 fields
     const isPasswordField = field.key === "password";
 
@@ -273,6 +356,10 @@ export default function ProfileManager() {
     // For password field, show masked value or "NA" if not set
     if (fieldKey === "password") {
       return value || "NA";
+    }
+    // Handle File objects (for photoId and insuranceCard)
+    if (value instanceof File) {
+      return value.name || "File selected";
     }
     // For all other fields, show "NA" if empty, null, or undefined
     if (!value || (typeof value === "string" && value.trim() === "")) {

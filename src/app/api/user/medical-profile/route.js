@@ -76,7 +76,9 @@ export async function GET(request) {
     if (medicalProfileData.error) {
       return NextResponse.json(
         {
-          success: false,
+          status: false,
+          message:
+            medicalProfileData.error || "Failed to fetch medical profile",
           error: medicalProfileData.error,
           data: medicalProfileData,
         },
@@ -84,9 +86,11 @@ export async function GET(request) {
       );
     }
 
-    // Ensure data structure is valid
+    // Ensure data structure is valid - match expected format
+    // Expected: { status: true, message: "...", data: {...} }
     const responseData = {
-      success: true,
+      status: true,
+      message: "User medical profile fetched successfully.",
       data: medicalProfileData || {},
     };
 
@@ -95,7 +99,8 @@ export async function GET(request) {
     console.error("Error fetching medical profile data:", error);
     return NextResponse.json(
       {
-        success: false,
+        status: false,
+        message: "Failed to fetch medical profile data",
         error: "Failed to fetch medical profile data",
         details: error.message,
       },
@@ -201,7 +206,7 @@ async function fetchMedicalProfile(crmUserID) {
       headers: {
         Authorization: `Bearer ${authToken}`,
         "Content-Type": "application/json",
-        is_patient_portal: "true",
+        "is-patient-portal": "true",
       },
     });
 
@@ -249,10 +254,23 @@ async function fetchMedicalProfile(crmUserID) {
       };
     }
 
+    // Extract data from the CRM response structure
+    // CRM returns: { status: true, message: "...", data: {...} }
+    let medicalProfileData = responseData;
+    if (responseData.status && responseData.data) {
+      medicalProfileData = responseData.data;
+      console.log(
+        "[MEDICAL_PROFILE] ✓ Extracted data from CRM response (data property)"
+      );
+    } else if (responseData.data) {
+      medicalProfileData = responseData.data;
+      console.log("[MEDICAL_PROFILE] ✓ Using data property from response");
+    }
+
     console.log(
       `[MEDICAL_PROFILE] ✓ Successfully fetched medical profile data for user: ${crmUserID}`
     );
-    return responseData;
+    return medicalProfileData;
   } catch (error) {
     console.error(
       "[MEDICAL_PROFILE] Error fetching medical profile data from CRM:",
@@ -272,28 +290,35 @@ async function fetchMedicalProfile(crmUserID) {
  *
  * Expected Request Body:
  * {
- *   "crmUserID": "123",
- *   "slug": "allergies",
- *   "medical_profile": "Peanuts, Penicillin"
+ *   "id": 194761, // Optional: Use this field only during update
+ *   "crm_user_id": 115961, // Required: CRM User ID
+ *   "slug": "medication", // Required: Type of medical data
+ *   "meta_value": "test1,test2" // Required: Comma-separated values
  * }
  *
  * Expected Response:
  * {
- *   "success": true,
- *   "message": "Medical profile updated successfully"
+ *   "status": true,
+ *   "message": "Medical profile updated successfully.",
+ *   "data": { ... }
  * }
  */
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { crmUserID, slug, medical_profile } = body;
+    const { id, crm_user_id, slug, meta_value } = body;
+
+    // Support both old format (crmUserID, medical_profile) and new format
+    const crmUserID = crm_user_id || body.crmUserID;
+    const metaValue = meta_value || body.medical_profile || "";
 
     if (!crmUserID || !slug) {
       return NextResponse.json(
         {
-          success: false,
-          error:
+          status: false,
+          message:
             "Please provide all required information to save your changes.",
+          error: "Missing required fields: crm_user_id and slug",
         },
         { status: 400 }
       );
@@ -302,18 +327,23 @@ export async function POST(request) {
     console.log(
       `[MEDICAL_PROFILE_UPDATE] Updating medical profile for user: ${crmUserID}, slug: ${slug}`
     );
+    if (id) {
+      console.log(`[MEDICAL_PROFILE_UPDATE] Update ID: ${id}`);
+    }
 
     // Update medical profile data in CRM
     const updateResult = await updateMedicalProfile(
       crmUserID,
       slug,
-      medical_profile
+      metaValue,
+      id
     );
 
     if (updateResult.error) {
       return NextResponse.json(
         {
-          success: false,
+          status: false,
+          message: updateResult.error,
           error: updateResult.error,
         },
         { status: 500 }
@@ -321,15 +351,16 @@ export async function POST(request) {
     }
 
     return NextResponse.json({
-      success: true,
-      message: "Medical profile updated successfully",
-      data: updateResult,
+      status: true,
+      message: "Medical profile updated successfully.",
+      data: updateResult.data || updateResult,
     });
   } catch (error) {
     console.error("Error updating medical profile data:", error);
     return NextResponse.json(
       {
-        success: false,
+        status: false,
+        message: "Unable to save your changes. Please try again later.",
         error: "Unable to save your changes. Please try again later.",
       },
       { status: 500 }
@@ -340,9 +371,9 @@ export async function POST(request) {
 /**
  * Update medical profile data in CRM API
  * Uses the medical profile endpoint: PATCH /api/user/medical-profile/update
- * Request body: { crm_user_id, slug, meta_value }
+ * Request body: { id (optional), crm_user_id, slug, meta_value }
  */
-async function updateMedicalProfile(crmUserID, slug, medical_profile) {
+async function updateMedicalProfile(crmUserID, slug, meta_value, id = null) {
   const crmHost = process.env.CRM_HOST;
   const apiUsername = process.env.CRM_API_USERNAME;
   const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
@@ -401,24 +432,29 @@ async function updateMedicalProfile(crmUserID, slug, medical_profile) {
     console.log(
       `[MEDICAL_PROFILE_UPDATE] Updating medical profile at: ${updateUrl}`
     );
-    console.log(`[MEDICAL_PROFILE_UPDATE] Request body:`, {
+
+    // Build request body - include id only if provided (for updates)
+    const requestBody = {
       crm_user_id: parseInt(crmUserID),
       slug: slug,
-      meta_value: medical_profile || "",
-    });
+      meta_value: meta_value || "",
+    };
+
+    // Include id only if provided (for updates, not creation)
+    if (id) {
+      requestBody.id = parseInt(id);
+    }
+
+    console.log(`[MEDICAL_PROFILE_UPDATE] Request body:`, requestBody);
 
     const updateResponse = await fetch(updateUrl, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${authToken}`,
         "Content-Type": "application/json",
-        is_patient_portal: "true",
+        "is-patient-portal": "true",
       },
-      body: JSON.stringify({
-        crm_user_id: parseInt(crmUserID),
-        slug: slug,
-        meta_value: medical_profile || "",
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!updateResponse.ok) {
@@ -510,17 +546,34 @@ async function updateMedicalProfile(crmUserID, slug, medical_profile) {
       `[MEDICAL_PROFILE_UPDATE] ✓ Successfully updated medical profile for user: ${crmUserID}, slug: ${slug}`
     );
     console.log(
-      `[MEDICAL_PROFILE_UPDATE] Response:`,
+      `[MEDICAL_PROFILE_UPDATE] Full Response:`,
       JSON.stringify(responseData, null, 2)
     );
-    return responseData;
+
+    // Extract data from the CRM response structure
+    // CRM returns: { status: true, message: "...", data: {...} }
+    let updateData = responseData;
+    if (responseData.status && responseData.data) {
+      updateData = responseData.data;
+      console.log(
+        "[MEDICAL_PROFILE_UPDATE] ✓ Extracted data from CRM response (data property)"
+      );
+    } else if (responseData.data) {
+      updateData = responseData.data;
+      console.log(
+        "[MEDICAL_PROFILE_UPDATE] ✓ Using data property from response"
+      );
+    }
+
+    return {
+      data: updateData,
+    };
   } catch (error) {
     console.error(
       "[MEDICAL_PROFILE_UPDATE] Error updating medical profile data from CRM:",
       error
     );
     return {
-      success: false,
       error: "Unable to save your changes. Please try again later.",
     };
   }

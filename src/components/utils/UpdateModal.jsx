@@ -422,7 +422,8 @@ export default function UpdateModal({
                   onChange={(e) => {
                     const file = e.target.files[0];
                     if (file) {
-                      setValue(file.name);
+                      // Store the File object, not just the filename
+                      setValue(file);
                     }
                   }}
                   className="block w-full text-sm text-gray-500

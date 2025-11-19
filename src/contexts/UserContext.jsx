@@ -15,7 +15,10 @@ export function UserProvider({ children }) {
       setLoading(true);
       setError(null);
 
-      const response = await fetch("/api/user/profile");
+      // Add cache-busting timestamp to ensure we get fresh data
+      const response = await fetch(`/api/user/profile?t=${Date.now()}`, {
+        cache: "no-store",
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -24,7 +27,12 @@ export function UserProvider({ children }) {
 
       const data = await response.json();
 
-      if (data.success && data.userData) {
+      // Handle both response formats:
+      // New format: { status: true, message: "...", user: {...} }
+      // Old format: { success: true, userData: {...} }
+      if (data.status && data.user) {
+        setUserData(data.user);
+      } else if (data.success && data.userData) {
         setUserData(data.userData);
       } else {
         throw new Error("Invalid response format");
