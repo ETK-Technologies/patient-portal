@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import CustomButton from "@/components/utils/Button";
 import { IoMdClose } from "react-icons/io";
-import { FaInfoCircle, FaTimes } from "react-icons/fa";
+import { FaInfoCircle, FaPlus, FaCheck } from "react-icons/fa";
+import { FaRegCalendar } from "react-icons/fa";
+import { CiFileOn } from "react-icons/ci";
 
 const ANIMATION_DURATION = 300;
 
@@ -39,6 +41,9 @@ export default function UpdateModal({
   isTagInput = false,
   acceptedFormats = "image/*,.pdf",
   placeholder = "",
+  isReadOnly = false,
+  readOnlyMessage = "If you need to update this information, please contact support.",
+  supportLink = "#",
 }) {
   const [isMounted, setIsMounted] = useState(isOpen);
   const [isVisible, setIsVisible] = useState(false);
@@ -66,6 +71,10 @@ export default function UpdateModal({
         lastName: currentValue.lastName || "",
       };
     }
+    // For file uploads, initialize as empty array
+    if (isFileUpload) {
+      return [];
+    }
     return isNameField ? { firstName: "", lastName: "" } : currentValue;
   };
 
@@ -89,6 +98,43 @@ export default function UpdateModal({
   // Tag input state
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState("");
+
+  // File upload drag and drop state
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Password visibility state
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
+
+  // Password match validation
+  const passwordsMatch =
+    value.newPassword &&
+    value.confirmPassword &&
+    value.newPassword === value.confirmPassword;
+  const passwordsMismatch =
+    value.newPassword &&
+    value.confirmPassword &&
+    value.newPassword !== value.confirmPassword;
+
+  // Tooltip state for password requirements
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  // Helper to get input className with read-only styling
+  const getInputClassName = (baseClassName) => {
+    if (isReadOnly) {
+      return baseClassName
+        .replace("border-gray-300", "border-[#E2E2E1]")
+        .replace(
+          "focus:ring-2 focus:ring-gray-900 focus:border-transparent",
+          "bg-[#FFFFFF] text-[#00000099] cursor-not-allowed"
+        );
+    }
+    return baseClassName;
+  };
 
   // Handle mount/unmount animation
   useEffect(() => {
@@ -152,10 +198,23 @@ export default function UpdateModal({
 
   // Update password strength when new password changes
   useEffect(() => {
-    if (isPasswordField && value.newPassword !== undefined) {
-      setPasswordStrength(getPasswordStrength(value.newPassword));
+    if (isPasswordField) {
+      if (
+        typeof value === "object" &&
+        !Array.isArray(value) &&
+        value.newPassword !== undefined
+      ) {
+        setPasswordStrength(getPasswordStrength(value.newPassword));
+      } else {
+        setPasswordStrength({ strength: "none", label: "" });
+      }
     }
-  }, [isPasswordField, value.newPassword]);
+  }, [
+    isPasswordField,
+    typeof value === "object" && !Array.isArray(value) && value?.newPassword
+      ? value.newPassword
+      : "",
+  ]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -237,6 +296,10 @@ export default function UpdateModal({
     } else if (isNameField) {
       // For name field, pass the object with firstName and lastName
       onSave(value);
+    } else if (isFileUpload && Array.isArray(value)) {
+      // For file uploads with multiple files, pass the first file
+      // (API currently expects a single file, but we allow selecting up to 2 for UI)
+      onSave(value[0] || null);
     } else {
       // For other fields, pass the value directly
       onSave(value);
@@ -265,60 +328,49 @@ export default function UpdateModal({
     if (!isPasswordField) return null;
 
     const strengthColors = {
-      weak: "bg-red-500",
+      weak: "bg-[#A50E0E]",
       medium: "bg-yellow-500",
-      strong: "bg-green-500",
+      strong: "bg-[#34A853]",
     };
 
     const textColors = {
-      weak: "text-red-600",
+      weak: "text-[#A50E0E]",
       medium: "text-yellow-600",
-      strong: "text-green-600",
+      strong: "text-[#34A853]",
     };
 
-    const barCount = {
+    const fillPercentage = {
       none: 0,
-      weak: 1,
-      medium: 2,
-      strong: 4,
+      weak: 33,
+      medium: 66,
+      strong: 100,
     };
 
     const currentStrength = passwordStrength.strength || "none";
-    const currentBarCount = barCount[currentStrength] || 0;
+    const fill = fillPercentage[currentStrength] || 0;
 
     return (
-      <div className="flex items-center gap-2 mt-2">
-        <div className="flex gap-1">
-          {[1, 2, 3, 4].map((bar) => (
-            <div
-              key={bar}
-              className={`h-1 w-8 rounded transition-colors duration-200 ${
-                bar <= currentBarCount && currentStrength !== "none"
-                  ? strengthColors[currentStrength]
-                  : "bg-gray-200"
-              }`}
-            />
-          ))}
+      <div className="flex items-center gap-2 flex-1">
+        <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-300 ${
+              currentStrength !== "none"
+                ? strengthColors[currentStrength]
+                : "bg-gray-200"
+            }`}
+            style={{ width: `${fill}%` }}
+          />
         </div>
         {passwordStrength.label && (
-          <div className="flex items-center gap-1">
-            <span
-              className={`text-sm font-medium ${
-                currentStrength !== "none"
-                  ? textColors[currentStrength]
-                  : "text-gray-400"
-              }`}
-            >
-              {passwordStrength.label}
-            </span>
-            <FaInfoCircle
-              className={`w-3 h-3 ${
-                currentStrength !== "none"
-                  ? textColors[currentStrength]
-                  : "text-gray-400"
-              }`}
-            />
-          </div>
+          <span
+            className={`text-[12px] font-medium ${
+              currentStrength !== "none"
+                ? textColors[currentStrength]
+                : "text-gray-400"
+            }`}
+          >
+            {passwordStrength.label}
+          </span>
         )}
       </div>
     );
@@ -342,7 +394,7 @@ export default function UpdateModal({
 
       {/* Modal */}
       <div
-        className={`relative bg-white rounded-t-[24px] md:rounded-[24px] w-full max-w-md shadow-xl flex flex-col transform transition-transform duration-300 ease-out ${
+        className={`relative  bg-white rounded-t-[24px] md:w-[560px] md:rounded-[16px] w-full  shadow-xl flex flex-col transform transition-transform duration-300 ease-out ${
           isVisible ? "translate-y-0" : "translate-y-full"
         } md:translate-y-0`}
         onClick={(e) => e.stopPropagation()}
@@ -350,18 +402,42 @@ export default function UpdateModal({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 w-10 h-10 rounded-full bg-[#F4F4F4] hover:bg-[#F5F4F2] flex items-center justify-center transition-colors cursor-pointer z-10"
+          className="absolute top-5 right-5 w-10 h-10 rounded-full bg-[#ffffff] hover:bg-[#F5F4F2] flex items-center justify-center transition-colors cursor-pointer z-10"
         >
-          <IoMdClose className="w-5 h-5 text-black" />
+          <IoMdClose className="w-5 h-5 text-[#000000]" />
         </button>
 
         {/* Content */}
-        <div className="px-5 py-6 md:px-8 md:py-8 overflow-y-auto modal-scrollbar">
+        <div className="px-5 py-6 md:px-6 md:py-6 overflow-y-auto modal-scrollbar md:w-[560px]">
           {/* Header */}
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
-            {isPaymentMethodField && (
-              <p className="text-sm text-gray-600 mt-1">
+            {isReadOnly && (
+              <p className="text-sm text-[#00000099] mt-2">
+                {readOnlyMessage.includes("contact support") ? (
+                  <>
+                    {readOnlyMessage.split("contact support")[0]}
+                    <a
+                      href={supportLink}
+                      className="underline hover:text-[#00000099]"
+                      onClick={(e) => {
+                        if (supportLink !== "#") {
+                          e.preventDefault();
+                          window.location.href = supportLink;
+                        }
+                      }}
+                    >
+                      contact support
+                    </a>
+                    {readOnlyMessage.split("contact support")[1] || "."}
+                  </>
+                ) : (
+                  readOnlyMessage
+                )}
+              </p>
+            )}
+            {isPaymentMethodField && !isReadOnly && (
+              <p className="text-sm text-[#00000099] mt-2">
                 Please update your payment method
               </p>
             )}
@@ -373,71 +449,414 @@ export default function UpdateModal({
               <>
                 {/* Current Password */}
                 <div>
-                  <input
-                    type="password"
-                    value={value.currentPassword || ""}
-                    onChange={(e) =>
-                      setValue({ ...value, currentPassword: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
-                    placeholder="Enter your current password"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPasswords.current ? "text" : "password"}
+                      value={value.currentPassword || ""}
+                      onChange={(e) =>
+                        setValue({ ...value, currentPassword: e.target.value })
+                      }
+                      disabled={isReadOnly}
+                      readOnly={isReadOnly}
+                      className={`${getInputClassName(
+                        "w-full px-4 py-3 pr-20 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                      )}`}
+                      placeholder="Enter your current password"
+                    />
+                    {value.currentPassword && !isReadOnly && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowPasswords({
+                            ...showPasswords,
+                            current: !showPasswords.current,
+                          })
+                        }
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-700 border border-gray-300 bg-white px-3 py-1 rounded-full hover:text-white hover:bg-black hover:border-black transition-colors"
+                      >
+                        {showPasswords.current ? "Hide" : "Show"}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* New Password */}
                 <div>
-                  <input
-                    type="password"
-                    value={value.newPassword || ""}
-                    onChange={(e) =>
-                      setValue({ ...value, newPassword: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
-                    placeholder="Enter a new password"
-                  />
-                  {renderPasswordStrengthBars()}
+                  <div className="relative">
+                    <input
+                      type={showPasswords.new ? "text" : "password"}
+                      value={value.newPassword || ""}
+                      onChange={(e) =>
+                        setValue({ ...value, newPassword: e.target.value })
+                      }
+                      disabled={isReadOnly}
+                      readOnly={isReadOnly}
+                      className={`${getInputClassName(
+                        "w-full px-4 py-3 pr-20 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                      )}`}
+                      placeholder="Enter a new password"
+                    />
+                    {value.newPassword && !isReadOnly && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowPasswords({
+                            ...showPasswords,
+                            new: !showPasswords.new,
+                          })
+                        }
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-700 border border-gray-300 bg-white px-3 py-1 rounded-full hover:text-white hover:bg-black hover:border-black transition-colors"
+                      >
+                        {showPasswords.new ? "Hide" : "Show"}
+                      </button>
+                    )}
+                  </div>
+                  {!isReadOnly && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="flex-1 h-1 bg-gray-200 rounded-full overflow-hidden">
+                        {(() => {
+                          const fillPercentage = {
+                            none: 0,
+                            weak: 33,
+                            medium: 66,
+                            strong: 100,
+                          };
+                          const currentStrength =
+                            passwordStrength.strength || "none";
+                          const fill = fillPercentage[currentStrength] || 0;
+                          const strengthColors = {
+                            weak: "bg-[#A50E0E]",
+                            medium: "bg-yellow-500",
+                            strong: "bg-[#34A853]",
+                          };
+                          return (
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                currentStrength !== "none"
+                                  ? strengthColors[currentStrength]
+                                  : "bg-gray-200"
+                              }`}
+                              style={{ width: `${fill}%` }}
+                            />
+                          );
+                        })()}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {passwordStrength.label && (
+                          <span
+                            className={`text-[12px] font-medium ${
+                              passwordStrength.strength !== "none"
+                                ? passwordStrength.strength === "weak"
+                                  ? "text-[#A50E0E]"
+                                  : passwordStrength.strength === "medium"
+                                  ? "text-yellow-600"
+                                  : "text-[#34A853]"
+                                : "text-gray-400"
+                            }`}
+                          >
+                            {passwordStrength.label}
+                          </span>
+                        )}
+                        <div className="relative">
+                          <FaInfoCircle
+                            className="w-[14px] h-[14px] text-gray-400 cursor-pointer"
+                            onMouseEnter={() => setShowTooltip(true)}
+                            onMouseLeave={() => setShowTooltip(false)}
+                          />
+                          {showTooltip && (
+                            <div
+                              className="absolute left-1/2 -translate-x-1/2 top-6 z-[10001] w-64 text-white text-xs rounded-lg p-3 shadow-lg"
+                              style={{ backgroundColor: "#292929EB" }}
+                            >
+                              <p className="font-semibold mb-2">
+                                Password should contain at least these
+                                requirements:
+                              </p>
+                              <ul className="space-y-1">
+                                <li className="flex items-center gap-2">
+                                  <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
+                                  <span>
+                                    contains both lower (a-z) and upper case
+                                    letters (A-Z)
+                                  </span>
+                                </li>
+                                <li className="flex items-center gap-2">
+                                  <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
+                                  <span>contains at least 8 characters</span>
+                                </li>
+                                <li className="flex items-center gap-2">
+                                  <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
+                                  <span>
+                                    contains at least one number (0-9) or a
+                                    symbol
+                                  </span>
+                                </li>
+                                <li className="flex items-center gap-2">
+                                  <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
+                                  <span>
+                                    does not contain your name or email address
+                                  </span>
+                                </li>
+                                <li className="flex items-center gap-2">
+                                  <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
+                                  <span>
+                                    is not commonly used or a previous password
+                                  </span>
+                                </li>
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Confirm Password */}
                 <div>
-                  <input
-                    type="password"
-                    value={value.confirmPassword || ""}
-                    onChange={(e) =>
-                      setValue({ ...value, confirmPassword: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
-                    placeholder="Confirm your new password"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPasswords.confirm ? "text" : "password"}
+                      value={value.confirmPassword || ""}
+                      onChange={(e) =>
+                        setValue({ ...value, confirmPassword: e.target.value })
+                      }
+                      disabled={isReadOnly}
+                      readOnly={isReadOnly}
+                      className={`${getInputClassName(
+                        "w-full px-4 py-3 pr-20 border rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                      )} ${
+                        passwordsMismatch
+                          ? "border-[#A50E0E]"
+                          : passwordsMatch
+                          ? "border-[#34A853]"
+                          : "border-gray-300"
+                      }`}
+                      placeholder="Confirm your new password"
+                    />
+                    {value.confirmPassword && !isReadOnly && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowPasswords({
+                            ...showPasswords,
+                            confirm: !showPasswords.confirm,
+                          })
+                        }
+                        className={`absolute right-3 top-1/2 -translate-y-1/2 text-sm px-3 py-1 rounded-full transition-colors ${
+                          passwordsMismatch
+                            ? "text-white bg-black border border-black"
+                            : "text-gray-700 border border-gray-300 bg-white hover:text-white hover:bg-black hover:border-black"
+                        }`}
+                      >
+                        {showPasswords.confirm ? "Hide" : "Show"}
+                      </button>
+                    )}
+                  </div>
+                  {!isReadOnly && (
+                    <div className="mt-2">
+                      {passwordsMismatch && (
+                        <p className="text-[14px] text-[#A50E0E] flex items-center gap-2">
+                          Passwords must match
+                        </p>
+                      )}
+                      {passwordsMatch && (
+                        <p className="text-[14px] text-[#0D652D] flex items-center gap-2">
+                          <FaCheck className="w-4 h-4" />
+                          Passwords match
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </>
             ) : isFileUpload ? (
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {label}
-                </label>
-                <input
-                  type="file"
-                  accept={acceptedFormats}
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      // Store the File object, not just the filename
-                      setValue(file);
+              isReadOnly ? (
+                <div>
+                  <input
+                    type="text"
+                    value={
+                      typeof currentValue === "string"
+                        ? currentValue
+                        : currentValue instanceof File
+                        ? currentValue.name
+                        : ""
                     }
-                  }}
-                  className="block w-full text-sm text-gray-500
-                    file:mr-4 file:py-2 file:px-4
-                    file:rounded-lg file:border file:border-gray-300
-                    file:text-sm file:font-medium
-                    file:bg-white file:text-gray-900
-                    hover:file:bg-gray-50
-                    cursor-pointer"
-                />
-                <p className="text-xs text-gray-500">
-                  Accepted formats: JPG, PNG, PDF (Max 5MB)
-                </p>
-              </div>
+                    disabled
+                    readOnly
+                    className="w-full px-4 py-3 border border-[#E2E2E1] rounded-lg bg-[#FFFFFF] text-[#00000099] cursor-not-allowed"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Drag and Drop Area */}
+                  <div
+                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                      isDragging
+                        ? "border-[#0000000A] bg-[#F8F8F8]"
+                        : "border-[#0000000A] bg-[#F8F8F8]"
+                    }`}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(false);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(false);
+                      const droppedFiles = Array.from(e.dataTransfer.files);
+                      if (droppedFiles.length > 0) {
+                        const currentFiles = Array.isArray(value) ? value : [];
+                        const newFiles = [...currentFiles];
+                        // Add files up to a maximum of 2
+                        for (
+                          let i = 0;
+                          i < droppedFiles.length && newFiles.length < 2;
+                          i++
+                        ) {
+                          newFiles.push(droppedFiles[i]);
+                        }
+                        setValue(newFiles);
+                      }
+                    }}
+                  >
+                    {/* Document Icon with Plus */}
+                    <div className="flex justify-center mb-4">
+                      <div className="relative">
+                        <CiFileOn className="w-12 h-12 text-black" />
+                        <div className="absolute -bottom-1 -right-1 bg-[#000000] rounded-full p-1">
+                          <FaPlus className="w-3 h-3 text-white" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Drag and Drop Text */}
+                    <p className="text-sm font-medium mb-2">
+                      <span className="hidden md:inline text-[#000000]">
+                        Drag and drop files to upload
+                      </span>
+                      <span
+                        className="md:hidden text-[#174EA6] underline cursor-pointer"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        Tap to upload files
+                      </span>
+                    </p>
+
+                    {/* File Type Info */}
+                    <p className="text-xs text-[#000000] mb-4">
+                      PNG, JPG or PDF (5mb max)
+                    </p>
+                    {Array.isArray(value) && value.length >= 2 && (
+                      <p className="text-xs text-amber-600 mb-4">
+                        Maximum 2 files allowed
+                      </p>
+                    )}
+
+                    {/* Or Separator */}
+                    <div className="flex items-center gap-3 my-4 max-w-[131px] mx-auto  ">
+                      <div className="flex-1 h-px w-[50px] bg-[#E2E2E1]"></div>
+                      <span className="text-sm text-[#00000099]">or</span>
+                      <div className="flex-1 h-px w-[50px] bg-[#E2E2E1]"></div>
+                    </div>
+
+                    {/* Browse Files Button */}
+                    <div className="flex justify-center ">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-6 py-2 bg-[#F8F8F8] border border-[#0000001F] text-[#000000] rounded-full hover:bg-[#0000001F] transition-colors font-medium text-sm"
+                      >
+                        <span className="hidden md:inline">Browse files</span>
+                        <span className="md:hidden">Open camera</span>
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={acceptedFormats}
+                        multiple
+                        onChange={(e) => {
+                          const selectedFiles = Array.from(
+                            e.target.files || []
+                          );
+                          if (selectedFiles.length > 0) {
+                            const currentFiles = Array.isArray(value)
+                              ? value
+                              : [];
+                            const newFiles = [...currentFiles];
+                            // Add files up to a maximum of 2
+                            for (
+                              let i = 0;
+                              i < selectedFiles.length && newFiles.length < 2;
+                              i++
+                            ) {
+                              newFiles.push(selectedFiles[i]);
+                            }
+                            setValue(newFiles);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Files Section */}
+                  {Array.isArray(value) && value.length > 0 && (
+                    <div className="mt-6">
+                      <p className="text-sm font-medium text-gray-900 mb-3">
+                        Files
+                      </p>
+                      <div className="space-y-2">
+                        {value.map((file, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <CiFileOn className="w-5 h-5  text-black shrink-0" />
+                              <span className="text-sm font-medium text-gray-900 truncate">
+                                {file.name}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <span className="text-sm text-[#00000099]">
+                                {(file.size / (1024 * 1024)).toFixed(1)}MB
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newFiles = value.filter(
+                                    (_, i) => i !== index
+                                  );
+                                  setValue(
+                                    newFiles.length > 0 ? newFiles : null
+                                  );
+                                  if (fileInputRef.current) {
+                                    fileInputRef.current.value = "";
+                                  }
+                                }}
+                                className="text-[#000000] text-sm hover:text-[#000000] transition-colors"
+                              >
+                                <IoMdClose className="w-5 h-5 text-[#000000]" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
             ) : isPaymentMethodField ? (
               <>
                 {/* Credit Card Number */}
@@ -459,8 +878,12 @@ export default function UpdateModal({
                       }
                       setValue({ ...value, cardNumber: formatted });
                     }}
+                    disabled={isReadOnly}
+                    readOnly={isReadOnly}
                     maxLength={19} // 16 digits + 3 spaces
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                    className={getInputClassName(
+                      "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                    )}
                     placeholder="Credit card number"
                   />
                 </div>
@@ -480,8 +903,12 @@ export default function UpdateModal({
                         }
                         setValue({ ...value, expiry: formatted });
                       }}
+                      disabled={isReadOnly}
+                      readOnly={isReadOnly}
                       maxLength={5}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                      className={getInputClassName(
+                        "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                      )}
                       placeholder="Expiry MM/YY"
                     />
                   </div>
@@ -496,8 +923,12 @@ export default function UpdateModal({
                           .slice(0, 4);
                         setValue({ ...value, cvc: formatted });
                       }}
+                      disabled={isReadOnly}
+                      readOnly={isReadOnly}
                       maxLength={4}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                      className={getInputClassName(
+                        "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                      )}
                       placeholder="CVC"
                     />
                   </div>
@@ -511,140 +942,201 @@ export default function UpdateModal({
                     onChange={(e) =>
                       setValue({ ...value, nameOnCard: e.target.value })
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                    disabled={isReadOnly}
+                    readOnly={isReadOnly}
+                    className={getInputClassName(
+                      "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                    )}
                     placeholder="Name on card"
                   />
                 </div>
               </>
             ) : isNameField ? (
-              <div className="space-y-4">
+              isReadOnly ? (
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    First Name
-                  </label>
                   <input
                     type="text"
-                    value={value.firstName || ""}
-                    onChange={(e) =>
-                      setValue({ ...value, firstName: e.target.value })
+                    value={
+                      typeof currentValue === "object" && currentValue.firstName
+                        ? `${currentValue.firstName} ${
+                            currentValue.lastName || ""
+                          }`.trim()
+                        : typeof currentValue === "string"
+                        ? currentValue
+                        : ""
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
-                    placeholder="Enter your first name"
+                    disabled
+                    readOnly
+                    className="w-full px-4 py-3 border border-[#E2E2E1] rounded-lg bg-[#FFFFFF] text-[#00000099] cursor-not-allowed"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Last Name
-                  </label>
-                  <input
-                    type="text"
-                    value={value.lastName || ""}
-                    onChange={(e) =>
-                      setValue({ ...value, lastName: e.target.value })
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
-                    placeholder="Enter your last name"
-                  />
-                </div>
-              </div>
-            ) : isTagInput ? (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {label}
-                </label>
-                {/* Tags display */}
-                {tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {tags.map((tag, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-800 rounded-lg text-sm"
-                      >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTag(tag)}
-                          className="hover:text-red-600 transition-colors"
-                        >
-                          <FaTimes className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      First Name
+                    </label>
+                    <input
+                      type="text"
+                      value={value.firstName || ""}
+                      onChange={(e) =>
+                        setValue({ ...value, firstName: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                      placeholder="Enter your first name"
+                    />
                   </div>
-                )}
-                {/* Tag input */}
-                <div className="flex gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      value={value.lastName || ""}
+                      onChange={(e) =>
+                        setValue({ ...value, lastName: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                      placeholder="Enter your last name"
+                    />
+                  </div>
+                </div>
+              )
+            ) : isTagInput ? (
+              isReadOnly ? (
+                <div>
                   <input
                     type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={handleTagInputKeyDown}
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
-                    placeholder={
-                      placeholder ||
-                      `Type and press Enter to add ${label.toLowerCase()}`
+                    value={
+                      typeof currentValue === "string"
+                        ? currentValue
+                        : tags.length > 0
+                        ? tags.join(", ")
+                        : ""
                     }
+                    disabled
+                    readOnly
+                    className="w-full px-4 py-3 border border-[#E2E2E1] rounded-lg bg-[#FFFFFF] text-[#00000099] cursor-not-allowed"
                   />
-                  <button
-                    type="button"
-                    onClick={handleAddTag}
-                    className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                  >
-                    Add
-                  </button>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {label}
+                  </label>
+                  {/* Tags display */}
+                  {tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 text-gray-800 rounded-lg text-sm"
+                        >
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTag(tag)}
+                            className="hover:text-red-600 transition-colors"
+                          >
+                            <IoMdClose className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {/* Tag input */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={handleTagInputKeyDown}
+                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                      placeholder={
+                        placeholder ||
+                        `Type and press Enter to add ${label.toLowerCase()}`
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddTag}
+                      className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              )
             ) : (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {label}
-                </label>
-                <input
-                  type={inputType}
-                  value={value}
-                  onChange={(e) => setValue(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
-                  placeholder={
-                    placeholder || `Enter your ${label.toLowerCase()}`
-                  }
-                />
+                {!(
+                  isReadOnly &&
+                  (label.toLowerCase().includes("email") ||
+                    label.toLowerCase().includes("date of birth"))
+                ) && (
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {label}
+                  </label>
+                )}
+                <div className="relative">
+                  <input
+                    type={inputType}
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    disabled={isReadOnly}
+                    readOnly={isReadOnly}
+                    className={`${getInputClassName(
+                      "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                    )} ${isReadOnly && inputType === "date" ? "pr-12" : ""}`}
+                    placeholder={
+                      placeholder || `Enter your ${label.toLowerCase()}`
+                    }
+                  />
+                  {isReadOnly && inputType === "date" && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <FaRegCalendar className="w-5 h-5 text-[#00000099]" />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
 
           {/* Actions */}
-          <div className="mt-6">
-            <CustomButton
-              text={
-                isPasswordField || isPaymentMethodField
-                  ? "Save"
-                  : "Save Changes"
-              }
-              onClick={handleSave}
-              variant="default"
-              size="medium"
-              width="full"
-              className={
-                isPasswordField || isPaymentMethodField
-                  ? isPasswordValid || isPaymentMethodValid
-                    ? "bg-black border border-black text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                    : "!bg-[#00000033] border border-[#C9C5BF] text-white hover:bg-[#A5A4A2] disabled:opacity-50 disabled:cursor-not-allowed"
-                  : ""
-              }
-              disabled={
-                (isPasswordField &&
-                  (!value.currentPassword ||
-                    !value.newPassword ||
-                    !value.confirmPassword ||
-                    value.newPassword !== value.confirmPassword)) ||
-                (isPaymentMethodField &&
-                  (!value.cardNumber ||
-                    !value.expiry ||
-                    !value.cvc ||
-                    !value.nameOnCard))
-              }
-            />
-          </div>
+          {!isReadOnly && (
+            <div className="mt-6">
+              <CustomButton
+                text={
+                  isPasswordField || isPaymentMethodField
+                    ? "Save"
+                    : "Save Changes"
+                }
+                onClick={handleSave}
+                variant="default"
+                size="medium"
+                width="full"
+                className={
+                  isPasswordField || isPaymentMethodField
+                    ? isPasswordValid || isPaymentMethodValid
+                      ? "bg-black border border-black text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      : "!bg-[#00000033] border border-[#C9C5BF] text-white hover:bg-[#A5A4A2] disabled:opacity-50 disabled:cursor-not-allowed"
+                    : "bg-black border border-black text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                }
+                disabled={
+                  (isPasswordField &&
+                    (!value.currentPassword ||
+                      !value.newPassword ||
+                      !value.confirmPassword ||
+                      value.newPassword !== value.confirmPassword)) ||
+                  (isPaymentMethodField &&
+                    (!value.cardNumber ||
+                      !value.expiry ||
+                      !value.cvc ||
+                      !value.nameOnCard))
+                }
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

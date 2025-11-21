@@ -26,18 +26,18 @@ const isUrl = (value) => {
 export default function ProfileField({ label, value, onUpdate }) {
   // Check if this is a file upload field (photoId or insuranceCard)
   const isFileField = label === "Photo ID" || label === "Insurance Card";
-  
+
   // Format the display value
-  const displayValue = isFileField && isUrl(value) 
-    ? getFilenameFromUrl(value) 
-    : value;
-  
+  const displayValue =
+    isFileField && isUrl(value) ? getFilenameFromUrl(value) : value;
+
   // Check if we should show as a link (must be a file field, valid URL, and not "NA")
-  const showAsLink = isFileField && isUrl(value) && value !== "NA" && displayValue !== "NA";
+  const showAsLink =
+    isFileField && isUrl(value) && value !== "NA" && displayValue !== "NA";
 
   return (
-    <div className="flex items-center justify-between py-4 px-4 md:px-6 border-b border-gray-200 last:border-b-0">
-      <div className="flex-1">
+    <div className="flex items-center justify-between py-4 px-4 md:px-6 border-b border-gray-200 last:border-b-0 gap-2">
+      <div className="flex-1 min-w-0">
         <p className="text-xs md:text-sm font-medium text-gray-900 mb-1">
           {label}
         </p>
@@ -46,15 +46,21 @@ export default function ProfileField({ label, value, onUpdate }) {
             href={value}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs md:text-sm text-blue-600 hover:text-blue-800 underline cursor-pointer"
+            className="text-xs md:text-sm text-blue-600 hover:text-blue-800 underline cursor-pointer truncate block"
+            title={displayValue}
           >
             {displayValue}
           </a>
         ) : (
-          <p className="text-xs md:text-sm text-gray-600">{displayValue}</p>
+          <p
+            className="text-xs md:text-sm text-gray-600 truncate"
+            title={displayValue}
+          >
+            {displayValue}
+          </p>
         )}
       </div>
-      <div className="ml-4">
+      <div className="ml-2 flex-shrink-0">
         <CustomButton
           text="Update"
           onClick={onUpdate}

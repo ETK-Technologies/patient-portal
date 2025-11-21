@@ -305,7 +305,32 @@ export default function ProfileManager() {
     // Special handling for password - use 3 fields
     const isPasswordField = field.key === "password";
 
-    return {
+    // Fields that should be read-only (name, email, date of birth only)
+    const readOnlyFields = ["fullName", "email", "dateOfBirth"];
+    const isReadOnly = readOnlyFields.includes(field.key);
+
+    // Generate dynamic read-only message based on field
+    const getReadOnlyMessage = (fieldKey, fieldLabel) => {
+      const messageMap = {
+        fullName:
+          "If you need to update your full name, please contact support.",
+        email:
+          "If you need to update your email address, please contact support.",
+        dateOfBirth:
+          "If you need to update your date of birth, please contact support.",
+      };
+
+      // Use field key if available, otherwise use field label
+      if (messageMap[fieldKey]) {
+        return messageMap[fieldKey];
+      }
+
+      // Fallback: generate message from label
+      return `If you need to update your ${fieldLabel.toLowerCase()}, please contact support.`;
+    };
+
+    // Base props for all fields
+    const baseProps = {
       title: field.key === "password" ? field.label : `Update ${field.label}`,
       label: field.label,
       currentValue: isNameField
@@ -318,6 +343,22 @@ export default function ProfileManager() {
       isNameField: isNameField,
       isPasswordField: isPasswordField,
       placeholder: `Enter your ${field.label.toLowerCase()}`,
+    };
+
+    // Only add read-only props for name, email, and date of birth
+    if (isReadOnly) {
+      return {
+        ...baseProps,
+        isReadOnly: true,
+        readOnlyMessage: getReadOnlyMessage(field.key, field.label),
+        supportLink: "#", // You can update this with your actual support link
+      };
+    }
+
+    // For all other fields, explicitly set isReadOnly to false
+    return {
+      ...baseProps,
+      isReadOnly: false,
     };
   };
 
@@ -365,6 +406,14 @@ export default function ProfileManager() {
     if (!value || (typeof value === "string" && value.trim() === "")) {
       return "NA";
     }
+
+    // Truncate long names and emails to 50 characters
+    if (fieldKey === "fullName" || fieldKey === "email") {
+      if (typeof value === "string" && value.length > 50) {
+        return value.substring(0, 50) + "...";
+      }
+    }
+
     return value;
   };
 
