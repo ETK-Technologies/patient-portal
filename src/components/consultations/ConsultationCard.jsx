@@ -14,6 +14,7 @@ export default function ConsultationCard({ consultation }) {
     completedDate,
     startedDate,
     progress,
+    incompleteQuestionnaireLink,
   } = consultation;
 
   const isCompleted = status === "completed";
@@ -101,15 +102,34 @@ export default function ConsultationCard({ consultation }) {
 
         {/* Complete Now Button */}
         <div className="md:w-auto w-full md:w-[171px]">
-          <CustomButton
-            text="Complete Now"
-            icon={<FaArrowRight />}
-            size="small"
-            width="full"
-            variant="pill"
-            justify="center"
-            className="bg-[#000] text-white hover:bg-[#333] h-[40px] text-[14px]"
-          />
+          {incompleteQuestionnaireLink ? (
+            <a
+              href={incompleteQuestionnaireLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block"
+            >
+              <CustomButton
+                text="Complete Now"
+                icon={<FaArrowRight />}
+                size="small"
+                width="full"
+                variant="pill"
+                justify="center"
+                className="bg-[#000] text-white hover:bg-[#333] h-[40px] text-[14px]"
+              />
+            </a>
+          ) : (
+            <CustomButton
+              text="Complete Now"
+              icon={<FaArrowRight />}
+              size="small"
+              width="full"
+              variant="pill"
+              justify="center"
+              className="bg-[#000] text-white hover:bg-[#333] h-[40px] text-[14px]"
+            />
+          )}
         </div>
       </div>
     </div>

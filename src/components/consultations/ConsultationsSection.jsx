@@ -5,6 +5,7 @@ import ConsultationCard from "./ConsultationCard";
 import ScrollIndicator from "../utils/ScrollIndicator";
 import ScrollArrows from "../utils/ScrollArrows";
 import CustomButton from "../utils/CustomButton";
+import ConsultationCardSkeleton, { ConsultationCardCompletedSkeleton } from "../utils/skeletons/ConsultationCardSkeleton";
 
 // Helper function to get value - if field exists (even if empty), return empty string, otherwise return "Data not exist in API response"
 const getFieldValue = (obj, fieldName) => {
@@ -41,84 +42,65 @@ const formatDate = (dateString) => {
 };
 
 // Map API consultation data to component structure
+// New API format: { wp_entry_id, form_id, questionnaire_type, created_at, completion_state, completion_percentage, incomplete_questionnaire_link }
 const mapConsultation = (apiConsultation) => {
   const missingData = "Data not exist in API response";
 
-  // Get completion state and percentage from user_questionnaire
-  const completionState = apiConsultation.user_questionnaire?.find(
-    (q) => q.meta_key === "completion_state"
-  );
-  const completionPercentage = apiConsultation.user_questionnaire?.find(
-    (q) => q.meta_key === "completion.percentage"
-  );
-
-  const completionStateValue = completionState
-    ? getFieldValue(completionState, "meta_value")
-    : missingData;
-  const completionPercentageValue = completionPercentage
-    ? getFieldValue(completionPercentage, "meta_value")
-    : missingData;
+  // Get fields directly from new API format
+  const wpEntryId = apiConsultation.wp_entry_id || apiConsultation.id;
+  const questionnaireType = apiConsultation.questionnaire_type || missingData;
+  const completionState = apiConsultation.completion_state || "";
+  const completionPercentage = apiConsultation.completion_percentage || "0";
+  const createdAt = apiConsultation.created_at || missingData;
+  const incompleteLink = apiConsultation.incomplete_questionnaire_link || null;
 
   // Determine status based on completion_state
+  // "Full" or "FULL" = completed, "Partial" = pending
   const status =
-    completionStateValue === "Full" || completionStateValue === "100"
+    completionState === "Full" || completionState === "FULL"
       ? "completed"
-      : completionStateValue !== missingData && completionStateValue !== ""
+      : completionState === "Partial"
       ? "pending"
       : missingData;
 
-  // Get progress percentage
-  const progress =
-    completionPercentageValue !== missingData &&
-    completionPercentageValue !== ""
-      ? parseInt(completionPercentageValue) || 0
-      : status === "completed"
-      ? 100
-      : 0;
+  // Get progress percentage (parse string to number)
+  const progress = parseInt(completionPercentage) || 0;
+  // Ensure progress is between 0 and 100
+  const normalizedProgress = Math.min(Math.max(progress, 0), 100);
 
-  // Get category from medical_form
-  const category = apiConsultation.medical_form
-    ? getFieldValue(apiConsultation.medical_form, "wp_form_name")
-    : missingData;
-
-  // Format dates
-  const createdDate = getFieldValue(apiConsultation, "created_at");
-  const updatedDate = getFieldValue(apiConsultation, "updated_at");
-
-  const formattedCreatedDate = formatDate(createdDate);
-  const formattedUpdatedDate = formatDate(updatedDate);
+  // Format created date (already formatted like "Oct 10" from API, but handle if needed)
+  const formattedCreatedDate = createdAt !== missingData ? createdAt : missingData;
 
   // Determine completed date and started date
-  const completedDate =
-    status === "completed" ? formattedUpdatedDate : missingData;
-  const startedDate =
-    formattedCreatedDate !== missingData ? formattedCreatedDate : missingData;
+  const completedDate = status === "completed" ? formattedCreatedDate : missingData;
+  const startedDate = formattedCreatedDate;
 
   // Generate title and description
   const title =
     status === "completed"
       ? "questionnaire completed"
       : `Complete your ${
-          category !== missingData ? category : "questionnaire"
+          questionnaireType !== missingData ? questionnaireType : "questionnaire"
         } questionnaire`;
 
   const description =
     status === "completed"
       ? `${
-          category !== missingData ? category : "Questionnaire"
+          questionnaireType !== missingData ? questionnaireType : "Questionnaire"
         } questionnaire submitted successfully. We'll review your answers and follow up if needed.`
       : "Finish the remaining questions and see if you're eligible today.";
 
   return {
-    id: getFieldValue(apiConsultation, "id"),
-    category: category,
+    id: wpEntryId || missingData,
+    category: questionnaireType,
     status: status,
     completedDate: completedDate,
     startedDate: startedDate,
-    progress: progress,
+    progress: normalizedProgress,
     title: title,
     description: description,
     imageUrl: "/globe.svg",
+    incompleteQuestionnaireLink: incompleteLink, // Store link for "Continue" action
     // Store original API data for reference
     originalData: apiConsultation,
   };
@@ -147,13 +129,25 @@ export default function ConsultationsSection() {
             "[CONSULTATIONS_SECTION] Error fetching consultations:",
             errorData
           );
-          setError(errorData.error || "Failed to fetch consultations");
+          setError(errorData.error || errorData.message || "Failed to fetch consultations");
           setMappedConsultations([]);
           setLoading(false);
           return;
         }
 
         const data = await response.json();
+        
+        // Handle both response formats: { status: true, ... } or { success: true, ... }
+        if (!data.status && !data.success) {
+          console.error(
+            "[CONSULTATIONS_SECTION] Invalid response format:",
+            data
+          );
+          setError("Invalid response format from API");
+          setMappedConsultations([]);
+          setLoading(false);
+          return;
+        }
         console.log(
           "[CONSULTATIONS_SECTION] Consultations API response:",
           data
@@ -163,18 +157,16 @@ export default function ConsultationsSection() {
           JSON.stringify(data, null, 2)
         );
 
-        // Map the consultations data - handle multiple possible response structures
-        // Response can be: { consultations: [...] } or { data: { consultations: [...] } } or { consultations: [...], data: { consultations: [...] } }
-        const consultationsRaw = 
-          data.consultations || 
-          (data.data && Array.isArray(data.data) ? data.data : null) ||
-          (data.data && data.data.consultations ? data.data.consultations : null);
-        const consultations = Array.isArray(consultationsRaw)
-          ? consultationsRaw
-          : [];
+        // Map the consultations data - new format: { status: true, message: "...", data: [...], pagination: {...} }
+        // data is already an array of consultations
+        const consultations = Array.isArray(data.data) ? data.data : [];
+        console.log(
+          `[CONSULTATIONS_SECTION] Found ${consultations.length} consultations in response.data`
+        );
+
         const mapped = consultations.map((consultation, index) => {
           const mappedConsultation = mapConsultation(consultation);
-          // Ensure ID is always valid
+          // Ensure ID is always valid - use wp_entry_id from API
           if (
             !mappedConsultation.id ||
             mappedConsultation.id === "Data not exist in API response"
@@ -217,8 +209,27 @@ export default function ConsultationsSection() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <p className="text-gray-600 text-center">Loading consultations...</p>
+      <div>
+        {/* Completed Section Skeleton */}
+        <div className="mb-8 md:mb-12">
+          <div className="h-6 bg-gray-200 rounded w-24 mb-4 animate-pulse"></div>
+          <div className="relative">
+            <div className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide pb-2">
+              <ConsultationCardCompletedSkeleton />
+              <ConsultationCardCompletedSkeleton />
+              <ConsultationCardCompletedSkeleton />
+            </div>
+          </div>
+        </div>
+        {/* Pending Section Skeleton */}
+        <div className="mb-8">
+          <div className="h-6 bg-gray-200 rounded w-20 mb-4 animate-pulse"></div>
+          <div className="flex flex-col gap-4">
+            <ConsultationCardSkeleton />
+            <ConsultationCardSkeleton />
+            <ConsultationCardSkeleton />
+          </div>
+        </div>
       </div>
     );
   }

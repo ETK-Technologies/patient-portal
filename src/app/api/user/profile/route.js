@@ -42,7 +42,8 @@ export async function GET(request) {
     if (!userId) {
       return NextResponse.json(
         {
-          success: false,
+          status: false,
+          message: "User not authenticated",
           error: "User not authenticated",
         },
         { status: 401 }
@@ -63,7 +64,8 @@ export async function GET(request) {
     console.error("Error fetching user profile:", error);
     return NextResponse.json(
       {
-        success: false,
+        status: false,
+        message: "Failed to fetch user profile",
         error: "Failed to fetch user profile",
         details: error.message,
       },
@@ -89,7 +91,7 @@ async function fetchUserData(userId) {
       apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
     });
     return {
-      id: userId,
+      crm_user_id: userId,
     };
   }
 
@@ -140,7 +142,7 @@ async function fetchUserData(userId) {
         console.error(`[USER_PROFILE] Failed endpoint: ${authResult.endpoint}`);
       }
       return {
-        id: userId,
+        crm_user_id: userId,
       };
     }
 
@@ -169,7 +171,7 @@ async function fetchUserData(userId) {
       const errorText = await profileResponse.text();
       console.error(`[USER_PROFILE] Error details: ${errorText}`);
       return {
-        id: userId,
+        crm_user_id: userId,
       };
     }
 
@@ -192,6 +194,10 @@ async function fetchUserData(userId) {
       // Check for new structure: { status: true, message: "...", user: {...} }
       if (responseData.user) {
         const userData = responseData.user;
+        // Ensure crm_user_id is set
+        if (!userData.crm_user_id && userId) {
+          userData.crm_user_id = userId;
+        }
         console.log(
           "[USER_PROFILE] ✓ Extracted user data from CRM response (top-level user)"
         );
@@ -210,6 +216,10 @@ async function fetchUserData(userId) {
       else if (responseData.data) {
         if (responseData.data.user) {
           const userData = responseData.data.user;
+          // Ensure crm_user_id is set
+          if (!userData.crm_user_id && userId) {
+            userData.crm_user_id = userId;
+          }
           console.log(
             "[USER_PROFILE] ✓ Extracted user data from CRM response (data.user)"
           );
@@ -249,7 +259,7 @@ async function fetchUserData(userId) {
   } catch (error) {
     console.error("[USER_PROFILE] Error fetching user data from CRM:", error);
     return {
-      id: userId,
+      crm_user_id: userId,
     };
   }
 }
@@ -322,24 +332,9 @@ export async function POST(request) {
     }
 
     // Map profile field names to CRM API field names
+    // Only phone_number, photo_id, and insurance_card_image can be updated via patient portal
     const fieldMapping = {
-      fullName: (val) => {
-        // Handle name as object with firstName and lastName
-        if (typeof val === "object" && val.firstName !== undefined) {
-          return {
-            first_name: val.firstName,
-            last_name: val.lastName || "",
-          };
-        }
-        return null;
-      },
-      email: (val) => ({ email: val }),
       phoneNumber: (val) => ({ phone_number: val }),
-      dateOfBirth: (val) => ({ date_of_birth: val }),
-      address: (val) => ({ address: val }),
-      city: (val) => ({ city: val }),
-      province: (val) => ({ province: val }),
-      postalCode: (val) => ({ postal_code: val }),
       photoId: (val) => {
         // If it's a File object, return it as-is for form-data handling
         if (val instanceof File) {
@@ -360,8 +355,9 @@ export async function POST(request) {
     if (!mapper) {
       return NextResponse.json(
         {
-          success: false,
-          error: `Unknown field: ${field}`,
+          status: false,
+          message: `Field '${field}' cannot be updated via patient portal. Only phone_number, photo_id, and insurance_card_image can be updated.`,
+          error: `Field '${field}' is not allowed for update`,
         },
         { status: 400 }
       );
@@ -371,7 +367,8 @@ export async function POST(request) {
     if (!updateData) {
       return NextResponse.json(
         {
-          success: false,
+          status: false,
+          message: `Invalid value for field: ${field}`,
           error: `Invalid value for field: ${field}`,
         },
         { status: 400 }
@@ -556,27 +553,54 @@ async function updateUserProfile(userId, updateData) {
     // Get the headers from form-data (includes Content-Type with boundary)
     const formHeaders = formData.getHeaders();
     console.log(`[USER_PROFILE_UPDATE] Form headers:`, formHeaders);
+    console.log(
+      `[USER_PROFILE_UPDATE] Content-Type:`,
+      formHeaders["content-type"]
+    );
 
-    // Use form-data's stream directly with proper handling
-    // form-data needs to be used as a stream, but fetch in Node.js can handle it
-    // Try using formData.getLength() to trigger the stream preparation
-    try {
-      const length = await new Promise((resolve, reject) => {
-        formData.getLength((err, length) => {
-          if (err) reject(err);
-          else resolve(length);
-        });
+    // Convert form-data stream to buffer for Node.js fetch compatibility
+    // The form-data package creates a stream that needs to be converted to buffer
+    const formDataBuffer = await new Promise((resolve, reject) => {
+      const chunks = [];
+
+      // Set up stream handlers before reading
+      formData.on("data", (chunk) => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
       });
-      console.log(`[USER_PROFILE_UPDATE] Form data length: ${length} bytes`);
-    } catch (lengthError) {
-      console.warn(
-        `[USER_PROFILE_UPDATE] Could not get form data length:`,
-        lengthError
-      );
-    }
 
-    // Note: Using POST method to match Postman (works in Postman)
-    // Pass formData directly as body - Node.js fetch should handle the stream
+      formData.on("end", () => {
+        try {
+          const buffer = Buffer.concat(chunks);
+          console.log(
+            `[USER_PROFILE_UPDATE] Form data buffer created: ${buffer.length} bytes`
+          );
+          console.log(
+            `[USER_PROFILE_UPDATE] Buffer preview (first 200 chars):`,
+            buffer.toString("utf8").substring(0, 200)
+          );
+          resolve(buffer);
+        } catch (err) {
+          reject(err);
+        }
+      });
+
+      formData.on("error", (err) => {
+        console.error(`[USER_PROFILE_UPDATE] Form data stream error:`, err);
+        reject(err);
+      });
+
+      // The form-data stream is already readable, we just need to consume it
+      // Reading from the stream will trigger the data/end events
+      if (formData.readable) {
+        formData.resume();
+      }
+    });
+
+    console.log(
+      `[USER_PROFILE_UPDATE] Form data buffer ready: ${formDataBuffer.length} bytes`
+    );
+
+    // Send the form-data buffer to the CRM API
     const updateResponse = await fetch(updateUrl, {
       method: "POST",
       headers: {
@@ -584,7 +608,7 @@ async function updateUserProfile(userId, updateData) {
         "is-patient-portal": "true",
         ...formHeaders, // This includes Content-Type with boundary
       },
-      body: formData, // Pass the stream directly
+      body: formDataBuffer, // Send as buffer
     });
 
     if (!updateResponse.ok) {

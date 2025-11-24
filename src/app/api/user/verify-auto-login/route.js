@@ -116,7 +116,7 @@ async function fetchUserData(userId) {
       "[USERDATA] Missing CRM credentials, returning basic user info"
     );
     return {
-      id: userId,
+      crm_user_id: userId,
     };
   }
 
@@ -164,7 +164,7 @@ async function fetchUserData(userId) {
         console.error(`[USERDATA] Failed endpoint: ${authResult.endpoint}`);
       }
       return {
-        id: userId,
+        crm_user_id: userId,
       };
     }
 
@@ -174,7 +174,8 @@ async function fetchUserData(userId) {
     );
 
     // Step 2: Fetch user profile from CRM
-    const profileUrl = `${crmHost}/api/crm-users/${userId}/edit/personal-profile`;
+    // Use the same endpoint as the profile route: /api/user/{userId}/profile
+    const profileUrl = `${crmHost}/api/user/${userId}/profile`;
     console.log(`[USERDATA] Fetching user profile from: ${profileUrl}`);
 
     const profileResponse = await fetch(profileUrl, {
@@ -182,6 +183,7 @@ async function fetchUserData(userId) {
       headers: {
         Authorization: `Bearer ${authToken}`,
         "Content-Type": "application/json",
+        "is-patient-portal": "true",
       },
     });
 
@@ -192,19 +194,45 @@ async function fetchUserData(userId) {
       const errorText = await profileResponse.text();
       console.error(`[USERDATA] Error details: ${errorText}`);
       return {
-        id: userId,
+        crm_user_id: userId,
       };
     }
 
-    const userData = await profileResponse.json();
+    const responseData = await profileResponse.json();
     console.log("[USERDATA] Successfully fetched user profile data");
+    console.log("[USERDATA] Response status:", responseData.status);
+
+    // Extract user data from the CRM response structure
+    // CRM returns: { status: true, message: "...", user: {...} }
+    let userData = null;
+    if (responseData.status && responseData.user) {
+      userData = responseData.user;
+      console.log("[USERDATA] ✓ Extracted user data from CRM response");
+    } else if (responseData.data && responseData.data.user) {
+      userData = responseData.data.user;
+      console.log(
+        "[USERDATA] ✓ Extracted user data from CRM response (data.user)"
+      );
+    } else if (responseData.data) {
+      userData = responseData.data;
+      console.log("[USERDATA] ✓ Using data as user data");
+    } else {
+      // Fallback: use response as-is
+      userData = responseData;
+      console.log("[USERDATA] ⚠ Using full response as user data");
+    }
+
+    // Ensure crm_user_id is set
+    if (!userData.crm_user_id && userId) {
+      userData.crm_user_id = userId;
+    }
 
     // Return the user data from CRM
     return userData;
   } catch (error) {
     console.error("[USERDATA] Error fetching user data from CRM:", error);
     return {
-      id: userId,
+      crm_user_id: userId,
     };
   }
 }

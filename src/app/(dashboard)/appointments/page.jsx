@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import PageContainer from "@/components/PageContainer";
 import AppointmentsSection from "@/components/appointments/AppointmentsSection";
+import CustomButton from "@/components/utils/Button";
+import AppointmentCardSkeleton from "@/components/utils/skeletons/AppointmentCardSkeleton";
+import { FaArrowRight } from "react-icons/fa";
 
 /**
  * Transform Calendly meeting data to appointment format
@@ -89,8 +92,10 @@ export default function Appointments() {
   if (loading) {
     return (
       <PageContainer title="My Appointments">
-        <div className="flex items-center justify-center py-12">
-          <p className="text-gray-600">Loading appointments...</p>
+        <div className="space-y-4">
+          <AppointmentCardSkeleton />
+          <AppointmentCardSkeleton />
+          <AppointmentCardSkeleton />
         </div>
       </PageContainer>
     );
@@ -123,8 +128,25 @@ export default function Appointments() {
       )}
 
       {upcomingAppointments.length === 0 && pastAppointments.length === 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <p className="text-gray-600 text-center">No appointments found.</p>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 md:p-8">
+          <div className="text-center">
+            <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">
+              You have no appointments
+            </h3>
+            <p className="text-gray-600 mb-6 text-sm md:text-base">
+              No active appointments right now. Discover what&apos;s available
+              and get started today.
+            </p>
+            <CustomButton
+              href="/treatments"
+              text="Find a treatment"
+              icon={<FaArrowRight className="text-white" />}
+              variant="default"
+              size="medium"
+              width="auto"
+              className="bg-black border-black text-white hover:bg-gray-800 mx-auto"
+            />
+          </div>
         </div>
       )}
     </PageContainer>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import DashboardCard from "./DashboardCard";
+import DashboardCardSkeleton from "../utils/skeletons/DashboardCardSkeleton";
 import { useUser } from "@/contexts/UserContext";
 
 export default function DashboardOverview() {
@@ -84,7 +85,7 @@ export default function DashboardOverview() {
   const dashboardData = [
     {
       title: "Orders",
-      count: loading ? "..." : ordersCount,
+      count: ordersCount,
       link: "/orders",
       linkText: "View Orders",
     },
@@ -96,7 +97,7 @@ export default function DashboardOverview() {
     },
     {
       title: "Subscriptions",
-      count: loading ? "..." : subscriptionCount,
+      count: subscriptionCount,
       link: "/subscriptions",
       linkText: "View Subscriptions",
     },
@@ -107,6 +108,19 @@ export default function DashboardOverview() {
       linkText: "View Appointments",
     },
   ];
+
+  if (loading) {
+    return (
+      <div className="flex gap-6 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-[16px] min-w-max">
+          <DashboardCardSkeleton />
+          <DashboardCardSkeleton />
+          <DashboardCardSkeleton />
+          <DashboardCardSkeleton />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex gap-6 overflow-x-auto scrollbar-hide">

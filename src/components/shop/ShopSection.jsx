@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import ProductSection from "./ProductSection";
 import MerchProductModal from "./MerchProductModal";
 import SimpleProductModal from "./SimpleProductModal";
+import ProductCardSkeleton from "@/components/utils/skeletons/ProductCardSkeleton";
 import { shopData } from "./shopData";
 import { transformProductsArray } from "./utils/productTransformer";
 
@@ -153,8 +154,15 @@ export default function ShopSection() {
         />
 
         {loadingMerchandise ? (
-          <div className="text-center py-8">
-            <p className="text-gray-600">Loading merchandise...</p>
+          <div className="mb:-[24px] md:mb-[56px]">
+            <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-6">
+              Rocky Merch
+            </h2>
+            <div className="flex gap-2 md:gap-4">
+              <ProductCardSkeleton />
+              <ProductCardSkeleton />
+              <ProductCardSkeleton />
+            </div>
           </div>
         ) : (
           <ProductSection

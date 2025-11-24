@@ -93,7 +93,7 @@ export const shopData = {
       name: "Essential T-Boost",
       price: "$35.00",
       image:
-        "https://mycdn.myrocky.ca/wp-content/uploads/20250908134137/t-boost.png",
+        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/t-boost1.png",
       type: "supplement",
       productId: "262914", // WooCommerce Product ID
       description:

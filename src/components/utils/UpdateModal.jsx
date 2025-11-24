@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import CustomButton from "@/components/utils/Button";
 import { IoMdClose } from "react-icons/io";
 import { FaInfoCircle, FaPlus, FaCheck } from "react-icons/fa";
@@ -122,6 +123,78 @@ export default function UpdateModal({
 
   // Tooltip state for password requirements
   const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({
+    top: 0,
+    left: 0,
+    transform: "translateX(-50%)",
+  });
+  const infoIconRef = useRef(null);
+
+  // Calculate tooltip position with mobile handling
+  const calculateTooltipPosition = useCallback(() => {
+    if (!infoIconRef.current) return;
+
+    const rect = infoIconRef.current.getBoundingClientRect();
+    const tooltipWidth = window.innerWidth < 768 ? 256 : 372; // 256px mobile, 372px desktop
+    const tooltipHeight = 200; // Approximate height
+    const spacing = 8;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const isMobile = viewportWidth < 768;
+
+    let top = rect.bottom + spacing;
+    let left = rect.left + rect.width / 2;
+    let transform = "translateX(-50%)";
+
+    // Mobile positioning adjustments
+    if (isMobile) {
+      // Check if tooltip would go off right edge
+      if (left + tooltipWidth / 2 > viewportWidth - 16) {
+        left = viewportWidth - tooltipWidth / 2 - 16;
+        transform = "translateX(-50%)";
+      }
+      // Check if tooltip would go off left edge
+      else if (left - tooltipWidth / 2 < 16) {
+        left = tooltipWidth / 2 + 16;
+        transform = "translateX(-50%)";
+      }
+
+      // Check if tooltip would go off bottom edge
+      if (top + tooltipHeight > viewportHeight - 16) {
+        // Position above the icon instead
+        top = rect.top - tooltipHeight - spacing;
+        // If still off-screen, position at top with margin
+        if (top < 16) {
+          top = 16;
+        }
+      }
+    } else {
+      // Desktop: check if tooltip would go off bottom
+      if (top + tooltipHeight > viewportHeight - 16) {
+        top = rect.top - tooltipHeight - spacing;
+        if (top < 16) {
+          top = 16;
+        }
+      }
+    }
+
+    setTooltipPosition({ top, left, transform });
+  }, []);
+
+  // Update tooltip position on scroll/resize to keep it aligned
+  useEffect(() => {
+    if (showTooltip && infoIconRef.current) {
+      calculateTooltipPosition();
+
+      window.addEventListener("scroll", calculateTooltipPosition, true);
+      window.addEventListener("resize", calculateTooltipPosition);
+
+      return () => {
+        window.removeEventListener("scroll", calculateTooltipPosition, true);
+        window.removeEventListener("resize", calculateTooltipPosition);
+      };
+    }
+  }, [showTooltip, calculateTooltipPosition]);
 
   // Helper to get input className with read-only styling
   const getInputClassName = (baseClassName) => {
@@ -559,53 +632,70 @@ export default function UpdateModal({
                         )}
                         <div className="relative">
                           <FaInfoCircle
+                            ref={infoIconRef}
                             className="w-[14px] h-[14px] text-gray-400 cursor-pointer"
-                            onMouseEnter={() => setShowTooltip(true)}
+                            onMouseEnter={(e) => {
+                              // Calculate position immediately
+                              calculateTooltipPosition();
+                              setShowTooltip(true);
+                            }}
                             onMouseLeave={() => setShowTooltip(false)}
                           />
-                          {showTooltip && (
-                            <div
-                              className="absolute left-1/2 -translate-x-1/2 top-6 z-[10001] w-64 text-white text-xs rounded-lg p-3 shadow-lg"
-                              style={{ backgroundColor: "#292929EB" }}
-                            >
-                              <p className="font-semibold mb-2">
-                                Password should contain at least these
-                                requirements:
-                              </p>
-                              <ul className="space-y-1">
-                                <li className="flex items-center gap-2">
-                                  <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
-                                  <span>
-                                    contains both lower (a-z) and upper case
-                                    letters (A-Z)
-                                  </span>
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
-                                  <span>contains at least 8 characters</span>
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
-                                  <span>
-                                    contains at least one number (0-9) or a
-                                    symbol
-                                  </span>
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
-                                  <span>
-                                    does not contain your name or email address
-                                  </span>
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
-                                  <span>
-                                    is not commonly used or a previous password
-                                  </span>
-                                </li>
-                              </ul>
-                            </div>
-                          )}
+                          {showTooltip &&
+                            tooltipPosition.top > 0 &&
+                            tooltipPosition.left > 0 &&
+                            typeof window !== "undefined" &&
+                            createPortal(
+                              <div
+                                className="fixed z-[99999] w-[256px] md:w-[372px] max-w-[calc(100vw-32px)] text-white text-xs rounded-lg p-3 shadow-lg pointer-events-none"
+                                style={{
+                                  backgroundColor: "#292929EB",
+                                  top: `${tooltipPosition.top}px`,
+                                  left: `${tooltipPosition.left}px`,
+                                  transform: tooltipPosition.transform,
+                                }}
+                              >
+                                <p className="font-semibold mb-2 text-sm">
+                                  Password should contain at least these
+                                  requirements:
+                                </p>
+                                <ul className="space-y-1">
+                                  <li className="flex items-center gap-2">
+                                    <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
+                                    <span>
+                                      contains both lower (a-z) and upper case
+                                      letters (A-Z)
+                                    </span>
+                                  </li>
+                                  <li className="flex items-center gap-2">
+                                    <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
+                                    <span>contains at least 8 characters</span>
+                                  </li>
+                                  <li className="flex items-center gap-2">
+                                    <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
+                                    <span>
+                                      contains at least one number (0-9) or a
+                                      symbol
+                                    </span>
+                                  </li>
+                                  <li className="flex items-center gap-2">
+                                    <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
+                                    <span>
+                                      does not contain your name or email
+                                      address
+                                    </span>
+                                  </li>
+                                  <li className="flex items-center gap-2">
+                                    <FaCheck className="w-3 h-3 text-white flex-shrink-0" />
+                                    <span>
+                                      is not commonly used or a previous
+                                      password
+                                    </span>
+                                  </li>
+                                </ul>
+                              </div>,
+                              document.body
+                            )}
                         </div>
                       </div>
                     </div>

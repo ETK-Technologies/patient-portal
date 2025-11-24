@@ -85,6 +85,11 @@ const nextConfig = {
         hostname: "www.colorhexa.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "secure.gravatar.com",
+        pathname: "/**",
+      },
     ],
   },
 };

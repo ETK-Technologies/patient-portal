@@ -3,121 +3,75 @@
 import { useEffect, useState } from "react";
 import ConsultationCard from "../consultations/ConsultationCard";
 import CustomButton from "../utils/CustomButton";
+import ConsultationCardSkeleton from "../utils/skeletons/ConsultationCardSkeleton";
 import { FaArrowRight } from "react-icons/fa";
 
-// Helper function to get value - if field exists (even if empty), return empty string, otherwise return "Data not exist in API response"
-const getFieldValue = (obj, fieldName) => {
-  if (obj && typeof obj === "object" && fieldName in obj) {
-    const value = obj[fieldName];
-    // Field exists - return empty string if null/undefined/empty, otherwise return the value
-    if (value === null || value === undefined || value === "") {
-      return "";
-    }
-    return value;
-  }
-  // Field doesn't exist
-  return "Data not exist in API response";
-};
-
-// Helper to format date from API format to display format
-const formatDate = (dateString) => {
-  if (!dateString || dateString === "Data not exist in API response") {
-    return dateString;
-  }
-  try {
-    // Handle formats like "2025-10-14 11:23 am" or ISO format
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      return dateString; // Return as-is if can't parse
-    }
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return dateString;
-  }
-};
-
 // Map API consultation data to component structure
+// New API format: { wp_entry_id, form_id, questionnaire_type, created_at, completion_state, completion_percentage, incomplete_questionnaire_link }
 const mapConsultation = (apiConsultation) => {
   const missingData = "Data not exist in API response";
 
-  // Get completion state and percentage from user_questionnaire
-  const completionState = apiConsultation.user_questionnaire?.find(
-    (q) => q.meta_key === "completion_state"
-  );
-  const completionPercentage = apiConsultation.user_questionnaire?.find(
-    (q) => q.meta_key === "completion.percentage"
-  );
-
-  const completionStateValue = completionState
-    ? getFieldValue(completionState, "meta_value")
-    : missingData;
-  const completionPercentageValue = completionPercentage
-    ? getFieldValue(completionPercentage, "meta_value")
-    : missingData;
+  // Get fields directly from new API format
+  const wpEntryId = apiConsultation.wp_entry_id || apiConsultation.id;
+  const questionnaireType = apiConsultation.questionnaire_type || missingData;
+  const completionState = apiConsultation.completion_state || "";
+  const completionPercentage = apiConsultation.completion_percentage || "0";
+  const createdAt = apiConsultation.created_at || missingData;
+  const incompleteLink = apiConsultation.incomplete_questionnaire_link || null;
 
   // Determine status based on completion_state
+  // "Full" or "FULL" = completed, "Partial" = pending
   const status =
-    completionStateValue === "Full" || completionStateValue === "100"
+    completionState === "Full" || completionState === "FULL"
       ? "completed"
-      : completionStateValue !== missingData && completionStateValue !== ""
+      : completionState === "Partial"
       ? "pending"
       : missingData;
 
-  // Get progress percentage
-  const progress =
-    completionPercentageValue !== missingData &&
-    completionPercentageValue !== ""
-      ? parseInt(completionPercentageValue) || 0
-      : status === "completed"
-      ? 100
-      : 0;
+  // Get progress percentage (parse string to number)
+  const progress = parseInt(completionPercentage) || 0;
+  // Ensure progress is between 0 and 100
+  const normalizedProgress = Math.min(Math.max(progress, 0), 100);
 
-  // Get category from medical_form
-  const category = apiConsultation.medical_form
-    ? getFieldValue(apiConsultation.medical_form, "wp_form_name")
-    : missingData;
-
-  // Format dates
-  const createdDate = getFieldValue(apiConsultation, "created_at");
-  const updatedDate = getFieldValue(apiConsultation, "updated_at");
-
-  const formattedCreatedDate = formatDate(createdDate);
-  const formattedUpdatedDate = formatDate(updatedDate);
+  // Format created date (already formatted like "Oct 10" from API, but handle if needed)
+  const formattedCreatedDate =
+    createdAt !== missingData ? createdAt : missingData;
 
   // Determine completed date and started date
   const completedDate =
-    status === "completed" ? formattedUpdatedDate : missingData;
-  const startedDate =
-    formattedCreatedDate !== missingData ? formattedCreatedDate : missingData;
+    status === "completed" ? formattedCreatedDate : missingData;
+  const startedDate = formattedCreatedDate;
 
   // Generate title and description
   const title =
     status === "completed"
       ? "questionnaire completed"
       : `Complete your ${
-          category !== missingData ? category : "questionnaire"
+          questionnaireType !== missingData
+            ? questionnaireType
+            : "questionnaire"
         } questionnaire`;
 
   const description =
     status === "completed"
       ? `${
-          category !== missingData ? category : "Questionnaire"
+          questionnaireType !== missingData
+            ? questionnaireType
+            : "Questionnaire"
         } questionnaire submitted successfully. We'll review your answers and follow up if needed.`
       : "Finish the remaining questions and see if you're eligible today.";
 
   return {
-    id: getFieldValue(apiConsultation, "id"),
-    category: category,
+    id: wpEntryId || missingData,
+    category: questionnaireType,
     status: status,
     completedDate: completedDate,
     startedDate: startedDate,
-    progress: progress,
+    progress: normalizedProgress,
     title: title,
     description: description,
     imageUrl: "/globe.svg",
+    incompleteQuestionnaireLink: incompleteLink, // Store link for "Continue" action
     // Store original API data for reference
     originalData: apiConsultation,
   };
@@ -146,20 +100,27 @@ export default function IncompleteConsultationsSection() {
 
         const data = await response.json();
 
-        // Map the consultations data - handle multiple possible response structures
-        // Response can be: { consultations: [...] } or { data: { consultations: [...] } } or { consultations: [...], data: { consultations: [...] } }
-        const consultationsRaw =
-          data.consultations ||
-          (data.data && Array.isArray(data.data) ? data.data : null) ||
-          (data.data && data.data.consultations
-            ? data.data.consultations
-            : null);
-        const consultations = Array.isArray(consultationsRaw)
-          ? consultationsRaw
-          : [];
+        // Handle both response formats: { status: true, ... } or { success: true, ... }
+        if (!data.status && !data.success) {
+          console.error(
+            "[INCOMPLETE_CONSULTATIONS] Invalid response format:",
+            data
+          );
+          setMappedConsultations([]);
+          setLoading(false);
+          return;
+        }
+
+        // Map the consultations data - new format: { status: true, message: "...", data: [...], pagination: {...} }
+        // data is already an array of consultations
+        const consultations = Array.isArray(data.data) ? data.data : [];
+        console.log(
+          `[INCOMPLETE_CONSULTATIONS] Found ${consultations.length} consultations in response.data`
+        );
+
         const mapped = consultations.map((consultation, index) => {
           const mappedConsultation = mapConsultation(consultation);
-          // Ensure ID is always valid
+          // Ensure ID is always valid - use wp_entry_id from API
           if (
             !mappedConsultation.id ||
             mappedConsultation.id === "Data not exist in API response"
@@ -190,8 +151,23 @@ export default function IncompleteConsultationsSection() {
     fetchConsultations();
   }, []);
 
-  // Don't render if loading or no incomplete consultations
-  if (loading || mappedConsultations.length === 0) {
+  // Show loading skeleton while loading
+  if (loading) {
+    return (
+      <div>
+        <h2 className="text-[24px] md:text-[20px] leading-[140%] font-[500] mb-4">
+          Consultations
+        </h2>
+        <div className="flex flex-col gap-4 mb-6">
+          <ConsultationCardSkeleton />
+          <ConsultationCardSkeleton />
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if no incomplete consultations after loading
+  if (mappedConsultations.length === 0) {
     return null;
   }
 

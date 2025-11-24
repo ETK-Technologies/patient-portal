@@ -51,9 +51,12 @@ export async function GET(request) {
         const consultationsData = await fetchConsultations(wpUserID);
 
         return NextResponse.json({
-            success: true,
-            consultations: consultationsData.consultations || [],
-            data: consultationsData,
+            status: true,
+            message: consultationsData.count > 0 
+                ? `Successfully fetched ${consultationsData.count} consultations`
+                : "No consultations found",
+            data: consultationsData.consultations || [],
+            pagination: consultationsData.pagination || null,
         });
     } catch (error) {
         console.error("Error fetching user consultations:", error);
@@ -157,6 +160,7 @@ async function fetchConsultations(userId) {
             headers: {
                 Authorization: `Bearer ${authToken}`,
                 "Content-Type": "application/json",
+                "is-patient-portal": "true",
             },
         });
 
@@ -174,78 +178,40 @@ async function fetchConsultations(userId) {
 
         const responseData = await consultationsResponse.json();
         console.log("[USER_CONSULTATIONS] CRM response received");
-        console.log("[USER_CONSULTATIONS] Full CRM response:", JSON.stringify(responseData, null, 2));
         console.log("[USER_CONSULTATIONS] Response status:", responseData.status);
         console.log("[USER_CONSULTATIONS] Response keys:", Object.keys(responseData));
 
-        // Log the actual consultations data structure
-        if (responseData.data) {
-            console.log("[USER_CONSULTATIONS] Response.data type:", Array.isArray(responseData.data) ? "Array" : typeof responseData.data);
-            console.log("[USER_CONSULTATIONS] Response.data:", JSON.stringify(responseData.data, null, 2));
-            if (responseData.data.consultations) {
-                console.log("[USER_CONSULTATIONS] Response.data.consultations:", JSON.stringify(responseData.data.consultations, null, 2));
-            }
-        }
-
         // Extract consultations from the CRM response structure
-        // CRM might return: { status: true, data: { consultations: [...], count: 5 } }
-        // or: { status: true, data: [...] } where data is the consultations array
-        let consultationsData = null;
-
-        if (responseData.status && responseData.data) {
-            // Check if consultations array is directly in data
-            if (Array.isArray(responseData.data)) {
-                consultationsData = {
-                    consultations: responseData.data,
-                    count: responseData.data.length,
-                };
-                console.log(`[USER_CONSULTATIONS] ✓ Found consultations array in data: ${consultationsData.count} consultations`);
-            }
-            // Check if consultations array exists in data object
-            else if (responseData.data.consultations && Array.isArray(responseData.data.consultations)) {
-                consultationsData = {
-                    consultations: responseData.data.consultations,
-                    count: responseData.data.consultations.length,
-                    ...responseData.data,
-                };
-                console.log(`[USER_CONSULTATIONS] ✓ Found consultations in data.consultations: ${consultationsData.count} consultations`);
-            }
-            // If data exists but structure is different
-            else {
-                console.log("[USER_CONSULTATIONS] Response has data but unexpected structure");
-                console.log("[USER_CONSULTATIONS] Data keys:", Object.keys(responseData.data));
-                consultationsData = {
-                    consultations: [],
-                    ...responseData.data,
-                };
-            }
-        }
-        // Fallback: if response doesn't have status/data structure
-        else if (Array.isArray(responseData)) {
-            consultationsData = {
-                consultations: responseData,
-                count: responseData.length,
-            };
-            console.log(`[USER_CONSULTATIONS] ✓ Response is array, counted: ${consultationsData.count} consultations`);
-        }
-        // Last fallback: return the response as-is
-        else {
-            consultationsData = {
-                consultations: [],
-                data: responseData,
-            };
-        }
-
-        if (!consultationsData) {
-            console.error("[USER_CONSULTATIONS] ✗ Failed to extract consultations data");
+        // New format: { status: true, message: "...", data: [...], pagination: {...} }
+        // data is already an array of consultations
+        if (responseData.status && Array.isArray(responseData.data)) {
+            console.log(`[USER_CONSULTATIONS] ✓ Found consultations array in data: ${responseData.data.length} consultations`);
+            console.log("[USER_CONSULTATIONS] Pagination:", responseData.pagination);
+            
             return {
-                consultations: [],
-                id: userId,
+                consultations: responseData.data,
+                pagination: responseData.pagination || null,
+                count: responseData.data.length,
             };
         }
 
-        console.log(`[USER_CONSULTATIONS] ✓ Successfully fetched consultations: ${consultationsData.count || consultationsData.consultations?.length || 0} consultations`);
-        return consultationsData;
+        // Fallback: if structure is different, try to extract data
+        if (responseData.data && Array.isArray(responseData.data)) {
+            console.log(`[USER_CONSULTATIONS] ✓ Found consultations array in data (fallback): ${responseData.data.length} consultations`);
+            return {
+                consultations: responseData.data,
+                pagination: responseData.pagination || null,
+                count: responseData.data.length,
+            };
+        }
+
+        console.error("[USER_CONSULTATIONS] ✗ Failed to extract consultations data - unexpected structure");
+        console.error("[USER_CONSULTATIONS] Response structure:", JSON.stringify(responseData, null, 2));
+        return {
+            consultations: [],
+            pagination: null,
+            count: 0,
+        };
     } catch (error) {
         console.error("[USER_CONSULTATIONS] Error fetching consultations from CRM:", error);
         return {

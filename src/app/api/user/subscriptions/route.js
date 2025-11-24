@@ -142,6 +142,7 @@ async function fetchSubscriptions(wpUserID) {
       headers: {
         Authorization: `Bearer ${authToken}`,
         "Content-Type": "application/json",
+        "is-patient-portal": "true",
       },
     });
 

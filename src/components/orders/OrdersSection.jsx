@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import OrderCard from "./OrderCard";
 import CustomButton from "@/components/utils/CustomButton";
 import EmptyState from "@/components/utils/EmptyState";
+import OrderCardSkeleton from "@/components/utils/skeletons/OrderCardSkeleton";
 import { FaArrowRight } from "react-icons/fa";
 
 // Helper function to format date from API format (2025-10-08) to display format (Oct 08, 2025)
@@ -258,8 +259,16 @@ const OrdersSection = () => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <p className="text-gray-600 text-center">Loading orders...</p>
+      <div className="space-y-6">
+        {/* Date group skeleton */}
+        <div>
+          <div className="h-5 bg-gray-200 rounded w-24 mb-2 animate-pulse"></div>
+          <div className="space-y-3">
+            <OrderCardSkeleton />
+            <OrderCardSkeleton />
+            <OrderCardSkeleton />
+          </div>
+        </div>
       </div>
     );
   }

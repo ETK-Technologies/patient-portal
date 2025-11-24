@@ -6,6 +6,7 @@ import ScrollIndicator from "../utils/ScrollIndicator";
 import ScrollArrows from "../utils/ScrollArrows";
 import SubscriptionFlow from "../subscription-flow/SubscriptionFlow";
 import SubscriptionActionPanel from "./SubscriptionActionPanel";
+import SubscriptionCardSkeleton from "../utils/skeletons/SubscriptionCardSkeleton";
 import { FiArrowLeft, FiChevronLeft } from "react-icons/fi";
 import { FaArrowLeft } from "react-icons/fa";
 import EmptyState from "../utils/EmptyState";
@@ -49,25 +50,26 @@ export default function SubscriptionsSection() {
         }
 
         // Handle the API response structure
-        // Response: { success: true, data: { status: true, message: "...", data: { subscriptions: [...] } } }
+        // Response: { success: true, data: { status: true, message: "...", subscriptions: [...] } }
         const responseData = result.data;
         
         console.log("[SUBSCRIPTIONS] Full API response:", JSON.stringify(result, null, 2));
         console.log("[SUBSCRIPTIONS] Response data:", responseData);
 
-        // Extract subscriptions array
+        // Extract subscriptions array - new format has subscriptions directly in data
         let subscriptionsArray = [];
         
-        if (responseData?.data?.subscriptions) {
-          subscriptionsArray = Array.isArray(responseData.data.subscriptions) 
-            ? responseData.data.subscriptions 
-            : [];
-          console.log("[SUBSCRIPTIONS] ✓ Found subscriptions in nested structure:", subscriptionsArray.length, "items");
-        } else if (responseData?.subscriptions) {
+        if (responseData?.subscriptions) {
           subscriptionsArray = Array.isArray(responseData.subscriptions) 
             ? responseData.subscriptions 
             : [];
           console.log("[SUBSCRIPTIONS] ✓ Found subscriptions in direct structure:", subscriptionsArray.length, "items");
+        } else if (responseData?.data?.subscriptions) {
+          // Fallback for nested structure if needed
+          subscriptionsArray = Array.isArray(responseData.data.subscriptions) 
+            ? responseData.data.subscriptions 
+            : [];
+          console.log("[SUBSCRIPTIONS] ✓ Found subscriptions in nested structure:", subscriptionsArray.length, "items");
         } else {
           console.warn("[SUBSCRIPTIONS] ⚠️ Could not find subscriptions array in response structure");
         }
@@ -85,36 +87,38 @@ export default function SubscriptionsSection() {
             mappedStatus = "canceled";
           }
 
-          // Extract product name and subtitle
-          const productName = firstItem.name || firstItem.parent_name || "Unknown Product";
-          const productSubtitle = firstItem.parent_name && firstItem.name !== firstItem.parent_name 
-            ? firstItem.name 
-            : null;
+          // Extract product name - API uses product_name field
+          const productName = firstItem.product_name || "Unknown Product";
 
-          // Extract dosage from meta_data
-          const tabsFrequency = firstItem.meta_data?.find(m => m.key === "pa_tabs-frequency")?.display_value || "";
-          const subscriptionType = firstItem.meta_data?.find(m => m.key === "pa_subscription-type")?.display_value || "";
+          // Extract dosage from direct fields (not meta_data)
+          const tabsFrequency = firstItem.tabs_frequency || "";
+          const subscriptionType = firstItem.subscription_type || "";
           const dosage = tabsFrequency && subscriptionType 
             ? `${tabsFrequency} | ${subscriptionType}`
             : tabsFrequency || subscriptionType || "Not available";
 
-          // Format next payment date
-          const nextPaymentDate = sub.next_payment_date_gmt 
-            ? new Date(sub.next_payment_date_gmt).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })
-            : "Not scheduled";
+          // Format next refill date - prefer next_refill (already formatted), otherwise format next_payment_date
+          let nextRefillDate = "Not scheduled";
+          if (sub.next_refill) {
+            // next_refill is already formatted like "Jan 20, 2025"
+            nextRefillDate = sub.next_refill;
+          } else if (sub.next_payment_date) {
+            // Format ISO date string
+            nextRefillDate = new Date(sub.next_payment_date).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            });
+          }
 
           return {
             id: sub.id,
             category: "Sexual Health", // Default category, can be enhanced later
             status: mappedStatus,
             productName: productName,
-            productSubtitle: productSubtitle,
+            productSubtitle: null, // API doesn't provide subtitle in new format
             dosage: dosage,
-            nextRefill: nextPaymentDate,
+            nextRefill: nextRefillDate,
             productImage: firstItem.image?.src || "https://myrocky.b-cdn.net/WP%20Images/patient-portal/order-card-1.png",
             // Store full subscription data for actions
             _raw: sub,
@@ -362,8 +366,17 @@ export default function SubscriptionsSection() {
           )}
         </div>
       ) : loading ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-          <p className="text-gray-600 text-center">Loading subscriptions...</p>
+        <div className="space-y-6">
+          <div>
+            <div className="h-6 bg-gray-200 rounded w-32 mb-4 animate-pulse"></div>
+            <div className="relative">
+              <div className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide pb-2">
+                <SubscriptionCardSkeleton />
+                <SubscriptionCardSkeleton />
+                <SubscriptionCardSkeleton />
+              </div>
+            </div>
+          </div>
         </div>
       ) : error ? (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">

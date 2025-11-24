@@ -65,7 +65,24 @@ export async function GET(request) {
     }
 
     const profileData = await profileResponse.json();
-    if (!profileData.success || !profileData.userData?.email) {
+
+    // Handle both response formats for compatibility
+    // New format: { status: true, user: {...} }
+    // Old format: { success: true, userData: {...} }
+    const user = profileData.user || profileData.userData;
+    const hasValidResponse = profileData.status || profileData.success;
+
+    if (!hasValidResponse || !user?.email) {
+      console.error(
+        "[APPOINTMENTS] User email not found in profile response:",
+        {
+          hasStatus: !!profileData.status,
+          hasSuccess: !!profileData.success,
+          hasUser: !!profileData.user,
+          hasUserData: !!profileData.userData,
+          email: user?.email,
+        }
+      );
       return NextResponse.json(
         {
           success: false,
@@ -75,13 +92,26 @@ export async function GET(request) {
       );
     }
 
-    const inviteeEmail = profileData.userData.email;
-    const baseUrl = process.env.CALENDLY_BASE_URL || "http://3.99.130.153"; // Calendly API base URL
+    const inviteeEmail = user.email;
+
+    // Get base URL from environment variable or use default
+    let baseUrl = process.env.CALENDLY_BASE_URL || "http://3.99.130.153";
+
+    // Ensure base URL has protocol
+    if (!baseUrl.startsWith("http://") && !baseUrl.startsWith("https://")) {
+      baseUrl = `http://${baseUrl}`;
+    }
+
+    // Remove trailing slash if present
+    baseUrl = baseUrl.replace(/\/$/, "");
 
     // Fetch appointments from Calendly API
-    const calendlyUrl = `${baseUrl}/calendly/groups/meetings?inviteeEmail=${encodeURIComponent(inviteeEmail)}`;
-    
+    const calendlyUrl = `${baseUrl}/calendly/groups/meetings?inviteeEmail=${encodeURIComponent(
+      inviteeEmail
+    )}`;
+
     console.log(`[APPOINTMENTS] Fetching appointments from: ${calendlyUrl}`);
+    console.log(`[APPOINTMENTS] Using invitee email: ${inviteeEmail}`);
 
     const calendlyResponse = await fetch(calendlyUrl, {
       method: "GET",
@@ -96,7 +126,7 @@ export async function GET(request) {
       );
       const errorText = await calendlyResponse.text();
       console.error(`[APPOINTMENTS] Error details: ${errorText}`);
-      
+
       return NextResponse.json(
         {
           success: false,
@@ -108,7 +138,11 @@ export async function GET(request) {
     }
 
     const calendlyData = await calendlyResponse.json();
-    console.log(`[APPOINTMENTS] Successfully fetched ${calendlyData.meetings?.length || 0} meetings`);
+    console.log(
+      `[APPOINTMENTS] Successfully fetched ${
+        calendlyData.meetings?.length || 0
+      } meetings`
+    );
 
     return NextResponse.json({
       success: true,
@@ -126,4 +160,3 @@ export async function GET(request) {
     );
   }
 }
-
