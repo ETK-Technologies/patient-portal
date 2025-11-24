@@ -10,9 +10,9 @@ export const handleCheckout = (cartItems, openInNewTab = false) => {
   }
 
   // Variable products that require variation ID or attributes
-  const VARIABLE_PRODUCTS = ["592501", "567280"]; // Hoodie and Tee
+  const VARIABLE_PRODUCTS = []; // All variable merch now uses variation IDs directly
   // Product-specific requirements
-  const PRODUCT_REQUIRES_COLOR = ["567280"]; // Only Tee requires color
+  const PRODUCT_REQUIRES_COLOR = [];
 
   // Build product IDs and URL parameters
   const productIds = [];
@@ -83,10 +83,53 @@ export const handleCheckout = (cartItems, openInNewTab = false) => {
     return;
   }
 
-  // Build checkout URL
+  // Build checkout URL with a unique token to prevent duplicate processing
+  // This is critical because when a user is not logged in, the main website
+  // processes the onboarding-add-to-cart parameter twice:
+  // 1. Once when the page first loads (before login)
+  // 2. Once again after the user logs in (page reloads with same URL)
+  // 
+  // The main website should check sessionStorage for this token before processing.
+  // If token exists, skip processing (already added to cart).
+  // If token doesn't exist, process add-to-cart and store token in sessionStorage.
+
+  // Create a hash of cart items for better deduplication
+  const cartItemsHash = btoa(
+    JSON.stringify({
+      ids: productIds.sort(),
+      params: Object.fromEntries(urlParams)
+    })
+  ).substring(0, 16).replace(/[+/=]/g, ''); // URL-safe hash
+
+  const addToCartToken = `cart_${Date.now()}_${cartItemsHash}`;
+
+  // Store token in sessionStorage so main website can check for duplicates
+  if (typeof window !== "undefined") {
+    try {
+      const tokenData = {
+        token: addToCartToken,
+        timestamp: Date.now(),
+        productIds: productIds,
+        hash: cartItemsHash
+      };
+
+      const processedTokens = JSON.parse(
+        sessionStorage.getItem("processed_cart_tokens") || "[]"
+      );
+      // Keep only last 20 tokens to prevent storage bloat
+      const recentTokens = processedTokens.slice(-19);
+      recentTokens.push(tokenData);
+      sessionStorage.setItem("processed_cart_tokens", JSON.stringify(recentTokens));
+
+      console.log("[Checkout] Cart token stored:", addToCartToken);
+    } catch (e) {
+      console.warn("[Checkout] Could not store cart token:", e);
+    }
+  }
+
   const baseUrl = `http://localhost:3000/checkout?onboarding-add-to-cart=${productIds.join(
     ","
-  )}`;
+  )}&cart_token=${addToCartToken}`;
   const queryString = urlParams.toString();
   const checkoutUrl = queryString ? `${baseUrl}&${queryString}` : baseUrl;
 

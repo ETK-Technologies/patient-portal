@@ -13,6 +13,20 @@ import CustomImage from "@/components/utils/CustomImage";
 import { handleCheckout } from "@/utils/checkout";
 import { formatPrice } from "@/utils/priceFormatter";
 
+const HOODIE_PRODUCT_ID = "592501";
+const HOODIE_VARIATION_ID_MAP = {
+  s: "592618", // Small
+  m: "592519", // Medium
+  l: "592518", // Large
+  xl: "592520", // XL
+};
+
+const TEE_PRODUCT_ID = "567280";
+const TEE_VARIATION_ID_MAP = {
+  s: "567884", // Small
+  l: "567883", // Large
+};
+
 const MerchProductModal = ({ isOpen, onClose, product }) => {
   // Use the product data passed from parent component
   const currentProduct = product;
@@ -35,6 +49,8 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
 
   const isShirt =
     currentProduct?.slug?.includes("rocky-essential-tee") || false;
+  const isHoodieProduct = currentProduct?.productId === HOODIE_PRODUCT_ID;
+  const isTeeProduct = currentProduct?.productId === TEE_PRODUCT_ID;
 
   // Get product images
   const productImages = useMemo(() => {
@@ -342,9 +358,30 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
           return;
         }
 
+        const normalizedSize = selectedSize.toLowerCase().trim();
+        if (isHoodieProduct || isTeeProduct) {
+          const fallbackMap = isHoodieProduct
+            ? HOODIE_VARIATION_ID_MAP
+            : TEE_VARIATION_ID_MAP;
+
+          const resolvedVariationId =
+            (variationInfo?.id && String(variationInfo.id)) ||
+            fallbackMap[normalizedSize];
+
+          if (!resolvedVariationId) {
+            alert(
+              "Unable to find the selected product variation. Please try again."
+            );
+            setIsProcessing(false);
+            return;
+          }
+
+          cartItem.productId = resolvedVariationId;
+        }
+
         // CRITICAL: Normalize size to lowercase
         // WooCommerce default_attributes use lowercase (e.g., "m", "l", "s", "xl")
-        cartItem.size = selectedSize.toLowerCase().trim();
+        cartItem.size = normalizedSize;
 
         // Color handling:
         // - Only add color if product has color options AND one is selected
