@@ -9,14 +9,16 @@ export default function DocumentField({ label, value }) {
         <p className="text-xs md:text-sm font-medium text-gray-900 mb-1">
           {label}
         </p>
-        <p className="text-xs md:text-sm text-gray-600">{value}</p>
+        {value && (
+          <p className="text-xs md:text-sm text-gray-600">{value}</p>
+        )}
       </div>
       {/* Desktop: vertical dots, Mobile: info icon */}
       <div className="ml-4">
-        <button className="md:hidden text-gray-400 hover:text-gray-600">
+        <button className="md:hidden text-gray-400 hover:text-gray-600 p-2 rounded-full border border-gray-300 hover:border-gray-400">
           <HiInformationCircle className="w-5 h-5" />
         </button>
-        <button className="hidden md:block text-gray-400 hover:text-gray-600">
+        <button className="hidden md:block text-gray-400 hover:text-gray-600 p-2 rounded-full border border-gray-300 hover:border-gray-400">
           <HiOutlineDotsVertical className="w-5 h-5" />
         </button>
       </div>

@@ -152,7 +152,7 @@ async function fetchUserData(userId) {
     );
 
     // Step 2: Fetch user profile from CRM
-    const profileUrl = `${crmHost}/api/user/${userId}/profile`;
+    const profileUrl = `${crmHost}/api/user/profile?crm_user_id=${userId}`;
     console.log(`[USER_PROFILE] Fetching user profile from: ${profileUrl}`);
 
     const profileResponse = await fetch(profileUrl, {
@@ -163,7 +163,7 @@ async function fetchUserData(userId) {
         "is-patient-portal": "true",
       },
     });
-    console.log("[USER_PROFILE] Profile response:", profileResponse);
+    console.log("[USER_PROFILE] Profile response:", profileResponse.data);
     if (!profileResponse.ok) {
       console.error(
         `[USER_PROFILE] Failed to fetch user profile: ${profileResponse.status} ${profileResponse.statusText}`
@@ -535,20 +535,13 @@ async function updateUserProfile(userId, updateData) {
       const value = updateData[key];
       if (key === "date_of_birth") {
         console.log(
-          `[USER_PROFILE_UPDATE] - ${key}: "${
-            value !== null && value !== undefined ? String(value) : ""
+          `[USER_PROFILE_UPDATE] - ${key}: "${value !== null && value !== undefined ? String(value) : ""
           }"`
         );
       } else if (value !== null && value !== undefined) {
         console.log(`[USER_PROFILE_UPDATE] - ${key}: "${String(value)}"`);
       }
     });
-
-    console.log(
-      `[USER_PROFILE_UPDATE] Total form data fields: user_id + ${
-        Object.keys(updateData).length
-      } fields`
-    );
 
     // Get the headers from form-data (includes Content-Type with boundary)
     const formHeaders = formData.getHeaders();
