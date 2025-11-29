@@ -224,12 +224,46 @@ export default function BillingShippingManager() {
   const handleSaveShippingAddress = async (formData) => {
     try {
       setError(null);
-      const response = await fetch(`/api/user/shipping-address`, {
-        method: "POST",
+
+      let userId = getUserIdFromCookies();
+      if (!userId && userData) {
+        if (userData.crm_user_id) {
+          userId = userData.crm_user_id;
+        }
+      }
+
+      if (!userId) {
+        const errorMessage = "User ID not available";
+        setError(errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
+
+      const existingShipping = shippingData || {};
+      const mergedData = {
+        ...existingShipping,
+        ...formData,
+      };
+
+      const requestBody = {
+        id: String(userId),
+        shipping_first_name: mergedData.first_name || "",
+        shipping_last_name: mergedData.last_name || "",
+        shipping_email: mergedData.email || "",
+        shipping_country: mergedData.country || "",
+        shipping_address_1: mergedData.address_1 || "",
+        shipping_address_2: mergedData.address_2 || "",
+        shipping_city: mergedData.city || "",
+        shipping_state: mergedData.state || "",
+        shipping_postcode: mergedData.postcode || "",
+      };
+
+      const response = await fetch(`/api/user/shipping/address/update`, {
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -251,13 +285,13 @@ export default function BillingShippingManager() {
         return;
       }
 
-      setShippingData(formData);
+      setShippingData(mergedData);
 
       const addressParts = [
-        formData.address_1,
-        formData.address_2,
-        formData.city,
-        formData.postcode,
+        mergedData.address_1,
+        mergedData.address_2,
+        mergedData.city,
+        mergedData.postcode,
       ].filter(Boolean);
 
       const displayAddress = addressParts.length > 0
