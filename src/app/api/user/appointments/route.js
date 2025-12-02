@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
  *
  * Fetches appointments from Calendly API for the authenticated user.
  * Returns meetings data based on the user's email.
+ * userEmail is obtained from cookies (userEmail cookie set during auto-login).
  *
  * Expected Response:
  * {
@@ -22,77 +23,31 @@ import { NextResponse } from "next/server";
  */
 export async function GET(request) {
   try {
-    // Get userId from cookies
     const cookieHeader = request.headers.get("cookie") || "";
-    let userId = null;
+    let inviteeEmail = null;
 
     if (cookieHeader) {
-      const match = cookieHeader.match(/userId=([^;]+)/);
-      if (match) {
-        userId = decodeURIComponent(match[1].trim());
+      // Parse userEmail from cookie header
+      const userEmailMatch = cookieHeader.match(/userEmail=([^;]+)/);
+      if (userEmailMatch) {
+        inviteeEmail = decodeURIComponent(userEmailMatch[1].trim());
       }
     }
 
-    if (!userId) {
+    console.log(
+      `[APPOINTMENTS] Cookie header: ${cookieHeader.substring(0, 100)}...`
+    );
+    console.log(`[APPOINTMENTS] Extracted userEmail: ${inviteeEmail || "not found"}`);
+
+    if (!inviteeEmail) {
       return NextResponse.json(
         {
           success: false,
-          error: "User not authenticated",
+          error: "User email not found in cookies",
         },
         { status: 401 }
       );
     }
-
-    // Fetch user profile to get email
-    const profileResponse = await fetch(
-      `${request.nextUrl.origin}/api/user/profile`,
-      {
-        method: "GET",
-        headers: {
-          cookie: cookieHeader,
-        },
-      }
-    );
-
-    if (!profileResponse.ok) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to fetch user profile",
-        },
-        { status: 500 }
-      );
-    }
-
-    const profileData = await profileResponse.json();
-
-    // Handle both response formats for compatibility
-    // New format: { status: true, user: {...} }
-    // Old format: { success: true, userData: {...} }
-    const user = profileData.user || profileData.userData;
-    const hasValidResponse = profileData.status || profileData.success;
-
-    if (!hasValidResponse || !user?.email) {
-      console.error(
-        "[APPOINTMENTS] User email not found in profile response:",
-        {
-          hasStatus: !!profileData.status,
-          hasSuccess: !!profileData.success,
-          hasUser: !!profileData.user,
-          hasUserData: !!profileData.userData,
-          email: user?.email,
-        }
-      );
-      return NextResponse.json(
-        {
-          success: false,
-          error: "User email not found",
-        },
-        { status: 404 }
-      );
-    }
-
-    const inviteeEmail = user.email;
 
     // Get base URL from environment variable or use default
     let baseUrl = process.env.CALENDLY_BASE_URL || "http://3.99.130.153";

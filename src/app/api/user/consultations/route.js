@@ -24,7 +24,7 @@ export async function GET(request) {
 
         if (cookieHeader) {
             // Parse cookies from header string
-            const match = cookieHeader.match(/userId=([^;]+)/);
+            const match = cookieHeader.match(/wp_user_id=([^;]+)/);
             if (match) {
                 wpUserID = decodeURIComponent(match[1].trim());
             }

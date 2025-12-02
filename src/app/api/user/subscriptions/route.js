@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { authenticateWithCRM } from "../../utils/crmAuth";
-import { getUserID } from "@/utils/testUserId";
 
 /**
  * GET /api/user/subscriptions
  *
  * Fetches user subscriptions data from CRM.
- * Uses test user ID (33237) for development/testing.
+ * wpUserID is obtained from cookies (wp_user_id cookie set during auto-login).
  *
  * Expected Response:
  * {
@@ -22,10 +21,38 @@ import { getUserID } from "@/utils/testUserId";
  */
 export async function GET(request) {
   try {
-    // Use test user ID for development/testing
-    const wpUserID = getUserID();
+    const cookieHeader = request.headers.get("cookie") || "";
+    let wpUserID = null;
 
-    console.log(`[SUBSCRIPTIONS] Using test user ID: ${wpUserID}`);
+    if (cookieHeader) {
+      const wpUserIdMatch = cookieHeader.match(/wp_user_id=([^;]+)/);
+      if (wpUserIdMatch) {
+        wpUserID = decodeURIComponent(wpUserIdMatch[1].trim());
+      } else {
+        const userIdMatch = cookieHeader.match(/userId=([^;]+)/);
+        if (userIdMatch) {
+          wpUserID = decodeURIComponent(userIdMatch[1].trim());
+        }
+      }
+    }
+
+    console.log(
+      `[SUBSCRIPTIONS] Cookie header: ${cookieHeader.substring(0, 100)}...`
+    );
+    console.log(`[SUBSCRIPTIONS] Extracted wpUserID: ${wpUserID || "not found"}`);
+
+    if (!wpUserID) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User not authenticated",
+          message: "User not authenticated",
+        },
+        { status: 401 }
+      );
+    }
+
+    console.log(`[SUBSCRIPTIONS] Fetching subscriptions for user: ${wpUserID}`);
 
     // Fetch subscriptions from CRM
     const subscriptionsData = await fetchSubscriptions(wpUserID);

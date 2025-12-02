@@ -6,7 +6,7 @@ import { authenticateWithCRM } from "../../utils/crmAuth";
  *
  * Fetches user orders data from CRM.
  * Returns order information from the CRM orders endpoint.
- * wpUserID is obtained from cookies (set during auto-login).
+ * wpUserID is obtained from cookies (wp_user_id cookie set during auto-login).
  *
  * Expected Response:
  * {
@@ -38,10 +38,14 @@ export async function GET(request) {
     let wpUserID = null;
 
     if (cookieHeader) {
-      // Parse cookies from header string
-      const match = cookieHeader.match(/userId=([^;]+)/);
-      if (match) {
-        wpUserID = decodeURIComponent(match[1].trim());
+      const wpUserIdMatch = cookieHeader.match(/wp_user_id=([^;]+)/);
+      if (wpUserIdMatch) {
+        wpUserID = decodeURIComponent(wpUserIdMatch[1].trim());
+      } else {
+        const userIdMatch = cookieHeader.match(/userId=([^;]+)/);
+        if (userIdMatch) {
+          wpUserID = decodeURIComponent(userIdMatch[1].trim());
+        }
       }
     }
 
@@ -100,8 +104,8 @@ export async function GET(request) {
 /**
  * Fetch orders from CRM API
  * Uses the orders endpoint: /api/user/orders/{wpUserID}
- * wpUserID can be found from user context (userData.id) or cookies (userId)
- * @param {string} userId - The WordPress user ID
+ * wpUserID is obtained from cookies (wp_user_id cookie set during auto-login)
+ * @param {string} userId - The WordPress user ID (wp_user_id from cookie)
  * @param {number} page - The page number to fetch (default: 1)
  */
 async function fetchOrders(userId, page = 1) {

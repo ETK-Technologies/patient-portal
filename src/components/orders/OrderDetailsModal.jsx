@@ -559,7 +559,7 @@ const mapOrderManageData = (apiData) => {
     subscriptionLabel: getFieldValue(order, "order_type"),
     timeline: timeline.length > 0 ? timeline : null,
     billingDetails: {
-      paymentMethod: missingData, // Not in API response
+      paymentMethod: getFieldValue(order, "payment_method"),
       transactionDate: getFieldValue(order, "transaction_date"),
       customerName: getFieldValue(order, "customer_name"),
       email: getFieldValue(order, "customer_email"),
