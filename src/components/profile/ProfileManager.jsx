@@ -4,70 +4,84 @@ import { useState, useMemo } from "react";
 import { toast } from "react-toastify";
 import ProfileField from "./ProfileField";
 import UpdateModal from "@/components/utils/UpdateModal";
-import {
-  initialProfileData,
-  profileFields,
-  dummyProfileData,
-} from "./profileData";
+import { initialProfileData, profileFields } from "./profileData";
 import { useUser } from "@/contexts/UserContext";
-
-// TODO: Set to false when APIs are ready
-const USE_DUMMY_DATA = true;
 
 // Helper function to map CRM data to profile format
 function mapUserDataToProfile(userData) {
   if (!userData) return initialProfileData;
 
+  // Handle different response structures:
+  // 1. New structure: { status: true, message: "...", user: {...} }
+  // 2. Old structure: { status: true, message: "...", data: { user: {...} } }
+  // 3. Direct user object: { id, email, first_name, ... }
+  let actualUserData = userData;
+
+  // Check if it's the new response structure with user at top level
+  if (userData.status && userData.user) {
+    actualUserData = userData.user;
+  }
+  // Check if it's the old response structure with data.user
+  else if (userData.status && userData.data && userData.data.user) {
+    actualUserData = userData.data.user;
+  }
+  // Check if it's a data object containing user
+  else if (userData.data && userData.data.user) {
+    actualUserData = userData.data.user;
+  }
+  // Otherwise, assume it's already the user object
+
   // Extract billing/shipping address if available
-  const billing = userData.billing || {};
-  const shipping = userData.shipping || {};
+  const billing = actualUserData.billing || {};
+  const shipping = actualUserData.shipping || {};
 
   // Get first and last name (handle encrypted data gracefully)
-  const firstName = userData.first_name || "";
-  const lastName = userData.last_name || "";
+  const firstName = actualUserData.first_name || "";
+  const lastName = actualUserData.last_name || "";
 
   // Combine first and last name for display, fallback to name if available
-  const fullName = userData.name || `${firstName} ${lastName}`.trim() || "";
+  const fullName =
+    actualUserData.name || `${firstName} ${lastName}`.trim() || "";
 
   return {
     fullName: fullName,
-    email: userData.email || "",
-    dateOfBirth: userData.date_of_birth || userData.dob || "",
-    phoneNumber: userData.phone_number || userData.phone || "",
-    address: shipping.address_1 || billing.address_1 || userData.address || "",
-    city: shipping.city || billing.city || userData.city || "",
+    email: actualUserData.email || "",
+    dateOfBirth: actualUserData.date_of_birth || actualUserData.dob || "",
+    phoneNumber: actualUserData.phone_number || actualUserData.phone || "",
+    address:
+      shipping.address_1 || billing.address_1 || actualUserData.address || "",
+    city: shipping.city || billing.city || actualUserData.city || "",
     province:
       shipping.state ||
       billing.state ||
-      userData.province ||
-      userData.state ||
+      actualUserData.province ||
+      actualUserData.state ||
       "",
     postalCode:
       shipping.postcode ||
       billing.postcode ||
-      userData.postal_code ||
-      userData.zip_code ||
+      actualUserData.postal_code ||
+      actualUserData.zip_code ||
       "",
-    photoId: userData.photo_id || "",
+    photoId: actualUserData.photo_id || "",
     insuranceCard:
-      userData.insurance_card_image || userData.insurance_card || "",
+      actualUserData.insurance_card_image ||
+      actualUserData.insurance_card ||
+      "",
     // Store first and last name separately for editing
     firstName: firstName,
     lastName: lastName,
-    gender: userData.gender || "",
-    avatar: userData.avatar || userData.profile_photo_url || "",
+    gender: actualUserData.gender || "",
+    avatar: actualUserData.avatar || actualUserData.profile_photo_url || "",
   };
 }
 
 export default function ProfileManager() {
   const { userData, loading, error, refreshUserData } = useUser();
+  console.log("[PROFILE_MANAGER] User data:", userData);
 
   // Derive mapped profile data from userData
-  // Use dummy data when USE_DUMMY_DATA is true or when userData is not available
   const mappedProfileData = useMemo(() => {
-    if (USE_DUMMY_DATA) {
-      return dummyProfileData;
-    }
     return mapUserDataToProfile(userData);
   }, [userData]);
 
@@ -95,67 +109,96 @@ export default function ProfileManager() {
     });
   };
 
+  // Helper function to convert date format from MM/DD/YYYY to YYYY-MM-DD
+  const convertDateFormat = (dateValue) => {
+    if (!dateValue) return dateValue;
+
+    // If already in YYYY-MM-DD format, return as is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      return dateValue;
+    }
+
+    // Try to parse MM/DD/YYYY format
+    const mmddyyyyMatch = dateValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mmddyyyyMatch) {
+      const [, month, day, year] = mmddyyyyMatch;
+      // Pad month and day with leading zeros if needed
+      const paddedMonth = month.padStart(2, "0");
+      const paddedDay = day.padStart(2, "0");
+      return `${year}-${paddedMonth}-${paddedDay}`;
+    }
+
+    // If format is not recognized, return as is (let API handle validation)
+    return dateValue;
+  };
+
   const handleSave = async (newValue) => {
     const fieldKey = modalState.field.key;
 
-    // TODO: Remove this block when APIs are ready - use dummy data for now
-    if (USE_DUMMY_DATA) {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Update local state for dummy data
-      if (fieldKey === "fullName" && typeof newValue === "object") {
-        // newValue is an object with firstName and lastName
-        setEditedFields((prev) => ({
-          ...prev,
-          firstName: newValue.firstName,
-          lastName: newValue.lastName,
-          fullName: `${newValue.firstName} ${newValue.lastName}`.trim(),
-        }));
-      } else if (fieldKey === "password") {
-        // Password is masked, don't update the display value
-        setEditedFields((prev) => ({
-          ...prev,
-          [fieldKey]: "••••••••••",
-        }));
-      } else {
-        // Store edited value
-        setEditedFields((prev) => ({
-          ...prev,
-          [fieldKey]: newValue,
-        }));
+    // API Logic
+    try {
+      // Convert date format if it's dateOfBirth field
+      let processedValue = newValue;
+      if (fieldKey === "dateOfBirth" && typeof newValue === "string") {
+        processedValue = convertDateFormat(newValue);
+        console.log(
+          `[PROFILE_UPDATE] Date conversion: ${newValue} -> ${processedValue}`
+        );
       }
 
-      // Show success message
-      toast.success(`${modalState.field.label} updated successfully`, {
-        position: "top-right",
-        autoClose: 3000,
-      });
-      return;
-    }
+      // Check if this is a file upload (photoId or insuranceCard)
+      const isFileUpload =
+        fieldKey === "photoId" || fieldKey === "insuranceCard";
+      const isFile = newValue instanceof File;
 
-    // API Logic - This will be used when APIs are ready
-    try {
-      // Update user data in CRM via API
-      const response = await fetch("/api/user/profile", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          field: fieldKey,
-          value: newValue,
-        }),
-      });
+      let response;
+      if (isFileUpload && isFile) {
+        // For file uploads, use FormData
+        const formData = new FormData();
+        formData.append("field", fieldKey);
+        formData.append("file", newValue);
+
+        response = await fetch("/api/user/profile", {
+          method: "POST",
+          // Don't set Content-Type header - browser will set it with boundary
+          body: formData,
+        });
+      } else {
+        // For other fields, use JSON
+        const requestBody =
+          fieldKey === "password" && typeof newValue === "object"
+            ? {
+                field: fieldKey,
+                currentPassword: newValue.currentPassword,
+                newPassword: newValue.newPassword,
+                confirmPassword: newValue.confirmPassword,
+              }
+            : {
+                field: fieldKey,
+                value: processedValue,
+              };
+
+        response = await fetch("/api/user/profile", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
+      }
 
       const result = await response.json();
 
-      if (!response.ok || !result.success) {
-        console.error("Failed to update profile:", result.error);
+      // Handle both response formats:
+      // New format: { status: true/false, message: "...", user: {...} }
+      // Old format: { success: true/false, error: "...", data: {...} }
+      const isSuccess = result.status === true || result.success === true;
+
+      if (!response.ok || !isSuccess) {
+        const errorMessage = result.error || result.message || "Unknown error";
+        console.error("Failed to update profile:", errorMessage);
         toast.error(
-          `Failed to update ${modalState.field.label}: ${
-            result.error || "Unknown error"
-          }`,
+          `Failed to update ${modalState.field.label}: ${errorMessage}`,
           {
             position: "top-right",
             autoClose: 5000,
@@ -173,6 +216,24 @@ export default function ProfileManager() {
           lastName: newValue.lastName,
           fullName: `${newValue.firstName} ${newValue.lastName}`.trim(),
         }));
+      } else if (fieldKey === "password") {
+        // Password is masked, don't update the display value
+        setEditedFields((prev) => ({
+          ...prev,
+          [fieldKey]: "••••••••••",
+        }));
+      } else if (fieldKey === "dateOfBirth") {
+        // Store the processed (converted) date value
+        setEditedFields((prev) => ({
+          ...prev,
+          [fieldKey]: processedValue,
+        }));
+      } else if (fieldKey === "photoId" || fieldKey === "insuranceCard") {
+        // For file uploads, store the filename for display, but keep the File object for sending
+        setEditedFields((prev) => ({
+          ...prev,
+          [fieldKey]: newValue instanceof File ? newValue.name : newValue,
+        }));
       } else {
         // Store edited value
         setEditedFields((prev) => ({
@@ -181,8 +242,24 @@ export default function ProfileManager() {
         }));
       }
 
+      // Small delay to allow CRM to process the update
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       // Refresh user data from server to get latest data
       await refreshUserData();
+
+      // Clear the edited field from local state after successful update and refresh
+      // This ensures we show the server's version of the data
+      setEditedFields((prev) => {
+        const updated = { ...prev };
+        delete updated[fieldKey];
+        // Also clear firstName/lastName if it was a fullName update
+        if (fieldKey === "fullName") {
+          delete updated.firstName;
+          delete updated.lastName;
+        }
+        return updated;
+      });
 
       // Show success message
       toast.success(`${modalState.field.label} updated successfully`, {
@@ -225,8 +302,36 @@ export default function ProfileManager() {
     // Special handling for fullName - pass both first and last name
     const isNameField = field.key === "fullName";
 
-    return {
-      title: `Update ${field.label}`,
+    // Special handling for password - use 3 fields
+    const isPasswordField = field.key === "password";
+
+    // Fields that should be read-only (name, email, date of birth only)
+    const readOnlyFields = ["fullName", "email", "dateOfBirth"];
+    const isReadOnly = readOnlyFields.includes(field.key);
+
+    // Generate dynamic read-only message based on field
+    const getReadOnlyMessage = (fieldKey, fieldLabel) => {
+      const messageMap = {
+        fullName:
+          "If you need to update your full name, please contact support.",
+        email:
+          "If you need to update your email address, please contact support.",
+        dateOfBirth:
+          "If you need to update your date of birth, please contact support.",
+      };
+
+      // Use field key if available, otherwise use field label
+      if (messageMap[fieldKey]) {
+        return messageMap[fieldKey];
+      }
+
+      // Fallback: generate message from label
+      return `If you need to update your ${fieldLabel.toLowerCase()}, please contact support.`;
+    };
+
+    // Base props for all fields
+    const baseProps = {
+      title: field.key === "password" ? field.label : `Update ${field.label}`,
       label: field.label,
       currentValue: isNameField
         ? { firstName: profileData.firstName, lastName: profileData.lastName }
@@ -236,12 +341,29 @@ export default function ProfileManager() {
       inputType: inputTypeMap[field.key] || "text",
       isFileUpload: isFileUpload,
       isNameField: isNameField,
+      isPasswordField: isPasswordField,
       placeholder: `Enter your ${field.label.toLowerCase()}`,
+    };
+
+    // Only add read-only props for name, email, and date of birth
+    if (isReadOnly) {
+      return {
+        ...baseProps,
+        isReadOnly: true,
+        readOnlyMessage: getReadOnlyMessage(field.key, field.label),
+        supportLink: "#", // You can update this with your actual support link
+      };
+    }
+
+    // For all other fields, explicitly set isReadOnly to false
+    return {
+      ...baseProps,
+      isReadOnly: false,
     };
   };
 
-  // Show loading state only when not using dummy data
-  if (!USE_DUMMY_DATA && loading) {
+  // Show loading state
+  if (loading) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
         <div className="flex items-center justify-center">
@@ -252,8 +374,8 @@ export default function ProfileManager() {
     );
   }
 
-  // Show error state only when not using dummy data
-  if (!USE_DUMMY_DATA && error) {
+  // Show error state
+  if (error) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
         <div className="text-red-600">
@@ -270,6 +392,31 @@ export default function ProfileManager() {
     );
   }
 
+  // Helper function to format field value - show "NA" for missing/empty values
+  const formatFieldValue = (fieldKey, value) => {
+    // For password field, show masked value or "NA" if not set
+    if (fieldKey === "password") {
+      return value || "NA";
+    }
+    // Handle File objects (for photoId and insuranceCard)
+    if (value instanceof File) {
+      return value.name || "File selected";
+    }
+    // For all other fields, show "NA" if empty, null, or undefined
+    if (!value || (typeof value === "string" && value.trim() === "")) {
+      return "NA";
+    }
+
+    // Truncate long names and emails to 50 characters
+    if (fieldKey === "fullName" || fieldKey === "email") {
+      if (typeof value === "string" && value.length > 50) {
+        return value.substring(0, 50) + "...";
+      }
+    }
+
+    return value;
+  };
+
   return (
     <>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -277,7 +424,7 @@ export default function ProfileManager() {
           <ProfileField
             key={field.key}
             label={field.label}
-            value={profileData[field.key]}
+            value={formatFieldValue(field.key, profileData[field.key])}
             onUpdate={() => handleUpdateClick(field)}
           />
         ))}

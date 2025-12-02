@@ -8,10 +8,8 @@ export const initialMedicalHistoryData = {
 };
 
 export const medicalHistoryFields = [
-  { key: "primaryCareProvider", label: "Primary Care Provider" },
   { key: "chronicConditions", label: "Chronic Conditions" },
-  { key: "currentMedications", label: "Current Medications" },
+  { key: "medicalCondtions", label: "Medical Condtions" },
   { key: "allergies", label: "Allergies" },
   { key: "surgicalHistory", label: "Surgical History" },
-  { key: "familyHistory", label: "Family History" },
 ];

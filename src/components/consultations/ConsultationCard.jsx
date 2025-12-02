@@ -14,6 +14,7 @@ export default function ConsultationCard({ consultation }) {
     completedDate,
     startedDate,
     progress,
+    incompleteQuestionnaireLink,
   } = consultation;
 
   const isCompleted = status === "completed";
@@ -21,7 +22,7 @@ export default function ConsultationCard({ consultation }) {
   if (isCompleted) {
     // Completed Consultation Card
     return (
-      <div className="bg-white w-[272px] md:w-[324px] h-[290px] md:h-[304px] shadow-[0px_0px_16px_0px_#00000014] rounded-[16px] p-5 md:p-6">
+      <div className="bg-white w-[272px] md:w-[324px] shadow-[0px_0px_16px_0px_#00000014] rounded-[16px] p-5 md:p-6">
         {/* Category */}
         <h3 className="text-[#AE7E56] text-[16px] font-[500] leading-[140%] mb-1">
           {category}
@@ -45,12 +46,12 @@ export default function ConsultationCard({ consultation }) {
         <div className="border-t border-[#E2E2E1] my-4"></div>
 
         {/* Status Badge */}
-        <div className="mb-4">
+        <div>
           <StatusBadge status="completed" />
         </div>
 
         {/* See Details Button */}
-        <CustomButton
+        {/* <CustomButton
           text="See Details"
           icon={<FaArrowRight />}
           size="small"
@@ -58,7 +59,7 @@ export default function ConsultationCard({ consultation }) {
           variant="pill"
           justify="center"
           className="bg-[#000] text-white hover:bg-[#333] h-[40px] text-[14px]"
-        />
+        /> */}
       </div>
     );
   }
@@ -66,16 +67,18 @@ export default function ConsultationCard({ consultation }) {
   // Pending Consultation Card
   return (
     <div className="bg-white w-full shadow-[0px_0px_16px_0px_#00000014] rounded-[16px] p-5 md:p-6">
-      {/* Title */}
-      <h3 className="text-[16px] font-[500] leading-[140%] mb-3">
-        Complete your <span className="text-[#AE7E56]">{category}</span>{" "}
-        questionnaire
-      </h3>
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        {/* Title */}
+        <h3 className="text-[16px] font-[500] leading-[140%] mb-3">
+          Complete your <span className="text-[#AE7E56]">{category}</span>{" "}
+          questionnaire
+        </h3>
 
-      {/* Started Date */}
-      <p className="text-[12px] font-[500] leading-[140%] text-[#00000099] mb-3">
-        Started: {startedDate}
-      </p>
+        {/* Started Date */}
+        <p className="text-[12px] font-[500] leading-[140%] text-[#00000099] mb-3">
+          Started: {startedDate}
+        </p>
+      </div>
 
       {/* Description */}
       <p className="text-[12px] font-[400] leading-[140%] text-[#212121] mb-4">
@@ -99,15 +102,34 @@ export default function ConsultationCard({ consultation }) {
 
         {/* Complete Now Button */}
         <div className="md:w-auto w-full md:w-[171px]">
-          <CustomButton
-            text="Complete Now"
-            icon={<FaArrowRight />}
-            size="small"
-            width="full"
-            variant="pill"
-            justify="center"
-            className="bg-[#000] text-white hover:bg-[#333] h-[40px] text-[14px]"
-          />
+          {incompleteQuestionnaireLink ? (
+            <a
+              href={incompleteQuestionnaireLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block"
+            >
+              <CustomButton
+                text="Complete Now"
+                icon={<FaArrowRight />}
+                size="small"
+                width="full"
+                variant="pill"
+                justify="center"
+                className="bg-[#000] text-white hover:bg-[#333] h-[40px] text-[14px]"
+              />
+            </a>
+          ) : (
+            <CustomButton
+              text="Complete Now"
+              icon={<FaArrowRight />}
+              size="small"
+              width="full"
+              variant="pill"
+              justify="center"
+              className="bg-[#000] text-white hover:bg-[#333] h-[40px] text-[14px]"
+            />
+          )}
         </div>
       </div>
     </div>

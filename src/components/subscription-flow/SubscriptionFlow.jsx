@@ -7,6 +7,9 @@ import SubscriptionStepRenderer from "./SubscriptionStepRenderer";
 import Section from "../utils/Section";
 import CustomButton from "../utils/CustomButton";
 import UpdateModal from "../utils/UpdateModal";
+import ShippingAddressModal from "../billing-shipping/ShippingAddressModal";
+import { useUser } from "@/contexts/UserContext";
+import { toast } from "react-toastify";
 import { FaRegCalendarAlt } from "react-icons/fa";
 import { FaArrowRight } from "react-icons/fa6";
 import { FaArrowsRotate } from "react-icons/fa6";
@@ -50,27 +53,122 @@ export default function SubscriptionFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Helper function to extract initial values from subscription
+  const getInitialValues = () => {
+    if (subscription?._raw) {
+      const rawSub = subscription._raw;
+      const firstLineItem = rawSub.line_items?.[0];
+      
+      // Quantity
+      let quantity = "Not available";
+      if (firstLineItem) {
+        const tabsFrequency = firstLineItem.meta_data?.find(
+          (m) => m.key === "pa_tabs-frequency"
+        )?.display_value || "";
+        if (tabsFrequency) {
+          quantity = `${tabsFrequency} / month`;
+        } else {
+          const qty = firstLineItem.quantity || 1;
+          quantity = `${qty} ${qty === 1 ? 'item' : 'items'} / month`;
+        }
+      }
+      
+      // Shipping frequency
+      let shippingFreq = "Not available";
+      if (rawSub.billing_period && rawSub.billing_interval) {
+        const interval = parseInt(rawSub.billing_interval);
+        const period = rawSub.billing_period;
+        shippingFreq = interval === 1 ? `1 ${period}` : `${interval} ${period}s`;
+      }
+      
+      // Shipping address
+      let shippingAddr = "Not available";
+      let shippingDataObj = null;
+      const shipping = rawSub.shipping || rawSub.billing || {};
+      const cleanAddress1 = shipping.address_1 && shipping.address_1 !== "[deleted]" 
+        ? shipping.address_1 
+        : "";
+      if (cleanAddress1) {
+        const addressParts = [
+          cleanAddress1,
+          shipping.address_2 && shipping.address_2 !== "[deleted]" ? shipping.address_2 : "",
+          shipping.city && shipping.city !== "[deleted]" ? shipping.city : "",
+          shipping.state && shipping.state !== "[deleted]" ? shipping.state : "",
+          shipping.postcode && shipping.postcode !== "[deleted]" ? shipping.postcode : "",
+        ].filter(Boolean);
+        shippingAddr = addressParts.join(", ");
+        
+        shippingDataObj = {
+          id: null,
+          shipping_address_id: null,
+          first_name: shipping.first_name && shipping.first_name !== "[deleted]" 
+            ? shipping.first_name 
+            : "",
+          last_name: shipping.last_name && shipping.last_name !== "[deleted]" 
+            ? shipping.last_name 
+            : "",
+          email: (shipping.email && shipping.email !== "[deleted]" ? shipping.email : "") || 
+                 (rawSub.billing?.email && rawSub.billing.email !== "[deleted]" ? rawSub.billing.email : "") || 
+                 "",
+          address_1: cleanAddress1,
+          address_2: shipping.address_2 && shipping.address_2 !== "[deleted]" 
+            ? shipping.address_2 
+            : "",
+          city: shipping.city && shipping.city !== "[deleted]" ? shipping.city : "",
+          postcode: shipping.postcode && shipping.postcode !== "[deleted]" 
+            ? shipping.postcode 
+            : "",
+          country: shipping.country && shipping.country !== "[deleted]" 
+            ? shipping.country 
+            : "CA",
+          state: shipping.state && shipping.state !== "[deleted]" ? shipping.state : "",
+        };
+      }
+      
+      // Payment method
+      const paymentMethod = rawSub.payment_method_title || rawSub.payment_method || "Not available";
+      
+      return { quantity, shippingFreq, shippingAddr, shippingDataObj, paymentMethod };
+    }
+    
+    // Fallback to mapped subscription data
+    return {
+      quantity: subscription?.quantity || "Not available",
+      shippingFreq: subscription?.shippingFrequency || "Not available",
+      shippingAddr: subscription?.shippingAddress || "Not available",
+      shippingDataObj: null,
+      paymentMethod: subscription?.paymentMethod || "Not available",
+    };
+  };
+
+  const initialValues = getInitialValues();
+
   // Local state for modals and subscription details
   const [isQuantityModalOpen, setIsQuantityModalOpen] = useState(false);
   const [isShippingFrequencyModalOpen, setIsShippingFrequencyModalOpen] =
     useState(false);
-  const [localQuantity, setLocalQuantity] = useState(
-    subscription?.quantity || "8 pills / month"
-  );
+  const [localQuantity, setLocalQuantity] = useState(initialValues.quantity);
   const [localShippingFrequency, setLocalShippingFrequency] = useState(
-    subscription?.shippingFrequency || "3 months"
+    initialValues.shippingFreq
   );
   const [isShippingAddressModalOpen, setIsShippingAddressModalOpen] =
     useState(false);
   const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] =
     useState(false);
   const [localShippingAddress, setLocalShippingAddress] = useState(
-    subscription?.shippingAddress ||
-      "15 – 5270 Solar Dr Mississauga, ON L4W 5M8"
+    initialValues.shippingAddr
   );
-  const [localPaymentMethod, setLocalPaymentMethod] = useState(
-    subscription?.paymentMethod || "•••• •••• 3344"
+  const [shippingData, setShippingData] = useState(initialValues.shippingDataObj);
+  const [localPaymentMethod, setLocalPaymentMethod] = useState({
+    cardNumber: "",
+    expiry: "",
+    cvc: "",
+    nameOnCard: "",
+  });
+  const [displayPaymentMethod, setDisplayPaymentMethod] = useState(
+    initialValues.paymentMethod
   );
+  const { userData } = useUser();
 
   useEffect(() => {
     // Keep header visible; switch variant based on whether we're on the main details panel
@@ -83,20 +181,146 @@ export default function SubscriptionFlow({
   }, [stepIndex, setShowHeader, setHeaderVariant]);
 
   useEffect(() => {
-    // Sync local state when subscription changes
-    if (subscription?.quantity) {
-      setLocalQuantity(subscription.quantity);
-    }
-    if (subscription?.shippingFrequency) {
-      setLocalShippingFrequency(subscription.shippingFrequency);
-    }
-    if (subscription?.shippingAddress) {
-      setLocalShippingAddress(subscription.shippingAddress);
-    }
-    if (subscription?.paymentMethod) {
-      setLocalPaymentMethod(subscription.paymentMethod);
+    // Extract data from subscription._raw (API response)
+    if (subscription?._raw) {
+      const rawSub = subscription._raw;
+      
+      // Extract quantity from line_items
+      const firstLineItem = rawSub.line_items?.[0];
+      if (firstLineItem) {
+        const quantity = firstLineItem.quantity || 1;
+        const tabsFrequency = firstLineItem.meta_data?.find(
+          (m) => m.key === "pa_tabs-frequency"
+        )?.display_value || "";
+        
+        // Format quantity display (e.g., "4 Tabs / month")
+        if (tabsFrequency) {
+          setLocalQuantity(`${tabsFrequency} / month`);
+        } else {
+          setLocalQuantity(`${quantity} ${quantity === 1 ? 'item' : 'items'} / month`);
+        }
+      }
+      
+      // Extract shipping frequency from billing_period and billing_interval
+      if (rawSub.billing_period && rawSub.billing_interval) {
+        const interval = parseInt(rawSub.billing_interval);
+        const period = rawSub.billing_period;
+        
+        let frequencyText = "";
+        if (interval === 1) {
+          frequencyText = `1 ${period}`;
+        } else {
+          frequencyText = `${interval} ${period}s`;
+        }
+        setLocalShippingFrequency(frequencyText);
+      }
+      
+      // Extract shipping address
+      const shipping = rawSub.shipping || rawSub.billing || {};
+      // Filter out "[deleted]" values
+      const cleanAddress1 = shipping.address_1 && shipping.address_1 !== "[deleted]" 
+        ? shipping.address_1 
+        : "";
+      
+      if (cleanAddress1) {
+        const addressParts = [
+          cleanAddress1,
+          shipping.address_2 && shipping.address_2 !== "[deleted]" ? shipping.address_2 : "",
+          shipping.city && shipping.city !== "[deleted]" ? shipping.city : "",
+          shipping.state && shipping.state !== "[deleted]" ? shipping.state : "",
+          shipping.postcode && shipping.postcode !== "[deleted]" ? shipping.postcode : "",
+        ].filter(Boolean);
+        setLocalShippingAddress(addressParts.join(", "));
+        
+        // Also set shipping data for the modal
+        setShippingData({
+          id: null,
+          shipping_address_id: null,
+          first_name: shipping.first_name && shipping.first_name !== "[deleted]" 
+            ? shipping.first_name 
+            : "",
+          last_name: shipping.last_name && shipping.last_name !== "[deleted]" 
+            ? shipping.last_name 
+            : "",
+          email: (shipping.email && shipping.email !== "[deleted]" ? shipping.email : "") || 
+                 (rawSub.billing?.email && rawSub.billing.email !== "[deleted]" ? rawSub.billing.email : "") || 
+                 "",
+          address_1: cleanAddress1,
+          address_2: shipping.address_2 && shipping.address_2 !== "[deleted]" 
+            ? shipping.address_2 
+            : "",
+          city: shipping.city && shipping.city !== "[deleted]" ? shipping.city : "",
+          postcode: shipping.postcode && shipping.postcode !== "[deleted]" 
+            ? shipping.postcode 
+            : "",
+          country: shipping.country && shipping.country !== "[deleted]" 
+            ? shipping.country 
+            : "CA",
+          state: shipping.state && shipping.state !== "[deleted]" ? shipping.state : "",
+        });
+      }
+      
+      // Extract payment method
+      if (rawSub.payment_method_title) {
+        setDisplayPaymentMethod(rawSub.payment_method_title);
+      } else if (rawSub.payment_method) {
+        setDisplayPaymentMethod(rawSub.payment_method);
+      }
+    } else {
+      // Fallback to mapped subscription data if _raw is not available
+      if (subscription?.quantity) {
+        setLocalQuantity(subscription.quantity);
+      }
+      if (subscription?.shippingFrequency) {
+        setLocalShippingFrequency(subscription.shippingFrequency);
+      }
+      if (subscription?.shippingAddress) {
+        setLocalShippingAddress(subscription.shippingAddress);
+      }
+      if (subscription?.paymentMethod) {
+        setDisplayPaymentMethod(subscription.paymentMethod);
+      }
     }
   }, [subscription]);
+
+  // Fetch shipping data when modal opens (if not already set from subscription)
+  useEffect(() => {
+    if (isShippingAddressModalOpen && !shippingData) {
+      const fetchShippingData = async () => {
+        try {
+          const response = await fetch(`/api/user/billing-shipping`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.data?.user) {
+              const userData = data.data.user;
+              const shipping = userData.shipping || {};
+              
+              // Format shipping data for the modal
+              const formattedShippingData = {
+                id: shipping.id || null,
+                shipping_address_id: shipping.id || null,
+                first_name: shipping.first_name || userData.first_name || "",
+                last_name: shipping.last_name || userData.last_name || "",
+                email: shipping.email || userData.email || "",
+                address_1: shipping.address_1 || "",
+                address_2: shipping.address_2 || "",
+                city: shipping.city || "",
+                postcode: shipping.postcode || "",
+                country: shipping.country || "CA",
+                state: shipping.state || "",
+              };
+              
+              setShippingData(formattedShippingData);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching shipping data:", error);
+        }
+      };
+      
+      fetchShippingData();
+    }
+  }, [isShippingAddressModalOpen, shippingData]);
 
   const {
     productName,
@@ -111,7 +335,6 @@ export default function SubscriptionFlow({
   const quantityText = localQuantity;
   const shippingFrequencyText = localShippingFrequency;
   const shippingAddress = localShippingAddress;
-  const paymentMethod = localPaymentMethod;
   const treatmentInstructions =
     subscription?.treatmentInstructions ||
     "Take 1 tablet by mouth as needed 2 hours before sex. Do not take more than 1 tablet daily.";
@@ -288,7 +511,7 @@ export default function SubscriptionFlow({
           <div className="flex items-start justify-between">
             <div>
               <div className="text-[16px] font-medium">Default card</div>
-              <div className="text-sm text-[#5E5E5E] mt-1">{paymentMethod}</div>
+              <div className="text-sm text-[#5E5E5E] mt-1">{displayPaymentMethod}</div>
             </div>
             <CustomButton
               width="fit"
@@ -401,14 +624,42 @@ export default function SubscriptionFlow({
         onSave={(value) => setLocalShippingFrequency(value)}
         placeholder="Enter shipping frequency"
       />
-      <UpdateModal
+      <ShippingAddressModal
         isOpen={isShippingAddressModalOpen}
         onClose={() => setIsShippingAddressModalOpen(false)}
-        title="Edit Shipping Address"
-        label="Shipping Address"
-        currentValue={localShippingAddress}
-        onSave={(value) => setLocalShippingAddress(value)}
-        placeholder="Enter shipping address"
+        onSave={async (updatedData) => {
+          try {
+            // Update shipping address via API
+            const response = await fetch("/api/user/shipping-address", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(updatedData),
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+              // Update display address
+              const addressParts = [
+                updatedData.address_1,
+                updatedData.address_2,
+                updatedData.city,
+                updatedData.state,
+                updatedData.postcode,
+              ].filter(Boolean);
+              setLocalShippingAddress(addressParts.join(", "));
+              toast.success("Shipping address updated successfully");
+            } else {
+              toast.error(result.error || "Failed to update shipping address");
+            }
+          } catch (error) {
+            console.error("Error updating shipping address:", error);
+            toast.error("Failed to update shipping address");
+          }
+        }}
+        shippingData={shippingData}
       />
       <UpdateModal
         isOpen={isPaymentMethodModalOpen}
@@ -416,8 +667,14 @@ export default function SubscriptionFlow({
         title="Edit Payment Method"
         label="Payment Method"
         currentValue={localPaymentMethod}
-        onSave={(value) => setLocalPaymentMethod(value)}
-        placeholder="Enter payment method"
+        onSave={(value) => {
+          setLocalPaymentMethod(value);
+          // Format card number for display (show last 4 digits)
+          const last4 = value.cardNumber.replace(/\s/g, "").slice(-4);
+          setDisplayPaymentMethod(`•••• •••• •••• ${last4}`);
+          toast.success("Payment method updated successfully");
+        }}
+        isPaymentMethodField={true}
       />
     </Section>
   );

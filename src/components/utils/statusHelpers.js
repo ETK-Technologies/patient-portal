@@ -16,6 +16,10 @@ export const getStatusColor = (status) => {
       return "bg-[#00AB55]";
 
     // Order statuses
+    case "pending":
+      return "bg-orange-500";
+    case "processing":
+      return "bg-purple-500";
     case "medical review":
       return "bg-yellow-500";
     case "shipped":
@@ -50,6 +54,10 @@ export const getStatusContainerClasses = (status) => {
       return "bg-gradient-to-r from-green-100/30 to-white border-[#C3FACF]";
 
     // Order statuses
+    case "pending":
+      return "bg-gradient-to-r from-orange-100/30 to-white border-[#FED7AA]";
+    case "processing":
+      return "bg-gradient-to-r from-purple-100/30 to-white border-[#E9D5FF]";
     case "medical review":
       return "bg-gradient-to-r from-yellow-100/30 to-white border-[#FEEFC3]";
     case "shipped":
