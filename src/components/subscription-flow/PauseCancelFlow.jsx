@@ -11,7 +11,7 @@ export default function PauseCancelFlow({ subscription, onNavigate }) {
   const total = subscription?.total || "$121.00";
 
   return (
-    <div className=" pb-24 max-w-[800px] mx-auto  md:px-0">
+    <div className="pb-24 w-full md:w-[528px] mx-auto md:px-0">
       <h2 className="font-medium text-[18px] leading-[115%] mb-4">
         Pause or cancel subscription
       </h2>
@@ -63,17 +63,19 @@ export default function PauseCancelFlow({ subscription, onNavigate }) {
         </div>
       </div>
       {/* Actions fixed at the bottom of the page */}
-      <div className="fixed left-0 right-0 bottom-0 z-20 py-5 bg-[#FBFAF9]  ">
-        <div className="space-y-[10px] max-w-[800px] mx-auto px-5">
-          <CustomButton
-            onClick={() => onNavigate?.("pauseInstead")}
-            variant="rounded"
-            width="full"
-            size="medium"
-            className=" w-full h-12 rounded-full border font-medium bg-black text-white text-[14px]"
-          >
-            Proceed To Cancel
-          </CustomButton>
+      <div className="fixed left-0 right-0 bottom-0 z-20 py-5 bg-[#FBFAF9]">
+        <div className="max-w-[800px] mx-auto px-5 md:px-6 md:pl-[120px]">
+          <div className="space-y-[10px] w-full md:w-[528px] mx-auto">
+            <CustomButton
+              onClick={() => onNavigate?.("pauseInstead")}
+              variant="rounded"
+              width="full"
+              size="medium"
+              className=" w-full h-12 rounded-full border font-medium bg-black text-white text-[14px]"
+            >
+              Proceed To Cancel
+            </CustomButton>
+          </div>
         </div>
       </div>
     </div>
