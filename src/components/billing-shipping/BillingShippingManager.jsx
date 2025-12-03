@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import ProfileField from "../profile/ProfileField";
 import ShippingAddressModal from "./ShippingAddressModal";
+import BillingAddressModal from "./BillingAddressModal";
 import UpdateModal from "../utils/UpdateModal";
 import {
   initialBillingShippingData,
@@ -17,7 +18,9 @@ export default function BillingShippingManager() {
     initialBillingShippingData
   );
   const [shippingData, setShippingData] = useState(null);
+  const [billingData, setBillingData] = useState(null);
   const [isShippingModalOpen, setIsShippingModalOpen] = useState(false);
+  const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
   const [paymentModalState, setPaymentModalState] = useState({
     isOpen: false,
     field: null,
@@ -27,7 +30,7 @@ export default function BillingShippingManager() {
 
   const getUserIdFromCookies = () => {
     if (typeof document === "undefined") return null;
-    
+
     const cookies = document.cookie.split(";");
     for (let cookie of cookies) {
       const [name, value] = cookie.trim().split("=");
@@ -67,13 +70,16 @@ export default function BillingShippingManager() {
         ]);
 
         let shipping = {};
-        let displayAddress = "No address set";
+        let billing = {};
+        let displayShippingAddress = "No address set";
+        let displayBillingAddress = "No address set";
 
         if (addressResponse.ok) {
           const addressResult = await addressResponse.json();
           if (addressResult.success && addressResult.data) {
             const responseData = addressResult.data;
             const shippingAddress = responseData.shipping_address || {};
+            const billingAddress = responseData.billing_address || {};
 
             if (shippingAddress) {
               shipping = shippingAddress;
@@ -86,9 +92,32 @@ export default function BillingShippingManager() {
                 shipping.postcode,
               ].filter(Boolean);
 
-              displayAddress = addressParts.length > 0
-                ? addressParts.join(", ")
-                : "No address set";
+              displayShippingAddress =
+                addressParts.length > 0
+                  ? addressParts.join(", ")
+                  : "No address set";
+            }
+
+            if (billingAddress) {
+              billing = billingAddress;
+              setBillingData(billing);
+
+              const addressParts = [
+                billing.address_1,
+                billing.address_2,
+                billing.city,
+                billing.postcode,
+              ].filter(Boolean);
+
+              displayBillingAddress =
+                addressParts.length > 0
+                  ? addressParts.join(", ")
+                  : "No address set";
+            } else if (shippingAddress) {
+              // Fallback: use shipping address as billing address if billing is not set
+              billing = shippingAddress;
+              setBillingData(billing);
+              displayBillingAddress = displayShippingAddress;
             }
           }
         }
@@ -104,7 +133,7 @@ export default function BillingShippingManager() {
             if (profiles.length > 0) {
               const primaryPayment = profiles[0];
               const last4Digits = primaryPayment.last_4_digits || "";
-              
+
               if (last4Digits) {
                 const cleanLast4 = last4Digits.replace(/[^0-9]/g, "").slice(-4);
                 if (cleanLast4.length === 4) {
@@ -119,11 +148,15 @@ export default function BillingShippingManager() {
           const addressError = await addressResponse.json().catch(() => ({}));
           const paymentError = await paymentResponse.json().catch(() => ({}));
           const errorMessage =
-            addressError.error || paymentError.error || "Failed to fetch billing and shipping data";
+            addressError.error ||
+            paymentError.error ||
+            "Failed to fetch billing and shipping data";
           setError(errorMessage);
           setShippingData(null);
+          setBillingData(null);
           setBillingShippingData((prev) => ({
             ...prev,
+            billingAddress: "Error loading address",
             shippingAddress: "Error loading address",
             paymentMethod: "Error loading payment method",
           }));
@@ -132,19 +165,24 @@ export default function BillingShippingManager() {
 
         setBillingShippingData((prev) => ({
           ...prev,
-          shippingAddress: displayAddress,
+          billingAddress: displayBillingAddress,
+          shippingAddress: displayShippingAddress,
           paymentMethod: displayPaymentMethod,
         }));
         setError(null);
       } catch (error) {
-        console.error("[BILLING_SHIPPING] Error fetching billing and shipping data:", error);
+        console.error(
+          "[BILLING_SHIPPING] Error fetching billing and shipping data:",
+          error
+        );
         const errorMessage =
-          error.message ||
-          "An unexpected error occurred while fetching data";
+          error.message || "An unexpected error occurred while fetching data";
         setError(errorMessage);
         setShippingData(null);
+        setBillingData(null);
         setBillingShippingData((prev) => ({
           ...prev,
+          billingAddress: "Error loading address",
           shippingAddress: "Error loading address",
           paymentMethod: "Error loading payment method",
         }));
@@ -159,6 +197,8 @@ export default function BillingShippingManager() {
   const handleUpdateClick = (field) => {
     if (field.key === "shippingAddress") {
       setIsShippingModalOpen(true);
+    } else if (field.key === "billingAddress") {
+      setIsBillingModalOpen(true);
     } else if (field.key === "paymentMethod") {
       setPaymentModalState({
         isOpen: true,
@@ -208,7 +248,8 @@ export default function BillingShippingManager() {
     } catch (error) {
       console.error("[BILLING_SHIPPING] Error updating payment method:", error);
       const errorMessage =
-        error.message || "An unexpected error occurred while updating payment method";
+        error.message ||
+        "An unexpected error occurred while updating payment method";
       toast.error(errorMessage);
       setError(errorMessage);
     }
@@ -294,9 +335,8 @@ export default function BillingShippingManager() {
         mergedData.postcode,
       ].filter(Boolean);
 
-      const displayAddress = addressParts.length > 0
-        ? addressParts.join(", ")
-        : "No address set";
+      const displayAddress =
+        addressParts.length > 0 ? addressParts.join(", ") : "No address set";
 
       setBillingShippingData((prev) => ({
         ...prev,
@@ -305,7 +345,105 @@ export default function BillingShippingManager() {
       setError(null);
       toast.success("Shipping address updated successfully");
     } catch (error) {
-      console.error("[BILLING_SHIPPING] Error updating shipping address:", error);
+      console.error(
+        "[BILLING_SHIPPING] Error updating shipping address:",
+        error
+      );
+      const errorMessage =
+        error.message || "An unexpected error occurred while updating address";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleSaveBillingAddress = async (formData) => {
+    try {
+      setError(null);
+
+      let userId = getUserIdFromCookies();
+      if (!userId && userData) {
+        if (userData.crm_user_id) {
+          userId = userData.crm_user_id;
+        }
+      }
+
+      if (!userId) {
+        const errorMessage = "User ID not available";
+        setError(errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
+
+      const existingBilling = billingData || {};
+      const mergedData = {
+        ...existingBilling,
+        ...formData,
+      };
+
+      const requestBody = {
+        id: String(userId),
+        billing_first_name: mergedData.first_name || "",
+        billing_last_name: mergedData.last_name || "",
+        billing_email: mergedData.email || "",
+        billing_phone: mergedData.phone || "",
+        billing_country: mergedData.country || "",
+        billing_address_1: mergedData.address_1 || "",
+        billing_address_2: mergedData.address_2 || "",
+        billing_city: mergedData.city || "",
+        billing_state: mergedData.state || "",
+        billing_postcode: mergedData.postcode || "",
+      };
+
+      const response = await fetch(`/api/user/billing/address/update`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage =
+          errorData.error ||
+          `Failed to update billing address (${response.status})`;
+        setError(errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        const errorMessage = data.error || "Failed to update billing address";
+        setError(errorMessage);
+        toast.error(errorMessage);
+        return;
+      }
+
+      setBillingData(mergedData);
+
+      const addressParts = [
+        mergedData.address_1,
+        mergedData.address_2,
+        mergedData.city,
+        mergedData.postcode,
+      ].filter(Boolean);
+
+      const displayAddress =
+        addressParts.length > 0 ? addressParts.join(", ") : "No address set";
+
+      setBillingShippingData((prev) => ({
+        ...prev,
+        billingAddress: displayAddress,
+      }));
+      setError(null);
+      toast.success("Billing address updated successfully");
+    } catch (error) {
+      console.error(
+        "[BILLING_SHIPPING] Error updating billing address:",
+        error
+      );
       const errorMessage =
         error.message || "An unexpected error occurred while updating address";
       setError(errorMessage);
@@ -331,6 +469,16 @@ export default function BillingShippingManager() {
           isOpen={isShippingModalOpen}
           onClose={() => setIsShippingModalOpen(false)}
           onSave={handleSaveShippingAddress}
+          shippingData={shippingData}
+        />
+      )}
+
+      {isBillingModalOpen && (
+        <BillingAddressModal
+          isOpen={isBillingModalOpen}
+          onClose={() => setIsBillingModalOpen(false)}
+          onSave={handleSaveBillingAddress}
+          billingData={billingData}
           shippingData={shippingData}
         />
       )}

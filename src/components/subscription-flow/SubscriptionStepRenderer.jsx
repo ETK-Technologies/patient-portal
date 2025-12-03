@@ -62,7 +62,7 @@ const SubscriptionStepRenderer = ({
         selectedValue={selected}
         onChange={setSelected}
         color="#AE7E56"
-        containerClassName="max-w-[800px] mx-auto md:px-0"
+        containerClassName="w-full md:w-[528px] mx-auto md:px-0"
         onContinue={async (value) => {
           // Add answer first to update state
           addAnswer(2, stepConfig?.field || "pauseOption", value);
@@ -100,7 +100,7 @@ const SubscriptionStepRenderer = ({
         selectedValue={selected}
         onChange={setSelected}
         color="#AE7E56"
-        containerClassName="max-w-[800px] mx-auto md:px-0"
+        containerClassName="w-full md:w-[528px] mx-auto md:px-0"
         onContinue={async (value) => {
           // Add answer first to update state
           addAnswer(3, stepConfig?.field || "quantity", value);
@@ -131,7 +131,7 @@ const SubscriptionStepRenderer = ({
         selectedValue={selected}
         onChange={setSelected}
         color="#AE7E56"
-        containerClassName="max-w-[800px] mx-auto md:px-0"
+        containerClassName="w-full md:w-[528px] mx-auto md:px-0"
         onContinue={async (answer) => {
           // Add answer first to update state
           addAnswer(4, stepConfig?.field || "treatmentWorked", answer);
@@ -191,7 +191,7 @@ const SubscriptionStepRenderer = ({
         selectedValues={selected}
         onChange={setSelected}
         color="#AE7E56"
-        containerClassName="max-w-[800px] mx-auto md:px-0"
+        containerClassName="w-full md:w-[528px] mx-auto md:px-0"
         onContinue={async (reasons) => {
           // If reasons is an array (Set), convert to array
           const reasonsArray = Array.isArray(reasons)
@@ -260,7 +260,7 @@ const SubscriptionStepRenderer = ({
         linkText="Back to subscription"
         linkHref="/subscriptions"
         bottomMessage="We're sorry to see you leave :("
-        containerClassName="max-w-[800px] mx-auto"
+        containerClassName="w-full md:w-[528px] mx-auto"
         showBottomBackground={true}
       />
     );

@@ -94,7 +94,7 @@ export default function SubscriptionCard({ subscription, onAction }) {
             width="full"
             variant="pill"
             justify="between"
-            className="bg-white border border-[#E2E2E1] text-[#212121] hover:bg-[#F9F9F9] h-[40px] text-[14px]"
+            className="bg-white border border-[#E2E2E1] text-[#212121] hover:bg-black hover:text-white h-[40px] text-[14px]"
           />
         ))}
       </div>

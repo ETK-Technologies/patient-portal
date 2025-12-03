@@ -211,38 +211,30 @@ export default function UpdateModal({
 
   // Handle mount/unmount animation
   useEffect(() => {
-    let mountRafId;
-    let visibilityRafId;
+    let visibilityTimeoutId;
     let unmountTimeoutId;
 
     if (isOpen) {
-      mountRafId = window.requestAnimationFrame(() => {
-        setIsVisible(false);
-        setIsMounted(true);
-
-        visibilityRafId = window.requestAnimationFrame(() => {
-          setIsVisible(true);
-        });
-      });
+      setIsMounted(true);
+      // Start with modal off-screen (translate-y-full)
+      setIsVisible(false);
+      // Then animate it in after a brief delay to ensure initial state is applied
+      visibilityTimeoutId = setTimeout(() => {
+        setIsVisible(true);
+      }, 50);
     } else {
-      mountRafId = window.requestAnimationFrame(() => {
-        setIsVisible(false);
-
-        unmountTimeoutId = window.setTimeout(() => {
-          setIsMounted(false);
-        }, ANIMATION_DURATION);
-      });
+      setIsVisible(false);
+      unmountTimeoutId = setTimeout(() => {
+        setIsMounted(false);
+      }, ANIMATION_DURATION);
     }
 
     return () => {
-      if (mountRafId) {
-        window.cancelAnimationFrame(mountRafId);
-      }
-      if (visibilityRafId) {
-        window.cancelAnimationFrame(visibilityRafId);
+      if (visibilityTimeoutId) {
+        clearTimeout(visibilityTimeoutId);
       }
       if (unmountTimeoutId) {
-        window.clearTimeout(unmountTimeoutId);
+        clearTimeout(unmountTimeoutId);
       }
     };
   }, [isOpen]);
@@ -467,7 +459,7 @@ export default function UpdateModal({
 
       {/* Modal */}
       <div
-        className={`relative  bg-white rounded-t-[24px] md:w-[560px] md:rounded-[16px] w-full  shadow-xl flex flex-col transform transition-transform duration-300 ease-out ${
+        className={`relative bg-white rounded-t-[24px] md:w-[560px] md:rounded-[16px] w-full max-h-[95vh] md:max-h-[95vh] shadow-xl flex flex-col transform transition-transform duration-300 ease-out ${
           isVisible ? "translate-y-0" : "translate-y-full"
         } md:translate-y-0`}
         onClick={(e) => e.stopPropagation()}
@@ -511,7 +503,8 @@ export default function UpdateModal({
             )}
             {isPaymentMethodField && !isReadOnly && (
               <p className="text-sm text-[#00000099] mt-2">
-                Please update your payment method
+                Adding new card details will apply them across your account and
+                set this card as your default.
               </p>
             )}
           </div>
@@ -950,7 +943,7 @@ export default function UpdateModal({
             ) : isPaymentMethodField ? (
               <>
                 {/* Credit Card Number */}
-                <div>
+                <div className="relative">
                   <input
                     type="text"
                     value={value.cardNumber || ""}
@@ -972,15 +965,17 @@ export default function UpdateModal({
                     readOnly={isReadOnly}
                     maxLength={19} // 16 digits + 3 spaces
                     className={getInputClassName(
-                      "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                      "w-full px-4 pt-6 pb-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
                     )}
-                    placeholder="Credit card number"
                   />
+                  <label className="absolute top-2 left-4 text-xs text-gray-500 pointer-events-none">
+                    Credit card number
+                  </label>
                 </div>
 
                 {/* Expiry and CVC in a row */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                  <div className="relative">
                     <input
                       type="text"
                       value={value.expiry || ""}
@@ -997,12 +992,14 @@ export default function UpdateModal({
                       readOnly={isReadOnly}
                       maxLength={5}
                       className={getInputClassName(
-                        "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                        "w-full px-4 pt-6 pb-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
                       )}
-                      placeholder="Expiry MM/YY"
                     />
+                    <label className="absolute top-2 left-4 text-xs text-gray-500 pointer-events-none">
+                      Expiry MM/YY
+                    </label>
                   </div>
-                  <div>
+                  <div className="relative">
                     <input
                       type="text"
                       value={value.cvc || ""}
@@ -1017,15 +1014,17 @@ export default function UpdateModal({
                       readOnly={isReadOnly}
                       maxLength={4}
                       className={getInputClassName(
-                        "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                        "w-full px-4 pt-6 pb-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
                       )}
-                      placeholder="CVC"
                     />
+                    <label className="absolute top-2 left-4 text-xs text-gray-500 pointer-events-none">
+                      CVC
+                    </label>
                   </div>
                 </div>
 
                 {/* Name on Card */}
-                <div>
+                <div className="relative">
                   <input
                     type="text"
                     value={value.nameOnCard || ""}
@@ -1035,10 +1034,12 @@ export default function UpdateModal({
                     disabled={isReadOnly}
                     readOnly={isReadOnly}
                     className={getInputClassName(
-                      "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                      "w-full px-4 pt-6 pb-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
                     )}
-                    placeholder="Name on card"
                   />
+                  <label className="absolute top-2 left-4 text-xs text-gray-500 pointer-events-none">
+                    Name on card
+                  </label>
                 </div>
               </>
             ) : isNameField ? (
@@ -1195,23 +1196,8 @@ export default function UpdateModal({
           {/* Actions */}
           {!isReadOnly && (
             <div className="mt-6">
-              <CustomButton
-                text={
-                  isPasswordField || isPaymentMethodField
-                    ? "Save"
-                    : "Save Changes"
-                }
+              <button
                 onClick={handleSave}
-                variant="default"
-                size="medium"
-                width="full"
-                className={
-                  isPasswordField || isPaymentMethodField
-                    ? isPasswordValid || isPaymentMethodValid
-                      ? "bg-black border border-black text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                      : "!bg-[#00000033] border border-[#C9C5BF] text-white hover:bg-[#A5A4A2] disabled:opacity-50 disabled:cursor-not-allowed"
-                    : "bg-black border border-black text-white hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                }
                 disabled={
                   (isPasswordField &&
                     (!value.currentPassword ||
@@ -1224,7 +1210,18 @@ export default function UpdateModal({
                       !value.cvc ||
                       !value.nameOnCard))
                 }
-              />
+                className={`w-full px-4 py-3 rounded-lg font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isPasswordField || isPaymentMethodField
+                    ? isPasswordValid || isPaymentMethodValid
+                      ? "bg-black text-white hover:bg-gray-800"
+                      : "bg-[#00000033] text-white hover:bg-gray-400"
+                    : "bg-black text-white hover:bg-gray-800"
+                }`}
+              >
+                {isPasswordField || isPaymentMethodField
+                  ? "Save"
+                  : "Save Changes"}
+              </button>
             </div>
           )}
         </div>

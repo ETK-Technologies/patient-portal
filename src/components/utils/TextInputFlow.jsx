@@ -14,7 +14,7 @@ export default function TextInputFlow({
   linkText,
   linkHref,
   bottomMessage,
-  containerClassName = "max-w-[800px] mx-auto md:px-0",
+  containerClassName = "w-full md:w-[528px] mx-auto md:px-0",
   showBottomBackground = false,
 }) {
   const [text, setText] = useState("");
@@ -68,28 +68,34 @@ export default function TextInputFlow({
           showBottomBackground ? "bg-[#FBFAF9]" : ""
         }`}
       >
-        <div className="space-y-[10px] max-w-[800px] mx-auto px-5">
-          <CustomButton
-            width="full"
-            size="medium"
-            variant="pill"
-            onClick={handleSubmit}
-            disabled={!text.trim()}
-            className="text-white text-[15px] font-medium disabled:bg-[#E5E7EB] disabled:text-[#7D7C77] disabled:opacity-100 bg-black hover:opacity-90 h-12"
+        <div className="max-w-[800px] mx-auto px-5 md:px-6 md:pl-[60px]">
+          <div
+            className={`space-y-[10px] ${
+              containerClassName || "w-full md:w-[528px] mx-auto"
+            }`}
           >
-            {buttonLabel}
-          </CustomButton>
-          {onBack && (
             <CustomButton
               width="full"
               size="medium"
               variant="pill"
-              onClick={onBack}
-              className="border border-[#E2E2E1] text-[14px] bg-white text-[black] font-medium hover:bg-[#F9FAFB] h-12"
+              onClick={handleSubmit}
+              disabled={!text.trim()}
+              className="text-white text-[15px] font-medium disabled:bg-[#E5E7EB] disabled:text-[#7D7C77] disabled:opacity-100 bg-black hover:opacity-90 h-12"
             >
-              {secondaryButtonLabel}
+              {buttonLabel}
             </CustomButton>
-          )}
+            {onBack && (
+              <CustomButton
+                width="full"
+                size="medium"
+                variant="pill"
+                onClick={onBack}
+                className="border border-[#E2E2E1] text-[14px] bg-white text-[black] font-medium hover:bg-[#F9FAFB] h-12"
+              >
+                {secondaryButtonLabel}
+              </CustomButton>
+            )}
+          </div>
         </div>
       </div>
     </div>

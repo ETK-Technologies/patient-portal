@@ -233,13 +233,6 @@ const PostCanadaAddressAutocomplete = ({
 
   return (
     <div className="mb-4 md:mb-0 w-full" ref={wrapperRef}>
-      <label
-        htmlFor={name}
-        className="block text-[14px] leading-[19.6px] font-[500] text-[#212121] mb-2"
-      >
-        {title}
-        {required && "*"}
-      </label>
       <div className="relative">
         <input
           type="text"
@@ -247,14 +240,23 @@ const PostCanadaAddressAutocomplete = ({
           name={name}
           value={inputValue}
           onChange={handleInputChange}
-          placeholder={placeholder}
-          className="w-full !bg-white !rounded-[8px] !border !border-solid !border-[#E2E2E1] !px-[16px] py-[12px] h-[44px] !focus:outline-none !focus:border-gray-500"
+          placeholder=""
+          className="w-full !bg-white !rounded-lg !border !border-solid !border-gray-300 !px-4 !pt-6 !pb-2 !focus:outline-none !focus:ring-2 !focus:ring-gray-900 !focus:border-transparent"
           autoComplete="off"
           {...props}
         />
+        {title && (
+          <label
+            htmlFor={name}
+            className="absolute top-2 left-4 text-xs text-gray-500 pointer-events-none"
+          >
+            {title}
+            {required && "*"}
+          </label>
+        )}
 
         {isLoading && (
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+          <div className="absolute right-3 top-4">
             <svg
               className="animate-spin"
               width="20px"

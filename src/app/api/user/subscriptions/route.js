@@ -39,7 +39,9 @@ export async function GET(request) {
     console.log(
       `[SUBSCRIPTIONS] Cookie header: ${cookieHeader.substring(0, 100)}...`
     );
-    console.log(`[SUBSCRIPTIONS] Extracted wpUserID: ${wpUserID || "not found"}`);
+    console.log(
+      `[SUBSCRIPTIONS] Extracted wpUserID: ${wpUserID || "not found"}`
+    );
 
     if (!wpUserID) {
       return NextResponse.json(
