@@ -13,6 +13,7 @@ const navigationItems = [
   { name: "Appointments", href: "/appointments" },
   { name: "Consultations", href: "/consultations" },
   { name: "Treatments", href: "/treatments" },
+  { name: "Prescriptions", href: "/prescriptions" },
   { name: "Shop", href: "/shop" },
 ];
 

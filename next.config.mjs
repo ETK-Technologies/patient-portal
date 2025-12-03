@@ -22,6 +22,11 @@ const nextConfig = {
       },
       {
         protocol: "https",
+        hostname: "myrocky.ca",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
         hostname: "myrocky.com",
         pathname: "/**",
       },
@@ -78,6 +83,11 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "www.colorhexa.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "secure.gravatar.com",
         pathname: "/**",
       },
     ],

@@ -10,7 +10,7 @@ export default function TreatmentCard({
 }) {
   return (
     <Link
-      href="#"
+      href={link}
       className={`${
         isScrollable ? "w-[256px]" : "w-full"
       } h-[335px] md:w-[256px] md:h-[341px] relative rounded-[16px] z-[1] overflow-hidden flex-shrink-0`}

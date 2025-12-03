@@ -29,9 +29,15 @@ export default function CheckboxOptionsScreen({
   const hasSelection = selectedValues instanceof Set && selectedValues.size > 0;
 
   return (
-    <div className={`pb-24 max-w-[800px] mx-auto ${containerClassName}`}>
+    <div
+      className={`pb-24 ${containerClassName || "w-full md:w-[528px] mx-auto"}`}
+    >
       {title ? (
-        <h2 className={`text-[18px] font-medium leading-[115%] ${description ? "mb-2" : "mb-8"}`}>
+        <h2
+          className={`text-[18px] font-medium leading-[115%] ${
+            description ? "mb-2" : "mb-8"
+          }`}
+        >
           {title}
         </h2>
       ) : null}
@@ -57,30 +63,36 @@ export default function CheckboxOptionsScreen({
       </div>
 
       <div className="fixed left-0 right-0 bottom-0 z-20 py-5 bg-[#FBFAF9]">
-        <div className="space-y-[10px] max-w-[800px] mx-auto px-5">
-          <CustomButton
-            width="full"
-            size="medium"
-            variant="pill"
-            disabled={!hasSelection}
-            onClick={() =>
-              hasSelection && onContinue?.(Array.from(selectedValues))
-            }
-            className="text-white text-[15px] font-medium disabled:bg-[#E5E7EB] disabled:text-[#7D7C77] disabled:opacity-100 bg-black hover:opacity-90 h-12"
+        <div className="max-w-[800px] mx-auto px-5 md:px-6 md:pl-[60px]">
+          <div
+            className={`space-y-[10px] ${
+              containerClassName || "w-full md:w-[528px] mx-auto"
+            }`}
           >
-            {continueText}
-          </CustomButton>
-          {onBack ? (
             <CustomButton
               width="full"
               size="medium"
               variant="pill"
-              onClick={onBack}
-              className="border border-[#E2E2E1] text-[14px] bg-white text-[black] font-medium hover:bg-[#F9FAFB] h-12"
+              disabled={!hasSelection}
+              onClick={() =>
+                hasSelection && onContinue?.(Array.from(selectedValues))
+              }
+              className="text-white text-[15px] font-medium disabled:bg-[#E5E7EB] disabled:text-[#7D7C77] disabled:opacity-100 bg-black hover:opacity-90 h-12"
             >
-              {backText}
+              {continueText}
             </CustomButton>
-          ) : null}
+            {onBack ? (
+              <CustomButton
+                width="full"
+                size="medium"
+                variant="pill"
+                onClick={onBack}
+                className="border border-[#E2E2E1] text-[14px] bg-white text-[black] font-medium hover:bg-[#F9FAFB] h-12"
+              >
+                {backText}
+              </CustomButton>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

@@ -22,7 +22,7 @@ export default function Navbar({ onMenuClick }) {
       </Link>
 
       {/* Right side - Notifications, Account dropdown, and Mobile menu button */}
-      <div className="flex items-center ">
+      <div className="flex items-center gap-3">
         {/* <NotificationDropdown /> */}
         {/* Hide account dropdown on mobile - it will be in sidebar */}
         <div className="hidden lg:block">

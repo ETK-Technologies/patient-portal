@@ -54,3 +54,87 @@ body {
   background: linear-gradient(180deg, rgba(251, 250, 249, 0) 0%, #fbfaf9 100%),
     linear-gradient(360deg, #fbfaf9 0%, rgba(251, 250, 249, 0) 100%);
 }
+
+/* Custom scrollbar for entire project */
+* {
+  scrollbar-width: thin; /* Firefox - thinner scrollbar */
+  scrollbar-color: #C9C5BF transparent; /* Firefox: thumb and track */
+}
+
+*::-webkit-scrollbar {
+  width: 8px; /* Thinner scrollbar */
+  height: 8px; /* For horizontal scrollbar */
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent; /* Transparent track */
+  border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #C9C5BF; /* Scrollbar color */
+  border-radius: 10px; /* Rounded scrollbar */
+  border: 2px solid transparent; /* Creates padding effect */
+  background-clip: padding-box;
+  min-height: 30px; /* Minimum thumb height */
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #A5A4A2; /* Darker on hover */
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent; /* Corner between scrollbars */
+}
+
+/* Remove scrollbar arrows/buttons - comprehensive approach */
+*::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+*::-webkit-scrollbar-button:start:decrement,
+*::-webkit-scrollbar-button:end:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+*::-webkit-scrollbar-button:vertical:start:decrement,
+*::-webkit-scrollbar-button:vertical:end:increment,
+*::-webkit-scrollbar-button:vertical:double-button:start:decrement,
+*::-webkit-scrollbar-button:vertical:double-button:end:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+*::-webkit-scrollbar-button:horizontal:start:decrement,
+*::-webkit-scrollbar-button:horizontal:end:increment,
+*::-webkit-scrollbar-button:horizontal:double-button:start:decrement,
+*::-webkit-scrollbar-button:horizontal:double-button:end:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+/* Additional class for modal if needed */
+.modal-scrollbar {
+  overflow-x: auto; /* Allow horizontal scrolling for wide content */
+  overflow-y: auto; /* Vertical scrolling */
+}
+
+/* Ensure toast notifications appear above modals */
+.Toastify__toast-container {
+  z-index: 10001 !important;
+}

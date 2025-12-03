@@ -76,15 +76,83 @@ export default function AutoLoginPage() {
 
 /**
  * Store user session after successful authentication
+ * Stores user data in both cookie (for server-side access) and localStorage (for client-side immediate access)
+ * @param {string} userId - The WordPress user ID from URL parameter (wp_user_id)
+ * @param {object} userData - User data from CRM (may contain wp_user_id field)
  */
 async function storeUserSession(userId, userData = {}) {
-  // Set a cookie to track the user session
-  document.cookie = `userId=${userId}; path=/; max-age=${60 * 60 * 24 * 7}`; // 7 days
+  const wpUserId = userData?.wp_user_id || userData?.wpUserID || userId;
+  
+  const userEmail = userData?.email || userData?.user?.email || userData?.data?.email || null;
+  
+  console.log(`[AUTO-LOGIN] Storing session - wp_user_id: ${wpUserId}`);
+  if (userEmail) {
+    console.log(`[AUTO-LOGIN] Storing userEmail: ${userEmail}`);
+  } else {
+    console.warn(`[AUTO-LOGIN] No email found in userData`);
+  }
+  
+  // Set a cookie to track the user session (for server-side API calls)
+  // Use secure cookie settings in production
+  const isProduction = process.env.NODE_ENV === "production";
+  
+  const userIdCookieOptions = [
+    `userId=${wpUserId}`,
+    "path=/",
+    `max-age=${60 * 60 * 24 * 7}`,
+    isProduction ? "SameSite=Strict" : "",
+    isProduction ? "Secure" : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
 
-  // Store additional user data in localStorage if needed
-  if (Object.keys(userData).length > 0) {
-    localStorage.setItem("userData", JSON.stringify(userData));
+  document.cookie = userIdCookieOptions;
+
+  const wpUserIdCookieOptions = [
+    `wp_user_id=${wpUserId}`,
+    "path=/",
+    `max-age=${60 * 60 * 24 * 7}`, // 7 days
+    isProduction ? "SameSite=Strict" : "",
+    isProduction ? "Secure" : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
+
+  document.cookie = wpUserIdCookieOptions;
+
+  if (userEmail) {
+    const userEmailCookieOptions = [
+      `userEmail=${encodeURIComponent(userEmail)}`,
+      "path=/",
+      `max-age=${60 * 60 * 24 * 7}`, // 7 days
+      isProduction ? "SameSite=Strict" : "",
+      isProduction ? "Secure" : "",
+    ]
+      .filter(Boolean)
+      .join("; ");
+
+    document.cookie = userEmailCookieOptions;
+    console.log(`[AUTO-LOGIN] userEmail cookie stored`);
   }
 
-  console.log(`User session stored for user ${userId}`);
+  // Store user data in localStorage for immediate access by UserContext
+  // This allows UserContext to use the data without making an API call
+  if (userData && Object.keys(userData).length > 0) {
+    // Store in the format that UserContext expects: { status: true, user: {...} }
+    const userDataForContext = {
+      status: true,
+      message: "User profile fetched successfully.",
+      user: userData,
+      // Add timestamp to track when data was stored
+      _timestamp: Date.now(),
+    };
+    localStorage.setItem("userData", JSON.stringify(userDataForContext));
+    console.log(
+      `[AUTO-LOGIN] User data stored in localStorage for user ${wpUserId}`
+    );
+  } else {
+    console.warn(`[AUTO-LOGIN] No user data to store for user ${wpUserId}`);
+  }
+
+  console.log(`[AUTO-LOGIN] User session stored - wp_user_id: ${wpUserId}`);
 }
