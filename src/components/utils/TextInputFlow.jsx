@@ -68,7 +68,7 @@ export default function TextInputFlow({
           showBottomBackground ? "bg-[#FBFAF9]" : ""
         }`}
       >
-        <div className="max-w-[800px] mx-auto px-5 md:px-6 md:pl-[120px]">
+        <div className="max-w-[800px] mx-auto px-5 md:px-6 md:pl-[60px]">
           <div
             className={`space-y-[10px] ${
               containerClassName || "w-full md:w-[528px] mx-auto"

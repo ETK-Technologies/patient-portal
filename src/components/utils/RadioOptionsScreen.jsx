@@ -50,7 +50,7 @@ export default function RadioOptionsScreen({
       </div>
 
       <div className="fixed left-0 right-0 bottom-0 z-20 py-5 bg-[#FBFAF9]">
-        <div className="max-w-[800px] mx-auto px-5 md:px-6 md:pl-[120px]">
+        <div className="max-w-[800px] mx-auto px-5 md:px-6 md:pl-[60px]">
           <div
             className={`space-y-[10px] ${
               containerClassName || "w-full md:w-[528px] mx-auto"
