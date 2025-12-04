@@ -1,30 +1,34 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import CustomButton from "@/components/utils/Button";
 import { IoMdClose } from "react-icons/io";
 import PostCanadaAddressAutocomplete from "@/components/utils/PostCanada/PostCanadaAddressAutocomplete";
 
 const ANIMATION_DURATION = 300;
 
-export default function ShippingAddressModal({
+export default function BillingAddressModal({
   isOpen,
   onClose,
   onSave,
+  billingData = {},
   shippingData = {},
 }) {
   const [isMounted, setIsMounted] = useState(isOpen);
   const [isVisible, setIsVisible] = useState(false);
 
   const [formData, setFormData] = useState({
-    id: null, // shipping_address_id
+    id: null,
+    first_name: "",
+    last_name: "",
+    email: "",
+    phone: "",
     address_1: "",
     address_2: "",
     city: "",
     postcode: "",
     country: "CA",
     state: "",
-    use_as_default: false,
+    same_as_shipping: false,
   });
 
   // Handle mount/unmount animation
@@ -34,9 +38,7 @@ export default function ShippingAddressModal({
 
     if (isOpen) {
       setIsMounted(true);
-      // Start with modal off-screen (translate-y-full)
       setIsVisible(false);
-      // Then animate it in after a brief delay to ensure initial state is applied
       visibilityTimeoutId = setTimeout(() => {
         setIsVisible(true);
       }, 50);
@@ -57,21 +59,43 @@ export default function ShippingAddressModal({
     };
   }, [isOpen]);
 
-  // Update form data when modal opens or shippingData changes
+  // Update form data when modal opens or billingData changes
   useEffect(() => {
-    if (isOpen && shippingData) {
+    if (isOpen && billingData) {
       setFormData({
-        id: shippingData.id || null, // shipping_address_id
-        address_1: shippingData.address_1 || "",
-        address_2: shippingData.address_2 || "",
-        city: shippingData.city || "",
-        postcode: shippingData.postcode || "",
-        country: "CA", // Fixed to Canada
-        state: shippingData.state || "",
-        use_as_default: false,
+        id: billingData.id || null,
+        first_name: billingData.first_name || "",
+        last_name: billingData.last_name || "",
+        email: billingData.email || "",
+        phone: billingData.phone || "",
+        address_1: billingData.address_1 || "",
+        address_2: billingData.address_2 || "",
+        city: billingData.city || "",
+        postcode: billingData.postcode || "",
+        country: "CA",
+        state: billingData.state || "",
+        same_as_shipping: false,
       });
     }
-  }, [isOpen, shippingData]);
+  }, [isOpen, billingData]);
+
+  // Handle "same as shipping" checkbox
+  useEffect(() => {
+    if (formData.same_as_shipping && shippingData) {
+      setFormData((prev) => ({
+        ...prev,
+        first_name: shippingData.first_name || prev.first_name,
+        last_name: shippingData.last_name || prev.last_name,
+        email: shippingData.email || prev.email,
+        phone: shippingData.phone || prev.phone,
+        address_1: shippingData.address_1 || prev.address_1,
+        address_2: shippingData.address_2 || prev.address_2,
+        city: shippingData.city || prev.city,
+        state: shippingData.state || prev.state,
+        postcode: shippingData.postcode || prev.postcode,
+      }));
+    }
+  }, [formData.same_as_shipping, shippingData]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -89,7 +113,6 @@ export default function ShippingAddressModal({
   if (!isMounted) return null;
 
   const handleChange = (field, value) => {
-    // Prevent changing country field
     if (field === "country") {
       return;
     }
@@ -102,7 +125,7 @@ export default function ShippingAddressModal({
   const handleCheckboxChange = (e) => {
     setFormData((prev) => ({
       ...prev,
-      use_as_default: e.target.checked,
+      same_as_shipping: e.target.checked,
     }));
   };
 
@@ -114,7 +137,6 @@ export default function ShippingAddressModal({
 
   // Handle address selection from autocomplete
   const handleAddressSelected = (addressData) => {
-    console.log("[SHIPPING_ADDRESS_MODAL] Address selected:", addressData);
     setFormData((prev) => ({
       ...prev,
       address_1: addressData.address_1 || prev.address_1,
@@ -122,24 +144,27 @@ export default function ShippingAddressModal({
       city: addressData.city || prev.city,
       state: addressData.state || prev.state,
       postcode: addressData.postcode || prev.postcode,
-      country: "CA", // Always set to Canada
+      country: "CA",
     }));
   };
 
   // Check if form is valid (all required fields filled)
   const isFormValid =
-    formData.address_1 && formData.city && formData.state && formData.postcode;
+    formData.first_name &&
+    formData.last_name &&
+    formData.email &&
+    formData.address_1 &&
+    formData.city &&
+    formData.state &&
+    formData.postcode;
 
   const handleSave = () => {
     if (!isFormValid) {
       return;
     }
-    console.log("[SHIPPING_ADDRESS_MODAL] Saving shipping address:", formData);
-    // Ensure country is always "CA" when saving
     const dataToSave = {
       ...formData,
-      country: "CA", // Always set to Canada
-      use_as_default: formData.use_as_default,
+      country: "CA",
     };
     onSave(dataToSave);
     onClose();
@@ -181,12 +206,51 @@ export default function ShippingAddressModal({
           {/* Header */}
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900">
-              Update Shipping Address
+              Update Billing Address
             </h2>
           </div>
 
           {/* Form */}
           <div className="space-y-4">
+            {/* First Name and Last Name */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.first_name}
+                  onChange={(e) => handleChange("first_name", e.target.value)}
+                  className="w-full px-4 pt-6 pb-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                />
+                <label className="absolute top-2 left-4 text-xs text-gray-500 pointer-events-none">
+                  First Name
+                </label>
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.last_name}
+                  onChange={(e) => handleChange("last_name", e.target.value)}
+                  className="w-full px-4 pt-6 pb-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+                />
+                <label className="absolute top-2 left-4 text-xs text-gray-500 pointer-events-none">
+                  Last Name
+                </label>
+              </div>
+            </div>
+
+            {/* Email address */}
+            <div className="relative">
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleChange("email", e.target.value)}
+                className="w-full px-4 pt-6 pb-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+              />
+              <label className="absolute top-2 left-4 text-xs text-gray-500 pointer-events-none">
+                Email address
+              </label>
+            </div>
+
             {/* Address Line 1 */}
             <div>
               <PostCanadaAddressAutocomplete
@@ -274,21 +338,33 @@ export default function ShippingAddressModal({
               </div>
             </div>
 
-            {/* Checkbox for default address */}
+            {/* Phone number */}
+            <div className="relative">
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => handleChange("phone", e.target.value)}
+                className="w-full px-4 pt-6 pb-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent outline-none"
+              />
+              <label className="absolute top-2 left-4 text-xs text-gray-500 pointer-events-none">
+                Phone number
+              </label>
+            </div>
+
+            {/* Checkbox for same as shipping */}
             <div className="flex items-start gap-3 pt-2">
               <input
                 type="checkbox"
-                id="use_as_default"
-                checked={formData.use_as_default}
+                id="same_as_shipping"
+                checked={formData.same_as_shipping}
                 onChange={handleCheckboxChange}
                 className="mt-1 w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-gray-900 cursor-pointer"
               />
               <label
-                htmlFor="use_as_default"
+                htmlFor="same_as_shipping"
                 className="font-medium text-base leading-[140%] tracking-[0px] align-middle cursor-pointer"
               >
-                Use as my default shipping address — also saved in profile
-                settings.
+                My billing and shipping address are the same
               </label>
             </div>
           </div>

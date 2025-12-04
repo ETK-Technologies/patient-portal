@@ -5,15 +5,12 @@ import { FaArrowRight } from "react-icons/fa6";
 import Link from "next/link";
 import CustomButton from "../utils/CustomButton";
 
-export default function CancelWhatToExpectFlow({
-  subscription,
-  onDone,
-}) {
+export default function CancelWhatToExpectFlow({ subscription, onDone }) {
   const { productImage, category } = subscription || {};
   const reactivationDate = subscription?.reactivationDate || "{date}";
 
   return (
-    <div className="pb-24 max-w-[800px] mx-auto  md:px-0">
+    <div className="pb-24 w-full md:w-[528px] mx-auto md:px-0">
       <h2 className="text-[18px] font-medium mb-2 leading-[115%]">
         What to expect after cancelling
       </h2>
@@ -129,16 +126,18 @@ export default function CancelWhatToExpectFlow({
       </section>
 
       <div className="fixed left-0 right-0 bottom-0 z-20 py-5 bg-[#FBFAF9]">
-        <div className="space-y-[10px] max-w-[800px] mx-auto px-5">
-          <CustomButton
-            width="full"
-            size="medium"
-            variant="pill"
-            onClick={onDone}
-            className="text-white text-[15px] font-medium bg-black hover:opacity-90 h-12"
-          >
-            Continue with cancellation
-          </CustomButton>
+        <div className="max-w-[800px] mx-auto px-5 md:px-6 md:pl-[60px]">
+          <div className="space-y-[10px] w-full md:w-[528px] mx-auto">
+            <CustomButton
+              width="full"
+              size="medium"
+              variant="pill"
+              onClick={onDone}
+              className="text-white text-[15px] font-medium bg-black hover:opacity-90 h-12"
+            >
+              Continue with cancellation
+            </CustomButton>
+          </div>
         </div>
       </div>
     </div>
