@@ -568,7 +568,7 @@ export default function SubscriptionFlow({
                   <FaArrowsRotate size={16} />
                 </div>
                 <div className="text-[16px] font-medium leading-[140%]">
-                  Get refill
+                  Request refill
                 </div>
                 <div className="text-sm text-[#5E5E5E]">Refill option</div>
               </div>

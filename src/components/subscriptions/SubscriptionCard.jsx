@@ -1,30 +1,99 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import CustomButton from "../utils/CustomButton";
 import CustomImage from "../utils/CustomImage";
 import StatusBadge from "../utils/StatusBadge";
+import GetRefillModal from "../subscription-flow/GetRefillModal";
+import { toast } from "react-toastify";
 import { FaArrowRight } from "react-icons/fa";
 import PropTypes from "prop-types";
 
 export default function SubscriptionCard({ subscription, onAction }) {
+  const router = useRouter();
+  const [isRequestRefillModalOpen, setIsRequestRefillModalOpen] =
+    useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
   const handleAction = (actionLabel) => {
     if (onAction) {
       onAction(subscription, actionLabel);
     }
   };
 
+  const handleSeePrescription = () => {
+    router.push("/prescriptions");
+  };
+
+  const handleMessageProvider = async () => {
+    try {
+      setIsLoading(true);
+      // TODO: Replace with actual API endpoint when available
+      // const response = await fetch(`/api/subscriptions/${subscription.id}/message-provider`, {
+      //   method: "POST",
+      //   headers: {
+      //     "Content-Type": "application/json",
+      //   },
+      // });
+
+      // if (!response.ok) {
+      //   throw new Error("Failed to initiate message");
+      // }
+
+      // Simulate API call for now
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Navigate to messages page after API call
+      router.push("/messages");
+    } catch (error) {
+      console.error("Error messaging provider:", error);
+      toast.error(error.message || "Failed to message provider");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRequestRefillConfirm = async () => {
+    try {
+      setIsLoading(true);
+      // TODO: Replace with actual API endpoint when available
+      // const response = await fetch(`/api/subscriptions/${subscription.id}/refill`, {
+      //   method: "POST",
+      //   headers: {
+      //     "Content-Type": "application/json",
+      //   },
+      // });
+
+      // if (!response.ok) {
+      //   throw new Error("Failed to request refill");
+      // }
+
+      // Simulate API call for now
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      toast.success("Refill order has been placed successfully");
+      setIsRequestRefillModalOpen(false);
+    } catch (error) {
+      console.error("Error requesting refill:", error);
+      toast.error(error.message || "Failed to request refill");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const actionButtons = [
     {
       label: "See prescription",
-      onClick: () => handleAction("See prescription"),
+      onClick: handleSeePrescription,
     },
     {
       label: "Message provider",
-      onClick: () => handleAction("Message provider"),
+      onClick: handleMessageProvider,
     },
     {
       label: "Request refill",
-      onClick: () => handleAction("Request refill"),
+      onClick: () => setIsRequestRefillModalOpen(true),
       disabled: subscription.status === "canceled",
     },
     {
@@ -98,6 +167,13 @@ export default function SubscriptionCard({ subscription, onAction }) {
           />
         ))}
       </div>
+
+      {/* Request Refill Confirmation Modal */}
+      <GetRefillModal
+        isOpen={isRequestRefillModalOpen}
+        onClose={() => !isLoading && setIsRequestRefillModalOpen(false)}
+        onConfirm={handleRequestRefillConfirm}
+      />
     </div>
   );
 }
