@@ -127,7 +127,7 @@ export const handleCheckout = (cartItems, openInNewTab = false) => {
     }
   }
 
-  const baseUrl = `http://localhost:3000/checkout?onboarding-add-to-cart=${productIds.join(
+  const baseUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/checkout?onboarding-add-to-cart=${productIds.join(
     ","
   )}&cart_token=${addToCartToken}`;
   const queryString = urlParams.toString();
