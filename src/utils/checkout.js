@@ -132,9 +132,11 @@ export const handleCheckout = (cartItems, openInNewTab = false) => {
     }
   }
 
-  const baseUrl = `${
-    process.env.NEXT_BASE_URL
-  }/checkout?onboarding-add-to-cart=${productIds.join(
+  // Use staging URL if NEXT_BASE_URL is not set, otherwise use the configured URL
+  const baseUrlEnv =
+    process.env.NEXT_BASE_URL ||
+    "https://rocky-headless-git-staging-rocky-health.vercel.app";
+  const baseUrl = `${baseUrlEnv}/checkout?onboarding-add-to-cart=${productIds.join(
     ","
   )}&cart_token=${addToCartToken}`;
   const queryString = urlParams.toString();
