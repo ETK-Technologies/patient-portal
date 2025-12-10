@@ -5,7 +5,6 @@ import SubscriptionCard from "./SubscriptionCard";
 import ScrollIndicator from "../utils/ScrollIndicator";
 import ScrollArrows from "../utils/ScrollArrows";
 import SubscriptionFlow from "../subscription-flow/SubscriptionFlow";
-import SubscriptionActionPanel from "./SubscriptionActionPanel";
 import SubscriptionCardSkeleton from "../utils/skeletons/SubscriptionCardSkeleton";
 import { FiArrowLeft, FiChevronLeft } from "react-icons/fi";
 import { FaArrowLeft } from "react-icons/fa";
@@ -199,6 +198,16 @@ export default function SubscriptionsSection() {
 
   // FLOW HANDLER
   const handleCardAction = (subscription, action) => {
+    // Request refill is handled directly in SubscriptionCard with API call, don't open page
+    // See prescription navigates to prescriptions page, don't open page
+    // Message provider integrates with API and navigates to messages, don't open page
+    if (
+      action === "Request refill" ||
+      action === "See prescription" ||
+      action === "Message provider"
+    ) {
+      return;
+    }
     setSubscriptionFlow({ subscription, action });
     setHeaderVariant(action === "Manage subscription" ? "full" : "backOnly");
   };
@@ -304,12 +313,9 @@ export default function SubscriptionsSection() {
       );
     }
 
-    return (
-      <div className="max-w-[528px] mx-auto">
-        {showHeader && <Header />}
-        <SubscriptionActionPanel action={action} subscription={subscription} />
-      </div>
-    );
+    // All other actions are handled directly in SubscriptionCard
+    // This should not be reached, but return null as fallback
+    return null;
   }
 
   return (

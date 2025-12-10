@@ -88,7 +88,7 @@ export const handleCheckout = (cartItems, openInNewTab = false) => {
   // processes the onboarding-add-to-cart parameter twice:
   // 1. Once when the page first loads (before login)
   // 2. Once again after the user logs in (page reloads with same URL)
-  // 
+  //
   // The main website should check sessionStorage for this token before processing.
   // If token exists, skip processing (already added to cart).
   // If token doesn't exist, process add-to-cart and store token in sessionStorage.
@@ -97,9 +97,11 @@ export const handleCheckout = (cartItems, openInNewTab = false) => {
   const cartItemsHash = btoa(
     JSON.stringify({
       ids: productIds.sort(),
-      params: Object.fromEntries(urlParams)
+      params: Object.fromEntries(urlParams),
     })
-  ).substring(0, 16).replace(/[+/=]/g, ''); // URL-safe hash
+  )
+    .substring(0, 16)
+    .replace(/[+/=]/g, ""); // URL-safe hash
 
   const addToCartToken = `cart_${Date.now()}_${cartItemsHash}`;
 
@@ -110,7 +112,7 @@ export const handleCheckout = (cartItems, openInNewTab = false) => {
         token: addToCartToken,
         timestamp: Date.now(),
         productIds: productIds,
-        hash: cartItemsHash
+        hash: cartItemsHash,
       };
 
       const processedTokens = JSON.parse(
@@ -119,7 +121,10 @@ export const handleCheckout = (cartItems, openInNewTab = false) => {
       // Keep only last 20 tokens to prevent storage bloat
       const recentTokens = processedTokens.slice(-19);
       recentTokens.push(tokenData);
-      sessionStorage.setItem("processed_cart_tokens", JSON.stringify(recentTokens));
+      sessionStorage.setItem(
+        "processed_cart_tokens",
+        JSON.stringify(recentTokens)
+      );
 
       console.log("[Checkout] Cart token stored:", addToCartToken);
     } catch (e) {
@@ -127,7 +132,11 @@ export const handleCheckout = (cartItems, openInNewTab = false) => {
     }
   }
 
-  const baseUrl = `http://localhost:3000/checkout?onboarding-add-to-cart=${productIds.join(
+  // Use staging URL if NEXT_BASE_URL is not set, otherwise use the configured URL
+  const baseUrlEnv =
+    process.env.NEXT_BASE_URL ||
+    "https://rocky-headless-git-staging-rocky-health.vercel.app";
+  const baseUrl = `${baseUrlEnv}/checkout?onboarding-add-to-cart=${productIds.join(
     ","
   )}&cart_token=${addToCartToken}`;
   const queryString = urlParams.toString();
