@@ -101,6 +101,8 @@ export default function PrescriptionsSection() {
   }, [userData, userLoading]);
 
   const transformPrescriptionData = (data) => {
+    console.log("[PRESCRIPTIONS] Transforming prescription data:", data);
+
     const id =
       data.id ||
       data.prescription_id ||
@@ -110,24 +112,36 @@ export default function PrescriptionsSection() {
 
     let medications = [];
     if (data.medications && Array.isArray(data.medications)) {
-      medications = data.medications.map((med) => ({
-        name: med.name || med.medication_name || med.product_name || "Unknown",
-        dosage: med.dosage || med.dose || med.quantity || "",
-      }));
+      medications = data.medications.map((med) => {
+        const medicationName = med.title || med.name || med.medication_name || med.product_name || "Unknown";
+        const dosage = med.quantity || med.strength || med.dosage || med.dose || "";
+        
+        console.log("[PRESCRIPTIONS] Parsed medication:", { 
+          name: medicationName, 
+          dosage,
+          raw: med 
+        });
+
+        return {
+          name: medicationName,
+          dosage: dosage,
+        };
+      });
     } else if (data.medication) {
       medications = [
         {
           name:
+            data.medication.title ||
             data.medication.name ||
             data.medication.medication_name ||
             "Unknown",
-          dosage: data.medication.dosage || data.medication.dose || "",
+          dosage: data.medication.quantity || data.medication.dosage || data.medication.dose || "",
         },
       ];
     } else if (data.line_items && Array.isArray(data.line_items)) {
       medications = data.line_items.map((item) => ({
-        name: item.product_name || item.name || "Unknown",
-        dosage: item.dosage || item.dose || "",
+        name: item.title || item.product_name || item.name || "Unknown",
+        dosage: item.quantity || item.dosage || item.dose || "",
       }));
     }
 
@@ -135,15 +149,17 @@ export default function PrescriptionsSection() {
       medications = [{ name: "Unknown", dosage: "" }];
     }
 
-    const prescriber =
-      data.prescriber ||
-      data.prescriber_name ||
-      data.doctor_name ||
-      data.provider_name ||
-      "Unknown";
+    let prescriber = "Unknown";
+    if (data.prescriber_first_name && data.prescriber_last_name) {
+      prescriber = `${data.prescriber_first_name} ${data.prescriber_last_name}`;
+    }
+
+    console.log("[PRESCRIPTIONS] Parsed prescriber:", prescriber);
 
     let prescribedDate = "Unknown";
-    if (data.prescribed_date) {
+    if (data.prescription_date) {
+      prescribedDate = formatDate(data.prescription_date);
+    } else if (data.prescribed_date) {
       prescribedDate = formatDate(data.prescribed_date);
     } else if (data.prescribedDate) {
       prescribedDate = formatDate(data.prescribedDate);
@@ -153,13 +169,15 @@ export default function PrescriptionsSection() {
       prescribedDate = formatDate(data.created_at);
     }
 
+    console.log("[PRESCRIPTIONS] Parsed date:", prescribedDate);
+
     const hasMore = medications.length > 3;
     const moreCount = hasMore ? medications.length - 3 : 0;
     const displayedMedications = hasMore
       ? medications.slice(0, 3)
       : medications;
 
-    return {
+    const transformed = {
       id: id || "unknown",
       prescriptionId,
       medications: displayedMedications,
@@ -168,6 +186,7 @@ export default function PrescriptionsSection() {
       hasMore,
       moreCount,
     };
+    return transformed;
   };
 
   const formatDate = (dateString) => {

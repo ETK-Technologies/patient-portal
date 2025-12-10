@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { authenticateWithCRM } from "../../utils/crmAuth";
-import { getUserID } from "@/utils/testUserId";
 
 /**
  * GET /api/user/subscriptions
  *
  * Fetches user subscriptions data from CRM.
- * Uses test user ID (33237) for development/testing.
+ * Uses wp_user_id from cookies.
  *
  * Expected Response:
  * {
@@ -22,9 +21,33 @@ import { getUserID } from "@/utils/testUserId";
  */
 export async function GET(request) {
   try {
-    const wpUserID = getUserID();
+    const cookieHeader = request.headers.get("cookie") || "";
+    let wpUserID = null;
 
-    console.log(`[SUBSCRIPTIONS] Using test user ID: ${wpUserID}`);
+    if (cookieHeader) {
+      const match = cookieHeader.match(/wp_user_id=([^;]+)/);
+      if (match) {
+        wpUserID = decodeURIComponent(match[1].trim());
+      }
+    }
+
+    console.log(
+      `[SUBSCRIPTIONS] Cookie header: ${cookieHeader.substring(0, 100)}...`
+    );
+    console.log(`[SUBSCRIPTIONS] Extracted wp_user_id: ${wpUserID || "not found"}`);
+
+    if (!wpUserID) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User not authenticated",
+          message: "wp_user_id not found in cookies",
+        },
+        { status: 401 }
+      );
+    }
+
+    console.log(`[SUBSCRIPTIONS] Using wp_user_id from cookies: ${wpUserID}`);
 
     // Fetch subscriptions from CRM
     const subscriptionsData = await fetchSubscriptions(wpUserID);
