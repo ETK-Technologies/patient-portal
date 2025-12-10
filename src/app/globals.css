@@ -55,10 +55,20 @@ body {
     linear-gradient(360deg, #fbfaf9 0%, rgba(251, 250, 249, 0) 100%);
 }
 
+.for-you-card {
+  background: linear-gradient(180deg, #e7e7e6 0%, #ffffff 100%);
+}
+
+@media (min-width: 768px) {
+  .for-you-card {
+    background: linear-gradient(90deg, #ffffff 0%, #e7e7e6 100%);
+  }
+}
+
 /* Custom scrollbar for entire project */
 * {
   scrollbar-width: thin; /* Firefox - thinner scrollbar */
-  scrollbar-color: #C9C5BF transparent; /* Firefox: thumb and track */
+  scrollbar-color: #c9c5bf transparent; /* Firefox: thumb and track */
 }
 
 *::-webkit-scrollbar {
@@ -72,7 +82,7 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: #C9C5BF; /* Scrollbar color */
+  background-color: #c9c5bf; /* Scrollbar color */
   border-radius: 10px; /* Rounded scrollbar */
   border: 2px solid transparent; /* Creates padding effect */
   background-clip: padding-box;
@@ -80,7 +90,7 @@ body {
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background-color: #A5A4A2; /* Darker on hover */
+  background-color: #a5a4a2; /* Darker on hover */
 }
 
 *::-webkit-scrollbar-corner {

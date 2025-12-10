@@ -1,62 +1,8 @@
 "use client";
 
-import { useRef } from "react";
-import ForYouCard from "./ForYouCard";
-import ScrollIndicator from "../utils/ScrollIndicator";
-import ScrollArrows from "../utils/ScrollArrows";
+import CustomImage from "../utils/CustomImage";
 
 export default function ForYouSection({ className }) {
-  const scrollContainerRef = useRef(null);
-
-  // Dummy data based on the design
-  const forYouData = [
-    {
-      brandName: "ButcherBox",
-      offer: "Get 15% off on premium meat",
-      imageUrl:
-        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/ButcherBox.jpg", // Placeholder for meat image
-      backgroundColor: "bg-gradient-to-b from-[#F9DDDB] to-[#FFFFFF]",
-      textBackgroundGradient: "bg-gradient-to-b from-[#FEFAFA] to-white",
-      imageShape: "circle", // Meat products work well in circles
-      imageSize: "small",
-      className: "pt-3 md:pt-4",
-    },
-    {
-      brandName: "Planet Fitness",
-      offer: "Free 7-day all-inclusive pass",
-      imageUrl:
-        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/PlanetFitness.png", // Placeholder for Planet Fitness logo
-      backgroundColor: "bg-gradient-to-b from-[#F1E7FC] to-white",
-      textBackgroundGradient: "bg-gradient-to-b from-[#FDFBFF] to-white",
-      imageShape: "square", // Logos often work better in squares
-      imageSize: "medium",
-      className: "pt-3 md:pt-4",
-    },
-    {
-      brandName: "MyRocky",
-      offer: "Refer a friend: Earn $20, give $40",
-      imageUrl:
-        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/MyRocky-foru.png", // Placeholder for couple image
-      backgroundColor: "bg-[#E3E3E3]",
-      textBackgroundGradient: "bg-gradient-to-b from-[#E3E3E3] to-white",
-      imageOverlayGradient: "bg-gradient-to-b from-transparent to-[#E3E3E3]",
-      imageShape: "square", // People photos work well in circles
-      imageSize: "large",
-    },
-    {
-      brandName: "OURA Ring",
-      offer: "Get 10% off + 1 month free",
-      imageUrl:
-        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/OURARing.png", // Placeholder for ring image
-      backgroundColor: "bg-[#E3E3E3]",
-      textBackgroundGradient: "bg-gradient-to-b from-[#E3E3E3] to-white",
-      imageOverlayGradient: "bg-gradient-to-b from-transparent to-[#E3E3E3]",
-      imageShape: "circle", // Meat products work well in circles
-      imageSize: "small",
-      className: "pt-3 md:pt-4",
-    },
-  ];
-
   return (
     <div className={className}>
       {/* Section Title */}
@@ -64,44 +10,44 @@ export default function ForYouSection({ className }) {
         For you
       </h2>
 
-      {/* Scrollable Cards */}
-      <div className="relative">
-        <div
-          ref={scrollContainerRef}
-          className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide pb-2"
-        >
-          {forYouData.map((item, index) => (
-            <ForYouCard
-              key={index}
-              brandName={item.brandName}
-              offer={item.offer}
-              imageUrl={item.imageUrl}
-              backgroundColor={item.backgroundColor}
-              textBackgroundGradient={item.textBackgroundGradient}
-              imageOverlayGradient={item.imageOverlayGradient}
-              imageShape={item.imageShape}
-              imageSize={item.imageSize}
-              className={item.className || ""}
+      {/* Referral Card */}
+      <div className="for-you-card rounded-[16px] shadow-[0px_0px_16px_0px_#00000014] overflow-hidden h-[523px] md:h-[266px]">
+        <div className="flex flex-col-reverse md:flex-row h-full">
+          {/* Left Side - Text Content */}
+          <div className="flex-1 p-6 md:py-[64px] md:pl-[84px] md:pr-0 flex flex-col justify-center items-center md:items-start">
+            {/* Headline */}
+            <h3 className="text-[20px] md:text-[24px] text-center md:text-left md:text-nowrap font-[600] leading-[130%] max-w-[190px] md:max-w-full text-black mb-3 md:mb-4">
+              Refer a friend: Earn $20, give $40
+            </h3>
+
+            {/* Description */}
+            <p className="text-[16px] text-center md:text-left font-[400] leading-[140%] text-black mb-[32px] md:mb-6">
+              Refer a friend and get rewarded. They receive $40 off their first
+              order, and you earn $20 once they purchase. Easy win for both of
+              you.
+            </p>
+
+            {/* Get Started Link */}
+            <a
+              href="#"
+              className="text-[16px] font-[500] text-black leading-[140%] text-black underline "
+              onClick={(e) => e.preventDefault()}
+            >
+              Get Started
+            </a>
+          </div>
+
+          {/* Right Side - Image */}
+          <div className="relative w-full md:w-[300px] lg:w-[400px] h-[261px] md:h-auto md:flex-shrink-0 overflow-hidden">
+            <CustomImage
+              src="https://myrocky.b-cdn.net/WP%20Images/patient-portal/for-u.png"
+              alt="Refer a friend"
+              fill
+              className="object-cover object-[88%_center] md:object-[155%_center] md:object-center"
             />
-          ))}
+          </div>
         </div>
-
-        {/* Left Gradient Fade */}
-        {/* <div className="hiiden md:absolute right-0 top-0 bottom-0 w-[100px] bg-gradient-to-l from-[#FBFAF9] to-transparent pointer-events-none z-5"></div> */}
-
-        {/* Scroll Arrows */}
-        <ScrollArrows
-          containerRef={scrollContainerRef}
-          scrollAmount={200}
-          showOnMobile={false}
-        />
       </div>
-
-      {/* Scroll Indicator */}
-      <ScrollIndicator
-        containerRef={scrollContainerRef}
-        totalItems={forYouData.length}
-      />
     </div>
   );
 }
