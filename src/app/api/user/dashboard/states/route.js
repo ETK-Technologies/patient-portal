@@ -26,7 +26,7 @@ export async function GET(request) {
 
     if (cookieHeader) {
       // Parse cookies from header string
-      const match = cookieHeader.match(/userId=([^;]+)/);
+      const match = cookieHeader.match(/wp_user_id=([^;]+)/);
       if (match) {
         userId = decodeURIComponent(match[1].trim());
       }
@@ -195,7 +195,7 @@ async function fetchDashboardStates(userId) {
     );
 
     // Step 2: Fetch dashboard states from CRM
-    const dashboardStatesUrl = `${crmHost}/api/user/${userId}/dashboard/states`;
+    const dashboardStatesUrl = `${crmHost}/api/user/dashboard/stats`;
     console.log(
       `[DASHBOARD_STATES] Fetching dashboard states from: ${dashboardStatesUrl}`
     );

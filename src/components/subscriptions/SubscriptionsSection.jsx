@@ -35,141 +35,97 @@ export default function SubscriptionsSection() {
     });
   }, []);
 
-  // Use dummy data instead of API call
   useEffect(() => {
-    setLoading(true);
-    // Simulate a small delay for better UX
-    setTimeout(() => {
-      setSubscriptionsData(dummySubscriptionsData);
-      setLoading(false);
-      setError(null);
-    }, 100);
+    const fetchSubscriptions = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch("/api/user/subscriptions");
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || "Failed to fetch subscriptions");
+        }
+
+        const responseData = result.data;
+        let subscriptionsArray = [];
+
+        if (responseData?.subscriptions) {
+          subscriptionsArray = Array.isArray(responseData.subscriptions)
+            ? responseData.subscriptions
+            : [];
+        } else if (responseData?.data?.subscriptions) {
+          subscriptionsArray = Array.isArray(responseData.data.subscriptions)
+            ? responseData.data.subscriptions
+            : [];
+        } else {
+        }
+        
+        const mappedSubscriptions = subscriptionsArray.map((sub) => {
+          const firstItem = sub.line_items?.[0] || {};
+
+          let mappedStatus = sub.status?.toLowerCase() || "active";
+          if (mappedStatus === "on-hold") {
+            mappedStatus = "paused";
+          } else if (mappedStatus === "cancelled") {
+            mappedStatus = "canceled";
+          }
+
+          const productName = firstItem.product_name || "Unknown Product";
+
+          const tabsFrequency = firstItem.tabs_frequency || "";
+          const subscriptionType = firstItem.subscription_type || "";
+          const dosage =
+            tabsFrequency && subscriptionType
+              ? `${tabsFrequency} | ${subscriptionType}`
+              : tabsFrequency || subscriptionType || "Not available";
+
+          let nextRefillDate = "Not scheduled";
+          if (sub.next_refill) {
+            nextRefillDate = sub.next_refill;
+          } else if (sub.next_payment_date) {
+            nextRefillDate = new Date(sub.next_payment_date).toLocaleDateString(
+              "en-US",
+              {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              }
+            );
+          }
+
+          return {
+            id: sub.id,
+            category: "Sexual Health",
+            status: mappedStatus,
+            productName: productName,
+            productSubtitle: null,
+            dosage: dosage,
+            nextRefill: nextRefillDate,
+            productImage:
+              firstItem.image?.src ||
+              "https://myrocky.b-cdn.net/WP%20Images/patient-portal/order-card-1.png",
+            _raw: sub,
+          };
+        });
+        setSubscriptionsData(mappedSubscriptions);
+      } catch (err) {
+        console.error("[SUBSCRIPTIONS] Error details:", {
+          message: err.message,
+          stack: err.stack,
+        });
+        setError(err.message || "Failed to load subscriptions");
+        setSubscriptionsData([]);
+      } finally {
+        setLoading(false);
+        console.log("[SUBSCRIPTIONS] 🏁 Fetch complete");
+      }
+    };
+
+    fetchSubscriptions();
   }, []);
-
-  // Fetch subscriptions from API (commented out - using dummy data instead)
-  // useEffect(() => {
-  //   const fetchSubscriptions = async () => {
-  //     try {
-  //       setLoading(true);
-  //       setError(null);
-
-  //       const response = await fetch("/api/user/subscriptions");
-  //       const result = await response.json();
-
-  //       if (!response.ok || !result.success) {
-  //         throw new Error(result.error || "Failed to fetch subscriptions");
-  //       }
-
-  //       // Handle the API response structure
-  //       // Response: { success: true, data: { status: true, message: "...", subscriptions: [...] } }
-  //       const responseData = result.data;
-
-  //       console.log(
-  //         "[SUBSCRIPTIONS] Full API response:",
-  //         JSON.stringify(result, null, 2)
-  //       );
-  //       console.log("[SUBSCRIPTIONS] Response data:", responseData);
-
-  //       // Extract subscriptions array - new format has subscriptions directly in data
-  //       let subscriptionsArray = [];
-
-  //       if (responseData?.subscriptions) {
-  //         subscriptionsArray = Array.isArray(responseData.subscriptions)
-  //           ? responseData.subscriptions
-  //           : [];
-  //         console.log(
-  //           "[SUBSCRIPTIONS] ✓ Found subscriptions in direct structure:",
-  //           subscriptionsArray.length,
-  //           "items"
-  //         );
-  //       } else if (responseData?.data?.subscriptions) {
-  //         // Fallback for nested structure if needed
-  //         subscriptionsArray = Array.isArray(responseData.data.subscriptions)
-  //           ? responseData.data.subscriptions
-  //           : [];
-  //         console.log(
-  //           "[SUBSCRIPTIONS] ✓ Found subscriptions in nested structure:",
-  //           subscriptionsArray.length,
-  //           "items"
-  //         );
-  //       } else {
-  //         console.warn(
-  //           "[SUBSCRIPTIONS] ⚠️ Could not find subscriptions array in response structure"
-  //         );
-  //       }
-
-  //       // Map API response to component format
-  //       const mappedSubscriptions = subscriptionsArray.map((sub) => {
-  //         // Get first line item for product info
-  //         const firstItem = sub.line_items?.[0] || {};
-
-  //         // Map status: "on-hold" -> "paused", "cancelled" -> "canceled", "active" -> "active"
-  //         let mappedStatus = sub.status?.toLowerCase() || "active";
-  //         if (mappedStatus === "on-hold") {
-  //           mappedStatus = "paused";
-  //         } else if (mappedStatus === "cancelled") {
-  //           mappedStatus = "canceled";
-  //         }
-
-  //         // Extract product name - API uses product_name field
-  //         const productName = firstItem.product_name || "Unknown Product";
-
-  //         // Extract dosage from direct fields (not meta_data)
-  //         const tabsFrequency = firstItem.tabs_frequency || "";
-  //         const subscriptionType = firstItem.subscription_type || "";
-  //         const dosage =
-  //           tabsFrequency && subscriptionType
-  //             ? `${tabsFrequency} | ${subscriptionType}`
-  //             : tabsFrequency || subscriptionType || "Not available";
-
-  //         // Format next refill date - prefer next_refill (already formatted), otherwise format next_payment_date
-  //         let nextRefillDate = "Not scheduled";
-  //         if (sub.next_refill) {
-  //           // next_refill is already formatted like "Jan 20, 2025"
-  //           nextRefillDate = sub.next_refill;
-  //         } else if (sub.next_payment_date) {
-  //           // Format ISO date string
-  //           nextRefillDate = new Date(sub.next_payment_date).toLocaleDateString(
-  //             "en-US",
-  //             {
-  //               month: "short",
-  //               day: "numeric",
-  //               year: "numeric",
-  //             }
-  //           );
-  //         }
-
-  //         return {
-  //           id: sub.id,
-  //           category: "Sexual Health", // Default category, can be enhanced later
-  //           status: mappedStatus,
-  //           productName: productName,
-  //           productSubtitle: null, // API doesn't provide subtitle in new format
-  //           dosage: dosage,
-  //           nextRefill: nextRefillDate,
-  //           productImage:
-  //             firstItem.image?.src ||
-  //             "https://myrocky.b-cdn.net/WP%20Images/patient-portal/order-card-1.png",
-  //           // Store full subscription data for actions
-  //           _raw: sub,
-  //         };
-  //       });
-
-  //       console.log(
-  //         "[SUBSCRIPTIONS] Mapped subscriptions:",
-  //         mappedSubscriptions
-  //       );
-  //       setSubscriptionsData(mappedSubscriptions);
-  //     } catch (err) {
-  //       console.error("[SUBSCRIPTIONS] Error fetching subscriptions:", err);
-  //       setError(err.message || "Failed to load subscriptions");
-  //       setSubscriptionsData([]);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-
-  //   fetchSubscriptions();
+  //   }, 100);
   // }, []);
 
   const tabs = [

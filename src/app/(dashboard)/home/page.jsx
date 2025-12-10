@@ -18,9 +18,9 @@ export default function HomePage() {
       <Section>
         <TreatmentsSection />
       </Section>
-      <Section>
+      {/* <Section>
         <ForYouSection />
-      </Section>
+      </Section> */}
       <Section>
         <EssentialSupplementsSection />
       </Section>
