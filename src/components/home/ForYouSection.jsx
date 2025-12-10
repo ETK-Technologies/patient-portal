@@ -43,7 +43,7 @@ export default function ForYouSection({ className }) {
               src="https://myrocky.b-cdn.net/WP%20Images/patient-portal/for-u.png"
               alt="Refer a friend"
               fill
-              className="object-cover object-[88%_center] md:object-[155%_center] md:object-center"
+              className="object-cover object-[88%_center] md:object-[155%_center]"
             />
           </div>
         </div>
