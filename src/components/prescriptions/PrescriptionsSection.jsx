@@ -170,7 +170,6 @@ export default function PrescriptionsSection() {
     };
   };
 
-  // Format date to match prescription card format (e.g., "25 Nov, 2025")
   const formatDate = (dateString) => {
     try {
       const date = new Date(dateString);

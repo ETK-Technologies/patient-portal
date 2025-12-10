@@ -212,4 +212,3 @@ async function fetchPrescription(prescriptionId) {
     };
   }
 }
-
