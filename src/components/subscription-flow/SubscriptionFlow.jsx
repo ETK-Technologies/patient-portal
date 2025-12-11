@@ -720,7 +720,10 @@ export default function SubscriptionFlow({
               </div>
             </button>
             <button
-              onClick={() => handleNavigate("pauseCancel")}
+              onClick={() => {
+                flowState.addAnswer(0, "initialAction", "skip");
+                handleNavigate("pauseCancel");
+              }}
               className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 mt-4 cursor-pointer transition-colors"
             >
               <div className="w-full">
@@ -736,7 +739,10 @@ export default function SubscriptionFlow({
               </div>
             </button>
             <button
-              onClick={() => handleNavigate("pauseCancel")}
+              onClick={() => {
+                flowState.addAnswer(0, "initialAction", "pauseCancel");
+                handleNavigate("pauseCancel");
+              }}
               className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 mt-4 cursor-pointer transition-colors"
             >
               <div className="w-full">
