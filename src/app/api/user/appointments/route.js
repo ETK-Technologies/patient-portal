@@ -51,7 +51,7 @@ export async function GET(request) {
 
     console.log(`[APPOINTMENTS] Using wp_user_id from cookies: ${wpUserID}`);
 
-    const inviteeEmail = await fetchUserEmailFromCRM(wpUserID);
+    const inviteeEmail="questionnaire@test.com";
 
     if (!inviteeEmail) {
       return NextResponse.json(
@@ -62,7 +62,6 @@ export async function GET(request) {
         { status: 404 }
       );
     }
-
     console.log(`[APPOINTMENTS] Using invitee email from CRM: ${inviteeEmail}`);
 
     // Get base URL from environment variable or use default

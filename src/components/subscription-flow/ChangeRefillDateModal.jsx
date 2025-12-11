@@ -255,12 +255,18 @@ export default function ChangeRefillDateModal({
 
   const handleSave = () => {
     if (selectedDate) {
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+      const day = String(selectedDate.getDate()).padStart(2, "0");
+      const apiDateFormat = `${year}-${month}-${day}`;
+      
+      // Also format for display
       const formattedDate = selectedDate.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
       });
-      onSave(formattedDate);
+      onSave(apiDateFormat, formattedDate);
       // Show success modal
       setShowSuccessModal(true);
     }

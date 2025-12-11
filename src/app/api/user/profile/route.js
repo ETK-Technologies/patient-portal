@@ -21,25 +21,23 @@ import FormData from "form-data";
  */
 export async function GET(request) {
   try {
-    // Get userId from cookies (set during auto-login)
     // Parse cookie header manually for compatibility
     const cookieHeader = request.headers.get("cookie") || "";
-    let userId = null;
+    let wpUserID = null;
 
     if (cookieHeader) {
-      // Parse cookies from header string
-      const match = cookieHeader.match(/userId=([^;]+)/);
+      const match = cookieHeader.match(/wp_user_id=([^;]+)/);
       if (match) {
-        userId = decodeURIComponent(match[1].trim());
+        wpUserID = decodeURIComponent(match[1].trim());
       }
     }
 
     console.log(
       `[USER_PROFILE] Cookie header: ${cookieHeader.substring(0, 100)}...`
     );
-    console.log(`[USER_PROFILE] Extracted userId: ${userId || "not found"}`);
+    console.log(`[USER_PROFILE] Extracted wp_user_id: ${wpUserID || "not found"}`);
 
-    if (!userId) {
+    if (!wpUserID) {
       return NextResponse.json(
         {
           status: false,
@@ -50,10 +48,10 @@ export async function GET(request) {
       );
     }
 
-    console.log(`[USER_PROFILE] Fetching profile for user: ${userId}`);
+    console.log(`[USER_PROFILE] Fetching profile for user: ${wpUserID}`);
 
     // Fetch user data from CRM
-    const userData = await fetchUserData(userId);
+    const userData = await fetchUserData(wpUserID);
 
     return NextResponse.json({
       status: true,
@@ -76,9 +74,9 @@ export async function GET(request) {
 
 /**
  * Fetch user data from CRM API
- * Uses the personal profile endpoint: /api/crm-users/{userId}/edit/personal-profile
+ * Uses the personal profile endpoint: /api/user/profile?wp_user_id={wpUserID}
  */
-async function fetchUserData(userId) {
+async function fetchUserData(wpUserID) {
   const crmHost = process.env.CRM_HOST;
   const apiUsername = process.env.CRM_API_USERNAME;
   const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
@@ -91,7 +89,7 @@ async function fetchUserData(userId) {
       apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
     });
     return {
-      crm_user_id: userId,
+      wp_user_id: wpUserID,
     };
   }
 
@@ -142,7 +140,7 @@ async function fetchUserData(userId) {
         console.error(`[USER_PROFILE] Failed endpoint: ${authResult.endpoint}`);
       }
       return {
-        crm_user_id: userId,
+        wp_user_id: wpUserID,
       };
     }
 
@@ -152,7 +150,7 @@ async function fetchUserData(userId) {
     );
 
     // Step 2: Fetch user profile from CRM
-    const profileUrl = `${crmHost}/api/user/profile?crm_user_id=${userId}`;
+    const profileUrl = `${crmHost}/api/user/profile?wp_user_id=${wpUserID}`;
     console.log(`[USER_PROFILE] Fetching user profile from: ${profileUrl}`);
 
     const profileResponse = await fetch(profileUrl, {
@@ -171,7 +169,7 @@ async function fetchUserData(userId) {
       const errorText = await profileResponse.text();
       console.error(`[USER_PROFILE] Error details: ${errorText}`);
       return {
-        crm_user_id: userId,
+        wp_user_id: wpUserID,
       };
     }
 
@@ -194,9 +192,8 @@ async function fetchUserData(userId) {
       // Check for new structure: { status: true, message: "...", user: {...} }
       if (responseData.user) {
         const userData = responseData.user;
-        // Ensure crm_user_id is set
-        if (!userData.crm_user_id && userId) {
-          userData.crm_user_id = userId;
+        if (!userData.wp_user_id && wpUserID) {
+          userData.wp_user_id = wpUserID;
         }
         console.log(
           "[USER_PROFILE] ✓ Extracted user data from CRM response (top-level user)"
@@ -216,9 +213,8 @@ async function fetchUserData(userId) {
       else if (responseData.data) {
         if (responseData.data.user) {
           const userData = responseData.data.user;
-          // Ensure crm_user_id is set
-          if (!userData.crm_user_id && userId) {
-            userData.crm_user_id = userId;
+          if (!userData.wp_user_id && wpUserID) {
+            userData.wp_user_id = wpUserID;
           }
           console.log(
             "[USER_PROFILE] ✓ Extracted user data from CRM response (data.user)"
@@ -259,7 +255,7 @@ async function fetchUserData(userId) {
   } catch (error) {
     console.error("[USER_PROFILE] Error fetching user data from CRM:", error);
     return {
-      crm_user_id: userId,
+      wp_user_id: wpUserID,
     };
   }
 }

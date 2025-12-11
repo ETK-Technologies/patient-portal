@@ -90,6 +90,11 @@ const nextConfig = {
         hostname: "secure.gravatar.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "rocky-id-uploads.s3.ca-central-1.amazonaws.com",
+        pathname: "/**",
+      },
     ],
   },
 };
