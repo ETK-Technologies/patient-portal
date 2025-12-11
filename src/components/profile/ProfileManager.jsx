@@ -163,20 +163,49 @@ export default function ProfileManager() {
           // Don't set Content-Type header - browser will set it with boundary
           body: formData,
         });
+      } else if (fieldKey === "password" && typeof newValue === "object") {
+        const getUserIdFromCookies = () => {
+          if (typeof document === "undefined") return null;
+          const cookies = document.cookie.split(";");
+          for (let cookie of cookies) {
+            const [name, value] = cookie.trim().split("=");
+            if (name === "wp_user_id" || name === "userId") {
+              return decodeURIComponent(value);
+            }
+          }
+          return null;
+        };
+
+        const crmUserID = getUserIdFromCookies();
+
+        if (!crmUserID) {
+          toast.error("User ID not found. Please log in again.", {
+            position: "top-right",
+            autoClose: 5000,
+          });
+          return;
+        }
+
+        console.log(
+          `[PASSWORD_UPDATE] Updating password for user: ${crmUserID}`
+        );
+
+        response = await fetch(`/api/user/${crmUserID}/password/update`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            old_password: newValue.currentPassword,
+            new_password: newValue.newPassword,
+          }),
+        });
       } else {
         // For other fields, use JSON
-        const requestBody =
-          fieldKey === "password" && typeof newValue === "object"
-            ? {
-                field: fieldKey,
-                currentPassword: newValue.currentPassword,
-                newPassword: newValue.newPassword,
-                confirmPassword: newValue.confirmPassword,
-              }
-            : {
-                field: fieldKey,
-                value: processedValue,
-              };
+        const requestBody = {
+          field: fieldKey,
+          value: processedValue,
+        };
 
         response = await fetch("/api/user/profile", {
           method: "POST",
@@ -205,6 +234,13 @@ export default function ProfileManager() {
           }
         );
         return;
+      }
+
+      if (fieldKey === "password") {
+        toast.success("Password updated successfully", {
+          position: "top-right",
+          autoClose: 5000,
+        });
       }
 
       // Update local state after successful API call
