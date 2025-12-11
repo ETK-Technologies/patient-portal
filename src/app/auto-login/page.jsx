@@ -19,6 +19,25 @@ function AutoLoginContent() {
         const wpUserId = searchParams.get("wp_user_id");
         const redirectPage = searchParams.get("redirect") || "home";
 
+        // Set wp_user_id cookie immediately if present
+        if (wpUserId) {
+          const isProduction = process.env.NODE_ENV === "production";
+          const wpUserIdCookieOptions = [
+            `wp_user_id=${wpUserId}`,
+            "path=/",
+            `max-age=${60 * 60 * 24 * 7}`, // 7 days
+            isProduction ? "SameSite=Strict" : "",
+            isProduction ? "Secure" : "",
+          ]
+            .filter(Boolean)
+            .join("; ");
+
+          document.cookie = wpUserIdCookieOptions;
+          console.log(
+            `[AUTO-LOGIN] wp_user_id cookie set immediately: ${wpUserId}`
+          );
+        }
+
         // Validate required parameters
         if (!token || !wpUserId) {
           // Redirect immediately on error - no UI shown
@@ -82,20 +101,21 @@ export default function AutoLoginPage() {
  */
 async function storeUserSession(userId, userData = {}) {
   const wpUserId = userData?.wp_user_id || userData?.wpUserID || userId;
-  
-  const userEmail = userData?.email || userData?.user?.email || userData?.data?.email || null;
-  
+
+  const userEmail =
+    userData?.email || userData?.user?.email || userData?.data?.email || null;
+
   console.log(`[AUTO-LOGIN] Storing session - wp_user_id: ${wpUserId}`);
   if (userEmail) {
     console.log(`[AUTO-LOGIN] Storing userEmail: ${userEmail}`);
   } else {
     console.warn(`[AUTO-LOGIN] No email found in userData`);
   }
-  
+
   // Set a cookie to track the user session (for server-side API calls)
   // Use secure cookie settings in production
   const isProduction = process.env.NODE_ENV === "production";
-  
+
   const userIdCookieOptions = [
     `userId=${wpUserId}`,
     "path=/",
