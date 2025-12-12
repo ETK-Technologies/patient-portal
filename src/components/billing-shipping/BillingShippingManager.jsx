@@ -210,18 +210,113 @@ export default function BillingShippingManager() {
   const handleSavePaymentMethod = async (paymentData) => {
     try {
       setError(null);
-      const response = await fetch(`/api/user/payment-method`, {
-        method: "POST",
+      let userId = getUserIdFromCookies();
+      if (!userId && userData) {
+        if (userData.crm_user_id) {
+          userId = userData.crm_user_id;
+        } else if (userData.id) {
+          userId = userData.id;
+        }
+      }
+
+      if (!userId) {
+        const errorMessage = "User ID not available. Please try again.";
+        toast.error(errorMessage);
+        setError(errorMessage);
+        return;
+      }
+
+      const profilesResponse = await fetch(`/api/user/${userId}/payment/profiles`);
+      
+      if (!profilesResponse.ok) {
+        const errorData = await profilesResponse.json().catch(() => ({}));
+        const errorMessage =
+          errorData.error ||
+          `Failed to fetch payment profiles (${profilesResponse.status})`;
+        toast.error(errorMessage);
+        setError(errorMessage);
+        return;
+      }
+
+      const profilesResult = await profilesResponse.json();
+      
+      if (!profilesResult.success || !profilesResult.data) {
+        const errorMessage = profilesResult.error || "Failed to fetch payment profiles";
+        toast.error(errorMessage);
+        setError(errorMessage);
+        return;
+      }
+
+      const paymentProfiles = profilesResult.data.profiles || [];
+      
+      if (paymentProfiles.length === 0) {
+        const errorMessage = "No payment profile found. Please contact support.";
+        toast.error(errorMessage);
+        setError(errorMessage);
+        return;
+      }
+
+      const primaryProfile = paymentProfiles[0];
+      const profileId = primaryProfile.profile_id;
+
+      if (!profileId) {
+        const errorMessage = "Payment profile ID not found. Please contact support.";
+        toast.error(errorMessage);
+        setError(errorMessage);
+        return;
+      }
+
+      console.log("[BILLING_SHIPPING] Using profile_id:", profileId);
+
+      const expiry = paymentData.expiry || "";
+      const expiryParts = expiry.split("/");
+      if (expiryParts.length !== 2) {
+        const errorMessage = "Invalid expiry date format. Please use MM/YY format.";
+        toast.error(errorMessage);
+        setError(errorMessage);
+        return;
+      }
+
+      const expiryMonth = expiryParts[0].trim();
+      const expiryYear = expiryParts[1].trim();
+
+      const cardNumber = (paymentData.cardNumber || "").replace(/\s/g, "");
+
+      if (!paymentData.nameOnCard || !cardNumber || !expiryMonth || !expiryYear || !paymentData.cvc) {
+        const errorMessage = "Please fill in all payment method fields.";
+        toast.error(errorMessage);
+        setError(errorMessage);
+        return;
+      }
+
+      const requestPayload = {
+        profile_id: profileId,
+        customer_id: String(userId),
+        name_on_card: paymentData.nameOnCard,
+        card_number: cardNumber,
+        expiry_month: expiryMonth,
+        expiry_year: expiryYear,
+        cvc: paymentData.cvc,
+      };
+
+      console.log("[BILLING_SHIPPING] Updating payment profile:", {
+        ...requestPayload,
+        cvc: "***",
+      });
+
+      const response = await fetch(`/api/user/payment/profiles/update`, {
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(paymentData),
+        body: JSON.stringify(requestPayload),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage =
           errorData.error ||
+          errorData.message ||
           `Failed to update payment method (${response.status})`;
         toast.error(errorMessage);
         setError(errorMessage);
@@ -230,15 +325,16 @@ export default function BillingShippingManager() {
 
       const data = await response.json();
 
-      if (!data.success) {
-        const errorMessage = data.error || "Failed to update payment method";
+      if (!data.status && !data.success) {
+        const errorMessage = data.error || data.message || "Failed to update payment method";
         toast.error(errorMessage);
         setError(errorMessage);
         return;
       }
 
-      const last4 = paymentData.cardNumber?.slice(-4) || "****";
-      const displayValue = `VISA (**** ${last4})`;
+      // Update display value
+      const last4 = cardNumber.slice(-4) || "****";
+      const displayValue = `**** **** **** ${last4}`;
       setBillingShippingData((prev) => ({
         ...prev,
         paymentMethod: displayValue,
