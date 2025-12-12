@@ -154,3 +154,26 @@ export const handleCheckout = (cartItems, openInNewTab = false) => {
     window.location.href = checkoutUrl;
   }
 };
+
+/**
+ * Redirect to checkout page after item has been added to cart
+ * @param {boolean} openInNewTab - If true, opens checkout in new tab. Default: false
+ */
+export const redirectToCheckout = (openInNewTab = false) => {
+  // Use staging URL if NEXT_PUBLIC_BASE_URL is not set, otherwise use the configured URL
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.NEXT_BASE_URL ||
+    "https://rocky-headless-git-staging-rocky-health.vercel.app";
+
+  const checkoutUrl = `${baseUrl}/checkout`;
+
+  console.log("[Checkout] Redirecting to:", checkoutUrl);
+
+  // Redirect to checkout (same tab or new tab)
+  if (openInNewTab) {
+    window.open(checkoutUrl, "_blank");
+  } else {
+    window.location.href = checkoutUrl;
+  }
+};

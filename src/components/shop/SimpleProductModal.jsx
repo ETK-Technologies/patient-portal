@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import { IoClose, IoChevronUp, IoChevronDown } from "react-icons/io5";
 import CustomImage from "@/components/utils/CustomImage";
-import { handleCheckout } from "@/utils/checkout";
+import { addItemToCart } from "@/lib/cart/cartService";
+import { redirectToCheckout } from "@/utils/checkout";
 import { formatPrice } from "@/utils/priceFormatter";
 
 const SimpleProductModal = ({ isOpen, onClose, product }) => {
@@ -169,7 +170,7 @@ const SimpleProductModal = ({ isOpen, onClose, product }) => {
     }));
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     if (!currentProduct.productId) {
       return;
     }
@@ -182,12 +183,43 @@ const SimpleProductModal = ({ isOpen, onClose, product }) => {
         quantity: quantity,
       };
 
-      console.log("[SimpleProductModal] Cart item being sent:", cartItem);
-      handleCheckout([cartItem], true);
+      // For Cap with color/size selections
+      if (isCap) {
+        if (selectedSize) {
+          cartItem.size = selectedSize.toLowerCase().trim();
+        }
+        if (selectedColor) {
+          cartItem.color = selectedColor.toLowerCase().trim();
+        }
+      }
+
+      console.log("[SimpleProductModal] Adding to cart:", cartItem);
+
+      // Add item to cart via API
+      const result = await addItemToCart(cartItem);
+
+      console.log("[SimpleProductModal] Item added successfully:", result);
+
+      // Reset state before closing
+      setQuantity(1);
+      setSelectedImageIndex(0);
+      if (isCap && colors.length > 0) {
+        setSelectedColor(colors[0].name);
+      }
+      if (isCap && sizes.length > 0) {
+        setSelectedSize(sizes[0]);
+      }
+
+      // Close modal
       onClose();
+
+      // Open checkout in new tab
+      redirectToCheckout(true);
     } catch (error) {
-      console.error("Error processing checkout:", error);
-      alert("There was an error processing your checkout. Please try again.");
+      console.error("Error adding to cart:", error);
+      alert(
+        error.message || "There was an error adding to cart. Please try again."
+      );
     } finally {
       setIsProcessing(false);
     }
