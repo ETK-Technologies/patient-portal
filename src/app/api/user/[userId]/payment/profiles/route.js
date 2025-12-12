@@ -89,6 +89,10 @@ async function fetchPaymentProfiles(crmUserID) {
 
         if (!response.ok) {
             const errorText = await response.text();
+            console.error(
+                `[USER_PAYMENT_PROFILES] Failed to fetch payment profiles: ${response.status} ${response.statusText}`
+            );
+            console.error(`[USER_PAYMENT_PROFILES] Error details: ${errorText}`);
             return {
                 id: crmUserID,
                 error: `Failed to fetch: ${response.status} ${response.statusText}`,
@@ -96,7 +100,37 @@ async function fetchPaymentProfiles(crmUserID) {
         }
 
         const responseData = await response.json();
-        return responseData;
+        console.log(
+            `[USER_PAYMENT_PROFILES] CRM response received:`,
+            JSON.stringify(responseData, null, 2)
+        );
+
+        let profiles = [];
+        let billingAddress = null;
+
+        if (responseData.status && responseData.profiles) {
+            profiles = responseData.profiles;
+            billingAddress = responseData.billing_address || null;
+            console.log(
+                `[USER_PAYMENT_PROFILES] ✓ Extracted ${profiles.length} profile(s) from CRM response`
+            );
+        } else if (responseData.profiles) {
+            profiles = responseData.profiles;
+            billingAddress = responseData.billing_address || null;
+            console.log(
+                `[USER_PAYMENT_PROFILES] ✓ Using profiles from response`
+            );
+        } else {
+            console.error(
+                `[USER_PAYMENT_PROFILES] ✗ Unexpected response structure. Response keys:`,
+                Object.keys(responseData)
+            );
+        }
+
+        return {
+            profiles: profiles,
+            billing_address: billingAddress,
+        };
     } catch (error) {
         console.error("[USER_PAYMENT_PROFILES] Error fetching payment profiles from CRM:", error);
         return {

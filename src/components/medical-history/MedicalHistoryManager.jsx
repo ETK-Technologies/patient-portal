@@ -24,10 +24,13 @@ const mapMedicalProfileData = (apiData) => {
 
   if (!apiData || !apiData.data) {
     return {
-      allergies: missingData,
-      medication: missingData,
-      surgeries_or_hospitalizations: missingData,
-      medical_conditions: missingData,
+      data: {
+        allergies: missingData,
+        medication: missingData,
+        surgeries_or_hospitalizations: missingData,
+        medical_conditions: missingData,
+      },
+      ids: {},
     };
   }
 
@@ -40,10 +43,7 @@ const mapMedicalProfileData = (apiData) => {
   // API returns medicalProfile_types (array of types) and medicalProfiles (array of entries)
   const medicalProfileTypes = actualData?.medicalProfile_types || actualData?.medicalProfile || [];
   const medicalProfiles = actualData?.medicalProfiles || [];
-
-  // Create a map of meta_key to meta_value (using the most recent entry for each key)
-  // The medicalProfiles array contains objects with meta_key and meta_value
-  const profileMap = {};
+const profileMap = {};
   medicalProfiles.forEach((profile) => {
     if (profile.meta_key) {
       const metaValue = profile.meta_value || "";
@@ -57,6 +57,7 @@ const mapMedicalProfileData = (apiData) => {
       ) {
         profileMap[profile.meta_key] = {
           value: metaValue,
+          id: profile.id,
           updated_at: profile.updated_at,
         };
       }
@@ -66,19 +67,21 @@ const mapMedicalProfileData = (apiData) => {
   // Map each category from medicalProfile_types array
   // Get values from medicalProfiles array using meta_key
   const mappedData = {};
+  const ids = {};
   medicalProfileTypes.forEach((category) => {
     const slug = category.slug;
     let value = "";
 
-    // Get value from medicalProfiles array using meta_key
     if (profileMap[slug]) {
       const metaValue = profileMap[slug].value;
       // meta_value is an array, so join it if it's an array
       if (Array.isArray(metaValue)) {
-        value = metaValue.join(", ");
+        const filtered = metaValue.filter(item => item && item.trim() !== "");
+        value = filtered.join(", ");
       } else {
         value = metaValue || "";
       }
+      ids[slug] = profileMap[slug].id;
     }
 
     mappedData[slug] = value !== "" ? value : missingData;
@@ -86,11 +89,14 @@ const mapMedicalProfileData = (apiData) => {
 
   // Ensure all expected fields exist
   return {
-    allergies: mappedData.allergies || missingData,
-    medication: mappedData.medication || missingData,
-    surgeries_or_hospitalizations:
-      mappedData.surgeries_or_hospitalizations || missingData,
-    medical_conditions: mappedData.medical_conditions || missingData,
+    data: {
+      allergies: mappedData.allergies || missingData,
+      medication: mappedData.medication || missingData,
+      surgeries_or_hospitalizations:
+        mappedData.surgeries_or_hospitalizations || missingData,
+      medical_conditions: mappedData.medical_conditions || missingData,
+    },
+    ids: ids,
   };
 };
 
@@ -102,6 +108,7 @@ export default function MedicalHistoryManager() {
     surgeries_or_hospitalizations: "Not Provided",
     medical_conditions: "Not Provided",
   });
+  const [medicalProfileIds, setMedicalProfileIds] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [modalState, setModalState] = useState({
@@ -185,7 +192,8 @@ export default function MedicalHistoryManager() {
         // Old format: { success: true, data: {...} }
         if ((data.status && data.data) || (data.success && data.data)) {
           const mapped = mapMedicalProfileData(data);
-          setMedicalHistoryData(mapped);
+          setMedicalHistoryData(mapped.data);
+          setMedicalProfileIds(mapped.ids);
         } else {
           setError("Invalid response format");
         }
@@ -255,16 +263,24 @@ export default function MedicalHistoryManager() {
         return;
       }
 
+      const profileId = medicalProfileIds[fieldKey];
+      
+      const requestBody = {
+        crm_user_id: crmUserID,
+        slug: fieldKey,
+        meta_value: newValue,
+      };
+      
+      if (profileId) {
+        requestBody.id = profileId;
+      }
+
       const response = await fetch(`/api/user/medical-profile`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          crm_user_id: crmUserID,
-          slug: fieldKey,
-          meta_value: newValue,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const result = await response.json();
@@ -293,10 +309,29 @@ export default function MedicalHistoryManager() {
         [fieldKey]: newValue || "Not Provided",
       }));
 
+      if (result.data && result.data.id) {
+        setMedicalProfileIds((prev) => ({
+          ...prev,
+          [fieldKey]: result.data.id,
+        }));
+      }
+
       toast.success(`${modalState.field.label} updated successfully`, {
         position: "top-right",
         autoClose: 3000,
       });
+      
+      const refreshResponse = await fetch(
+        `/api/user/medical-profile?crmUserID=${crmUserID}`
+      );
+      if (refreshResponse.ok) {
+        const refreshData = await refreshResponse.json();
+        if ((refreshData.status && refreshData.data) || (refreshData.success && refreshData.data)) {
+          const mapped = mapMedicalProfileData(refreshData);
+          setMedicalHistoryData(mapped.data);
+          setMedicalProfileIds(mapped.ids);
+        }
+      }
     } catch (error) {
       console.error("Error updating medical history:", error);
       toast.error(

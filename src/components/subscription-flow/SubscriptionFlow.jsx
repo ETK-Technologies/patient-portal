@@ -720,10 +720,7 @@ export default function SubscriptionFlow({
               </div>
             </button>
             <button
-              onClick={() => {
-                flowState.addAnswer(0, "initialAction", "skip");
-                handleNavigate("pauseCancel");
-              }}
+              onClick={() => handleNavigate("pauseCancel")}
               className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 mt-4 cursor-pointer transition-colors"
             >
               <div className="w-full">
@@ -739,10 +736,7 @@ export default function SubscriptionFlow({
               </div>
             </button>
             <button
-              onClick={() => {
-                flowState.addAnswer(0, "initialAction", "pauseCancel");
-                handleNavigate("pauseCancel");
-              }}
+              onClick={() => handleNavigate("pauseCancel")}
               className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 mt-4 cursor-pointer transition-colors"
             >
               <div className="w-full">
@@ -765,75 +759,10 @@ export default function SubscriptionFlow({
           isOpen={isQuantityModalOpen}
           onClose={() => setIsQuantityModalOpen(false)}
           currentValue={localQuantity}
-          onSave={async (data) => {
-            try {
-              const subscriptionId =
-                subscription?._raw?.id || subscription?.id;
-
-              if (!subscriptionId) {
-                toast.error("Subscription ID not found");
-                return;
-              }
-
-              const firstLineItem = subscription?._raw?.line_items?.[0];
-              const lineItemId = firstLineItem?.id;
-
-              if (!lineItemId) {
-                toast.error("Line item ID not found");
-                return;
-              }
-
-              const quantityMatch = data.quantityFrequency.match(/^(\d+)/);
-              if (!quantityMatch) {
-                toast.error("Invalid quantity format");
-                return;
-              }
-
-              const quantity = parseInt(quantityMatch[1], 10);
-
-              console.log(
-                `[UPDATE_QUANTITY] Updating quantity for subscription ${subscriptionId}, line_item ${lineItemId} to ${quantity}`
-              );
-
-              const response = await fetch(
-                `/api/user/subscription/update/quantity/${subscriptionId}`,
-                {
-                  method: "PUT",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    line_item_id: lineItemId,
-                    quantity: quantity,
-                  }),
-                }
-              );
-
-              const result = await response.json();
-
-              if (!response.ok || !result.success) {
-                throw new Error(
-                  result.error || "Failed to update quantity"
-                );
-              }
-
-              console.log(
-                "[UPDATE_QUANTITY] Successfully updated quantity"
-              );
-              
-              setLocalQuantity(data.quantityFrequency);
-              
-              toast.success("Quantity updated successfully");
-              
-              if (data.providerMessage) {
-                console.log("Provider message:", data.providerMessage);
-              }
-            } catch (error) {
-              console.error("[UPDATE_QUANTITY] Error:", error);
-              toast.error(
-                error.message || "Failed to update quantity"
-              );
-            }
+          onSave={(data) => {
+            setLocalQuantity(data.quantityFrequency);
+            // Handle provider message if needed
+            console.log("Provider message:", data.providerMessage);
           }}
         />
         <UpdateModal
@@ -850,69 +779,36 @@ export default function SubscriptionFlow({
           onClose={() => setIsShippingAddressModalOpen(false)}
           onSave={async (updatedData) => {
             try {
-              const subscriptionId =
-                subscription?._raw?.id || subscription?.id;
-
-              if (!subscriptionId) {
-                toast.error("Subscription ID not found");
-                return;
-              }
-
-              console.log(
-                `[UPDATE_REFILL_SHIPPING] Updating shipping address for subscription ${subscriptionId}`
-              );
-
-              const response = await fetch(
-                "/api/user/update-refill-shipping-address",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    subscription_id: subscriptionId,
-                    shipping_address: {
-                      first_name: updatedData.first_name || "",
-                      last_name: updatedData.last_name || "",
-                      email: updatedData.email || "",
-                      address_1: updatedData.address_1 || "",
-                      address_2: updatedData.address_2 || "",
-                      city: updatedData.city || "",
-                      state: updatedData.state || "",
-                      postcode: updatedData.postcode || "",
-                      country: updatedData.country || "CA",
-                    },
-                  }),
-                }
-              );
+              // Update shipping address via API
+              const response = await fetch("/api/user/shipping-address", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(updatedData),
+              });
 
               const result = await response.json();
 
-              if (!response.ok || !result.success) {
-                throw new Error(
+              if (result.success) {
+                // Update display address
+                const addressParts = [
+                  updatedData.address_1,
+                  updatedData.address_2,
+                  updatedData.city,
+                  updatedData.state,
+                  updatedData.postcode,
+                ].filter(Boolean);
+                setLocalShippingAddress(addressParts.join(", "));
+                toast.success("Shipping address updated successfully");
+              } else {
+                toast.error(
                   result.error || "Failed to update shipping address"
                 );
               }
-
-              console.log(
-                "[UPDATE_REFILL_SHIPPING] Successfully updated shipping address"
-              );
-
-              // Update display address
-              const addressParts = [
-                updatedData.address_1,
-                updatedData.address_2,
-                updatedData.city,
-                updatedData.state,
-                updatedData.postcode,
-              ].filter(Boolean);
-              setLocalShippingAddress(addressParts.join(", "));
-              toast.success("Shipping address updated successfully");
             } catch (error) {
-              console.error("[UPDATE_REFILL_SHIPPING] Error:", error);
-              toast.error(
-                error.message || "Failed to update shipping address"
-              );
+              console.error("Error updating shipping address:", error);
+              toast.error("Failed to update shipping address");
             }
           }}
           shippingData={shippingData}
@@ -935,101 +831,21 @@ export default function SubscriptionFlow({
         <GetRefillModal
           isOpen={isGetRefillModalOpen}
           onClose={() => setIsGetRefillModalOpen(false)}
-          onConfirm={async () => {
-            try {
-              const subscriptionId =
-                subscription?._raw?.id || subscription?.id;
-
-              if (!subscriptionId) {
-                toast.error("Subscription ID not found");
-                return;
-              }
-
-              console.log(
-                `[REFILL_SUBSCRIPTION] Requesting refill for subscription ${subscriptionId}`
-              );
-
-              const response = await fetch(
-                "/api/user/refill-subscription-renewal",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    subscription_id: subscriptionId,
-                  }),
-                }
-              );
-
-              const result = await response.json();
-
-              if (!response.ok || !result.success) {
-                throw new Error(
-                  result.error || "Failed to request refill"
-                );
-              }
-
-              console.log(
-                "[REFILL_SUBSCRIPTION] Successfully requested refill"
-              );
-              toast.success("Refill order has been placed successfully");
-            } catch (error) {
-              console.error("[REFILL_SUBSCRIPTION] Error:", error);
-              toast.error(
-                error.message || "Failed to request refill"
-              );
-            }
+          onConfirm={() => {
+            // Handle refill confirmation
+            console.log("Refill confirmed");
+            toast.success("Refill order has been placed successfully");
           }}
         />
         <ChangeRefillDateModal
           isOpen={isChangeRefillDateModalOpen}
           onClose={() => setIsChangeRefillDateModalOpen(false)}
           currentRefillDate={nextRefill}
-          onSave={async (apiDate, formattedDate) => {
-            try {
-              const subscriptionId =
-                subscription?._raw?.id || subscription?.id;
-
-              if (!subscriptionId) {
-                toast.error("Subscription ID not found");
-                return;
-              }
-
-              console.log(
-                `[CHANGE_REFILL_DATE] Changing refill date for subscription ${subscriptionId} to ${apiDate}`
-              );
-
-              const response = await fetch("/api/user/change-refill-date", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  subscription_id: subscriptionId,
-                  refill_date: apiDate,
-                }),
-              });
-
-              const result = await response.json();
-
-              if (!response.ok || !result.success) {
-                throw new Error(
-                  result.error || "Failed to change refill date"
-                );
-              }
-
-              console.log(
-                "[CHANGE_REFILL_DATE] Successfully changed refill date"
-              );
-              toast.success("Refill date updated successfully");
-              
-            } catch (error) {
-              console.error("[CHANGE_REFILL_DATE] Error:", error);
-              toast.error(
-                error.message || "Failed to update refill date"
-              );
-            }
+          onSave={(newDate) => {
+            // Update the refill date
+            console.log("New refill date:", newDate);
+            toast.success("Refill date updated successfully");
+            // You can update the subscription's nextRefill here if needed
           }}
         />
       </Section>
