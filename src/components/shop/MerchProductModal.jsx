@@ -10,7 +10,8 @@ import React, {
 import Image from "next/image";
 import { IoClose, IoChevronUp, IoChevronDown } from "react-icons/io5";
 import CustomImage from "@/components/utils/CustomImage";
-import { handleCheckout } from "@/utils/checkout";
+import { addItemToCart } from "@/lib/cart/cartService";
+import { redirectToCheckout } from "@/utils/checkout";
 import { formatPrice } from "@/utils/priceFormatter";
 
 const HOODIE_PRODUCT_ID = "592501";
@@ -307,7 +308,7 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
     }, 100);
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     // For variable products, require size selection
     if (currentProduct.isVariable) {
       if (!selectedSize) {
@@ -345,7 +346,7 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
       // For variable products, add size (required) and color (if product has colors)
       if (currentProduct.isVariable) {
         if (!selectedSize) {
-          alert("Please select a size before proceeding to checkout.");
+          alert("Please select a size before adding to cart.");
           setIsProcessing(false);
           return;
         }
@@ -376,7 +377,9 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
             return;
           }
 
+          // For variable products (hoodie/tee), use variation ID as the product ID
           cartItem.productId = resolvedVariationId;
+          cartItem.variationId = resolvedVariationId;
         }
 
         // CRITICAL: Normalize size to lowercase
@@ -389,7 +392,7 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
         // - Tee (567280) has Color attribute, so colors.length > 0 and selectedColor is required
         if (colors.length > 0) {
           if (!selectedColor) {
-            alert("Please select a color before proceeding to checkout.");
+            alert("Please select a color before adding to cart.");
             setIsProcessing(false);
             return;
           }
@@ -399,12 +402,34 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
         // If colors.length === 0 (like Hoodie), we don't add color to cartItem
       }
 
-      console.log("[MerchProductModal] Cart item being sent:", cartItem);
-      handleCheckout([cartItem], true);
+      console.log("[MerchProductModal] Adding to cart:", cartItem);
+
+      // Add item to cart via API
+      const result = await addItemToCart(cartItem);
+
+      console.log("[MerchProductModal] Item added successfully:", result);
+
+      // Reset state before closing
+      setQuantity(1);
+      setSelectedSize(null);
+      setSelectedColor("black");
+      setSelectedImageIndex(0);
+      setOpenSections({
+        description: true,
+        sizeAndFit: true,
+        care: true,
+      });
+
+      // Close modal
       onClose();
+
+      // Open checkout in new tab
+      redirectToCheckout(true);
     } catch (error) {
-      console.error("Error processing checkout:", error);
-      alert("There was an error processing your checkout. Please try again.");
+      console.error("Error adding to cart:", error);
+      alert(
+        error.message || "There was an error adding to cart. Please try again."
+      );
     } finally {
       setIsProcessing(false);
     }
