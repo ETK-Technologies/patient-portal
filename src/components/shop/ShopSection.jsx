@@ -19,7 +19,7 @@ export default function ShopSection() {
     const fetchMerchandiseProducts = async () => {
       try {
         setLoadingMerchandise(true);
-        const productIds = [592501, 567280, 353755]; // Hoodie, Tee, Cap
+        const productIds = [620712,592501, 567280, 353755]; // Hoodie, Tee, Cap
 
         const productPromises = productIds.map(async (id) => {
           try {
