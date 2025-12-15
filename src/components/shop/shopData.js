@@ -5,7 +5,8 @@ export const shopData = {
       id: 12,
       name: "Essential Night Boost",
       price: "$30.00",
-      image: "https://myrocky.b-cdn.net/WP%20Images/night-boost.webp",
+      image:
+        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/essential-night-boost.jpg",
       type: "supplement",
       productId: "490612", // WooCommerce Product ID
       description:
@@ -36,7 +37,8 @@ export const shopData = {
       id: 13,
       name: "Essential Mood Balance",
       price: "$36.00",
-      image: "https://myrocky.b-cdn.net/WP%20Images/mood.webp",
+      image:
+        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/essential-mood-balance.jpg",
       type: "supplement",
       productId: "490621", // WooCommerce Product ID
       description:
@@ -63,7 +65,8 @@ export const shopData = {
       id: 14,
       name: "Essential Gut Relief",
       price: "$36.00",
-      image: "https://myrocky.b-cdn.net/WP%20Images/gut.webp",
+      image:
+        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/essential-gut-relief.jpg",
       type: "supplement",
       productId: "490636", // WooCommerce Product ID
       description:
@@ -93,7 +96,7 @@ export const shopData = {
       name: "Essential T-Boost",
       price: "$35.00",
       image:
-        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/t-boost1.png",
+        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/essential-t-boost.jpg",
       type: "supplement",
       productId: "262914", // WooCommerce Product ID
       description:
@@ -130,7 +133,7 @@ export const shopData = {
       name: "Essential Follicle Support",
       price: "$34.99",
       image:
-        "https://mycdn.myrocky.ca/wp-content/uploads/20250702161939/follicle_support_product_image.webp",
+        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/hair-support.jpg",
       type: "supplement",
       productId: "426522", // WooCommerce Product ID
       description:
@@ -173,44 +176,44 @@ export const shopData = {
       ],
     },
   ],
-  merchandise: [
-    {
-      id: 21,
-      name: "Rocky Essential Hoodie",
-      price: "Varies",
-      image:
-        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/order-card-1.png",
-      type: "clothing",
-      productId: "592501", // WooCommerce Product ID - Variable Product
-      isVariable: true,
-    },
-    {
-      id: 22,
-      name: "Rocky Essential Tee",
-      price: "Varies",
-      image:
-        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/order-card-1.png",
-      type: "clothing",
-      productId: "567280", // WooCommerce Product ID - Variable Product
-      isVariable: true,
-    },
-    {
-      id: 23,
-      name: "Rocky Essential Cap",
-      price: "$25.00",
-      image: [
-        "https://mycdn.myrocky.ca/wp-content/uploads/20250918120236/rocky-hat.png",
-        "https://mycdn.myrocky.ca/wp-content/uploads/20241211132726/Copy-of-RockyHealth-15-scaled.webp",
-      ],
-      type: "clothing",
-      productId: "353755", // WooCommerce Product ID
-      description:
-        "Everyday headwear, refined. Designed with premium fabrics, a timeless shape, and an effortless fit.",
-      details: {
-        quantity: "Adjustable (One size fits all)",
-        frequency: "One time purchase",
-        features: ["One size fits all", "Adjustable strap", "Cotton twill"],
-      },
-    },
-  ],
+  // merchandise: [
+  //   {
+  //     id: 21,
+  //     name: "Rocky Essential Hoodie",
+  //     price: "Varies",
+  //     image:
+  //       "https://myrocky.b-cdn.net/WP%20Images/patient-portal/order-card-1.png",
+  //     type: "clothing",
+  //     productId: "592501", // WooCommerce Product ID - Variable Product
+  //     isVariable: true,
+  //   },
+  //   {
+  //     id: 22,
+  //     name: "Rocky Essential Tee",
+  //     price: "Varies",
+  //     image:
+  //       "https://myrocky.b-cdn.net/WP%20Images/patient-portal/order-card-1.png",
+  //     type: "clothing",
+  //     productId: "567280", // WooCommerce Product ID - Variable Product
+  //     isVariable: true,
+  //   },
+  //   {
+  //     id: 23,
+  //     name: "Rocky Essential Cap",
+  //     price: "$25.00",
+  //     image: [
+  //       "https://mycdn.myrocky.ca/wp-content/uploads/20250918120236/rocky-hat.png",
+  //       "https://mycdn.myrocky.ca/wp-content/uploads/20241211132726/Copy-of-RockyHealth-15-scaled.webp",
+  //     ],
+  //     type: "clothing",
+  //     productId: "353755", // WooCommerce Product ID
+  //     description:
+  //       "Everyday headwear, refined. Designed with premium fabrics, a timeless shape, and an effortless fit.",
+  //     details: {
+  //       quantity: "Adjustable (One size fits all)",
+  //       frequency: "One time purchase",
+  //       features: ["One size fits all", "Adjustable strap", "Cotton twill"],
+  //     },
+  //   },
+  // ],
 };
