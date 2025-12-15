@@ -248,5 +248,3 @@ async function changeRefillDateInCRM(wpUserID, subscriptionId, refillDate) {
   }
 }
 
-
-

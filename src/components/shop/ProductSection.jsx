@@ -21,7 +21,7 @@ export default function ProductSection({
 
       <div className="relative">
         {/* Linear gradient overlay */}
-        <div className="heddin md:absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
+        {/* <div className="heddin md:absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div> */}
 
         {/* Scroll arrows */}
         <ScrollArrows containerRef={scrollContainerRef} scrollAmount={160} />
