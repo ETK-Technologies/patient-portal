@@ -17,7 +17,26 @@ function AutoLoginContent() {
         // Get token and user ID from URL parameters
         const token = searchParams.get("token");
         const wpUserId = searchParams.get("wp_user_id");
+        const crmUserId = searchParams.get("crm_user_id");
         const redirectPage = searchParams.get("redirect") || "home";
+
+        if (crmUserId) {
+          const isProduction = process.env.NODE_ENV === "production";
+          const userIdCookieOptions = [
+            `userId=${crmUserId}`,
+            "path=/",
+            `max-age=${60 * 60 * 24 * 7}`,
+            isProduction ? "SameSite=Strict" : "",
+            isProduction ? "Secure" : "",
+          ]
+            .filter(Boolean)
+            .join("; ");
+
+          document.cookie = userIdCookieOptions;
+          console.log(
+            `[AUTO-LOGIN] userId cookie set immediately: ${crmUserId}`
+          );
+        }
 
         // Set wp_user_id cookie immediately if present
         if (wpUserId) {
@@ -61,7 +80,7 @@ function AutoLoginContent() {
         }
 
         // Store user session
-        await storeUserSession(wpUserId, data.userData);
+        await storeUserSession(wpUserId, data.userData, crmUserId);
 
         // Success - redirect immediately without showing any UI
         router.replace(`/${redirectPage}`);
@@ -98,14 +117,18 @@ export default function AutoLoginPage() {
  * Stores user data in both cookie (for server-side access) and localStorage (for client-side immediate access)
  * @param {string} userId - The WordPress user ID from URL parameter (wp_user_id)
  * @param {object} userData - User data from CRM (may contain wp_user_id field)
+ * @param {string} crmUserId - The CRM user ID from URL parameter (crm_user_id)
  */
-async function storeUserSession(userId, userData = {}) {
+async function storeUserSession(userId, userData = {}, crmUserId = null) {
   const wpUserId = userData?.wp_user_id || userData?.wpUserID || userId;
+  // Use crm_user_id from URL if available, otherwise try to get it from userData, fallback to wpUserId
+  const userIdForCookie = crmUserId || userData?.crm_user_id || userData?.id || wpUserId;
 
   const userEmail =
     userData?.email || userData?.user?.email || userData?.data?.email || null;
 
   console.log(`[AUTO-LOGIN] Storing session - wp_user_id: ${wpUserId}`);
+  console.log(`[AUTO-LOGIN] Storing session - userId (crm_user_id): ${userIdForCookie}`);
   if (userEmail) {
     console.log(`[AUTO-LOGIN] Storing userEmail: ${userEmail}`);
   } else {
@@ -117,7 +140,7 @@ async function storeUserSession(userId, userData = {}) {
   const isProduction = process.env.NODE_ENV === "production";
 
   const userIdCookieOptions = [
-    `userId=${wpUserId}`,
+    `userId=${userIdForCookie}`,
     "path=/",
     `max-age=${60 * 60 * 24 * 7}`,
     isProduction ? "SameSite=Strict" : "",
