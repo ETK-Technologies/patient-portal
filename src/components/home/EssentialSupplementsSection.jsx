@@ -15,7 +15,7 @@ export default function EssentialSupplementsSection({ className = "" }) {
       description:
         "Fennel, turmeric, and milk thistle ease bloating and support gut and liver health.",
       ctaText: "Shop Essential Gut Support",
-      ctaLink: "/shop/gut-support",
+      ctaLink: "/shop",
       imageUrl:
         "https://myrocky.b-cdn.net/WP%20Images/patient-portal/Essential-supplements-card1.png", // Placeholder for kitchen image
       textBackgroundColor: "bg-[#D6D6D6]",
