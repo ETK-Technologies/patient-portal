@@ -6,7 +6,7 @@ export const shopData = {
       name: "Essential Night Boost",
       price: "$30.00",
       image:
-        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/essential-night-boost.jpg",
+        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/01-essential-night-boost.png",
       type: "supplement",
       productId: "490612", // WooCommerce Product ID
       description:
@@ -38,7 +38,7 @@ export const shopData = {
       name: "Essential Mood Balance",
       price: "$36.00",
       image:
-        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/essential-mood-balance.jpg",
+        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/02-essential-mood-balance.png",
       type: "supplement",
       productId: "490621", // WooCommerce Product ID
       description:
@@ -66,7 +66,7 @@ export const shopData = {
       name: "Essential Gut Relief",
       price: "$36.00",
       image:
-        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/essential-gut-relief.jpg",
+        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/03-essential-gut. relief.png",
       type: "supplement",
       productId: "490636", // WooCommerce Product ID
       description:
@@ -96,7 +96,7 @@ export const shopData = {
       name: "Essential T-Boost",
       price: "$35.00",
       image:
-        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/essential-t-boost.jpg",
+        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/04-essential t-boost.png",
       type: "supplement",
       productId: "262914", // WooCommerce Product ID
       description:
@@ -133,7 +133,7 @@ export const shopData = {
       name: "Essential Follicle Support",
       price: "$34.99",
       image:
-        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/hair-support.jpg",
+        "https://myrocky.b-cdn.net/WP%20Images/patient-portal/05-hair-support.png",
       type: "supplement",
       productId: "426522", // WooCommerce Product ID
       description:
