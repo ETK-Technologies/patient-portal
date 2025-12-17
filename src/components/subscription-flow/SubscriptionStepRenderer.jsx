@@ -6,6 +6,7 @@ import CancelWhatToExpectFlow from "./CancelWhatToExpectFlow";
 import RadioOptionsScreen from "../utils/RadioOptionsScreen";
 import TextInputFlow from "../utils/TextInputFlow";
 import CheckboxOptionsScreen from "../utils/CheckboxOptionsScreen";
+import { toast } from "react-toastify";
 
 const SubscriptionStepRenderer = ({
   stepIndex,
@@ -233,29 +234,36 @@ const SubscriptionStepRenderer = ({
         placeholder={stepConfig?.placeholder || ""}
         buttonLabel="Submit & Cancel Subscription"
         onComplete={async (text) => {
-          // Add answer first to update state
-          addAnswer(8, stepConfig?.field || "finalFeedback", text);
-          // Create complete answers object with all previous answers
-          const allAnswers = {
-            ...answers,
-            [stepConfig?.field || "finalFeedback"]: text,
-          };
-          // Submit final data with all answers included (matches AntiAgingQuiz pattern)
-          await submitFormData?.(
-            {
-              ...allAnswers, // Include all answers
-              completion_state: "Complete",
-              completion_percentage: 100,
-            },
-            allAnswers
-          );
-          // Complete the flow and go back to main view
-          if (onComplete) {
-            // Pass all answers as object for completion handler
-            onComplete(allAnswers);
+          try {
+            addAnswer(8, stepConfig?.field || "finalFeedback", text);
+            const allAnswers = {
+              ...answers,
+              [stepConfig?.field || "finalFeedback"]: text,
+            };
+            const result = await submitFormData?.(
+              {
+                ...allAnswers,
+                completion_state: "Complete",
+                completion_percentage: 100,
+              },
+              allAnswers
+            );
+            
+            if (result?.success) {
+              toast.success("Subscription updated successfully");
+            } else if (result?.error) {
+              toast.error(result.error || "Failed to update subscription");
+              return;
+            }
+            
+            if (onComplete) {
+              onComplete(allAnswers);
+            }
+            handleNavigate("main");
+          } catch (error) {
+            console.error("Error submitting subscription cancellation:", error);
+            toast.error("An error occurred. Please try again.");
           }
-          // Navigate back to main view (null)
-          handleNavigate("main");
         }}
         linkText="Back to subscription"
         linkHref="/subscriptions"
