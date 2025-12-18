@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { subscriptionFlowConfig } from "../config/subscriptionFlowConfig";
 
+const getCookie = (name) => {
+    if (typeof document === "undefined") return null;
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) {
+        return parts.pop().split(";").shift();
+    }
+    return null;
+};
+
 export function useSubscriptionFlow(subscription, initialStep = null) {
     // Storage keys
     const storageKey = "subscription-flow-data";
@@ -31,6 +41,7 @@ export function useSubscriptionFlow(subscription, initialStep = null) {
     const [maxReachedStep, setMaxReachedStep] = useState(initialStepIndex);
     // Store answers as an object - { field: value } format (matches AntiAgingQuiz pattern)
     const [answers, setAnswers] = useState({});
+    const [initialAction, setInitialAction] = useState(null);
     const isInitializedRef = useRef(false);
 
     // Calculate progress based on step
@@ -304,52 +315,170 @@ export function useSubscriptionFlow(subscription, initialStep = null) {
         return out;
     };
 
+    const buildPauseCancelPayload = (allAnswers) => {
+        const wpUserId = getCookie("wp_user_id");
+        const crmUserId = getCookie("userId");
+        const subscriptionId = subscription?.id || subscription?._raw?.id || "";
+
+        let subscriptionAction = "cancel";
+        
+        if (initialAction === "skip") {
+            subscriptionAction = "skip";
+        } else if (initialAction === "pauseCancel") {
+            const pauseOption = allAnswers.pauseOption;
+            if (pauseOption && pauseOption !== "no_thanks") {
+                subscriptionAction = "pause";
+            } else {
+                subscriptionAction = "cancel";
+            }
+        }
+
+        let pauseOptionValue = null;
+        const pauseOption = allAnswers.pauseOption;
+        if (pauseOption && pauseOption !== "no_thanks") {
+            const match = pauseOption.toString().match(/pause(\d+)/);
+            if (match) {
+                pauseOptionValue = parseInt(match[1], 10);
+            } else if (typeof pauseOption === "number") {
+                pauseOptionValue = pauseOption;
+            }
+        }
+
+        let quantityOptionValue = null;
+        const quantity = allAnswers.quantity;
+        if (quantity && quantity !== "no_thanks") {
+            quantityOptionValue = quantity.toString();
+        }
+
+        const answersObj = {
+            subscriptionAction: {
+                value: subscriptionAction
+            }
+        };
+
+        if (pauseOptionValue !== null) {
+            answersObj.pauseOption = {
+                value: pauseOptionValue
+            };
+        }
+
+        if (quantityOptionValue !== null) {
+            answersObj.quantityOption = {
+                value: quantityOptionValue
+            };
+        }
+
+        const treatmentWorked = allAnswers.treatmentWorked;
+        if (treatmentWorked) {
+            answersObj.treatmentWorked = {
+                value: treatmentWorked === "yes" ? "yes" : "no"
+            };
+
+            if (treatmentWorked === "yes") {
+                const cancelReasonText = allAnswers.cancelReasonText || "";
+                answersObj.treatmentWorkedTest = {
+                    text: cancelReasonText
+                };
+            } else {
+                const cancelReasons = allAnswers.cancelReasons || [];
+                if (Array.isArray(cancelReasons) && cancelReasons.length > 0) {
+                    const step6Config = subscriptionFlowConfig.steps[6];
+                    const reasonLabels = cancelReasons.map((reasonId) => {
+                        const option = step6Config?.options?.find(
+                            (opt) => opt.id === reasonId
+                        );
+                        return option?.label || reasonId;
+                    });
+                    answersObj.cancelReasons = {
+                        value: reasonLabels
+                    };
+                }
+                answersObj.treatmentWorkedTest = {
+                    text: ""
+                };
+            }
+        }
+
+        const finalFeedback = allAnswers.finalFeedback || "";
+        if (finalFeedback) {
+            answersObj.finalFeedback = {
+                text: finalFeedback
+            };
+        }
+
+        return {
+            subscriptionId: subscriptionId.toString(),
+            wpUserId: wpUserId || "",
+            crmUserId: crmUserId || "",
+            answers: answersObj
+        };
+    };
+
     // Submit form data to API (similar to AntiAgingQuiz pattern)
     const submitFormData = async (specificData = null, cleanedAnswers = null) => {
         try {
-            const essentialData = {
-                subscription_id: subscription?.id || "",
-                action: "subscription_cancel_flow",
-                stage: "subscription-management",
-                page_step: stepIndex,
-                completion_state: specificData?.completion_state || "Partial",
-                completion_percentage: specificData?.completion_percentage || progress,
-            };
-
-            // Transform answers into API format
             const answersToUse = cleanedAnswers || answers;
-            let allData = transformAnswersForApi(answersToUse);
+            
+            const allAnswers = specificData
+                ? { ...answersToUse, ...specificData }
+                : answersToUse;
 
-            // If we have specific data, merge it with all existing answers
-            const dataToSubmit = specificData
-                ? { ...allData, ...specificData }
-                : allData;
+            const isFinalSubmission = stepIndex === 8 || 
+                (specificData?.completion_state === "Complete" && 
+                 specificData?.completion_percentage === 100);
 
-            // TODO: Replace with actual API endpoint when available
-            // For now, just log the data that would be submitted
-            console.log("Subscription flow data to submit:", {
-                ...essentialData,
-                ...dataToSubmit,
-            });
+            if (isFinalSubmission) {
+                const payload = buildPauseCancelPayload(allAnswers);
 
-            // Uncomment when API endpoint is ready:
-            // const response = await fetch("/api/SubscriptionFlow", {
-            //     method: "POST",
-            //     headers: { "Content-Type": "application/json" },
-            //     body: JSON.stringify({ ...essentialData, ...dataToSubmit }),
-            //     credentials: "include",
-            // });
-            // const data = await response.json();
-            // if (data.error) {
-            //     console.error("Subscription flow submission error:", data.msg || data.error_message);
-            //     return null;
-            // }
-            // return data;
+                const apiUrl = "/api/user/pause-cancel-subscription";
+                
+                console.log("Submitting pause/cancel subscription payload:", payload);
+                
+                const response = await fetch(apiUrl, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    credentials: "include",
+                    body: JSON.stringify(payload),
+                });
 
-            return { success: true };
+                const data = await response.json();
+
+                if (!response.ok || data.error) {
+                    console.error("Pause/cancel subscription API error:", data);
+                    return { success: false, error: data.message || data.error || "API call failed" };
+                }
+
+                console.log("Pause/cancel subscription API success:", data);
+                return { success: true, data };
+            } else {
+                const essentialData = {
+                    subscription_id: subscription?.id || "",
+                    action: "subscription_cancel_flow",
+                    stage: "subscription-management",
+                    page_step: stepIndex,
+                    completion_state: specificData?.completion_state || "Partial",
+                    completion_percentage: specificData?.completion_percentage || progress,
+                };
+
+                let allData = transformAnswersForApi(allAnswers);
+
+                // If we have specific data, merge it with all existing answers
+                const dataToSubmit = specificData
+                    ? { ...allData, ...specificData }
+                    : allData;
+
+                console.log("Subscription flow intermediate step data:", {
+                    ...essentialData,
+                    ...dataToSubmit,
+                });
+
+                return { success: true };
+            }
         } catch (error) {
             console.error("Error submitting subscription flow form:", error);
-            return null;
+            return { success: false, error: error.message };
         }
     };
 
@@ -502,6 +631,8 @@ export function useSubscriptionFlow(subscription, initialStep = null) {
         submitFormData, // Submit all form data
         submitCurrentStepData, // Submit current step data when Continue is clicked
         transformAnswersForApi, // Transform answers for API format
+        initialAction,
+        setInitialAction,
     };
 }
 

@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import CustomImage from "../utils/CustomImage";
 import { useSubscriptionFlow } from "./hooks/useSubscriptionFlow";
 import { subscriptionFlowConfig } from "./config/subscriptionFlowConfig";
@@ -27,10 +28,12 @@ export default function SubscriptionFlow({
   setHeaderVariant,
   onBackHandler,
 }) {
+  const router = useRouter();
   // Initialize flow state - start at null (main view) unless action indicates otherwise
   const initialStep = action === "Manage subscription" ? null : null;
   const flowState = useSubscriptionFlow(subscription, initialStep);
   const { stepIndex, handleNavigate, handleBack } = flowState;
+  const [isChattingProvider, setIsChattingProvider] = useState(false);
 
   // Pass handleBack and stepIndex to parent component for header back button
   // Use a ref to store the callback to avoid infinite loops
@@ -288,6 +291,45 @@ export default function SubscriptionFlow({
     );
   });
   const { userData } = useUser();
+
+  const handleChatWithProvider = async () => {
+    if (!subscription?.id) {
+      toast.error("Subscription ID not found");
+      return;
+    }
+
+    setIsChattingProvider(true);
+    try {
+      const response = await fetch(
+        `/api/messenger/threads/search?subscriptionId=${subscription.id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to search for thread");
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        router.push("/messages");
+        toast.success("Opening messenger...");
+      } else {
+        throw new Error(data.error || "Failed to search for thread");
+      }
+    } catch (error) {
+      console.error("Error chatting with provider:", error);
+      toast.error(error.message || "Failed to connect with provider. Please try again.");
+    } finally {
+      setIsChattingProvider(false);
+    }
+  };
 
   useEffect(() => {
     // Keep header visible; switch variant based on whether we're on the main details panel
@@ -690,14 +732,18 @@ export default function SubscriptionFlow({
         <section>
           <h3 className="text-[20px] font-semibold mb-4 ">Get help</h3>
           <div className="bg-white rounded-[12px] border border-[#E5E7EB] shadow-sm divide-y divide-[#E2E2E1] p-5">
-            <button className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 cursor-pointer transition-colors">
+            <button
+              onClick={handleChatWithProvider}
+              disabled={isChattingProvider}
+              className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <div className="w-full ">
                 <div className="text-xs text-[#5E5E5E] mb-1">
                   Medical questions
                 </div>
                 <div className="flex items-center justify-between mb-4  ">
                   <div className="text-[16px] font-medium">
-                    Chat with a provider
+                    {isChattingProvider ? "Connecting..." : "Chat with a provider"}
                   </div>
                   <FaArrowRight size={18} />
                 </div>
@@ -720,7 +766,10 @@ export default function SubscriptionFlow({
               </div>
             </button>
             <button
-              onClick={() => handleNavigate("pauseCancel")}
+              onClick={() => {
+                flowState.setInitialAction("skip");
+                handleNavigate("pauseCancel");
+              }}
               className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 mt-4 cursor-pointer transition-colors"
             >
               <div className="w-full">
@@ -736,7 +785,10 @@ export default function SubscriptionFlow({
               </div>
             </button>
             <button
-              onClick={() => handleNavigate("pauseCancel")}
+              onClick={() => {
+                flowState.setInitialAction("pauseCancel");
+                handleNavigate("pauseCancel");
+              }}
               className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 mt-4 cursor-pointer transition-colors"
             >
               <div className="w-full">
