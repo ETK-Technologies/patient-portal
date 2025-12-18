@@ -14,20 +14,6 @@ import { addItemToCart } from "@/lib/cart/cartService";
 import { redirectToCheckout } from "@/utils/checkout";
 import { formatPrice } from "@/utils/priceFormatter";
 
-const HOODIE_PRODUCT_ID = "592501";
-const HOODIE_VARIATION_ID_MAP = {
-  s: "592618", // Small
-  m: "592519", // Medium
-  l: "592518", // Large
-  xl: "592520", // XL
-};
-
-const TEE_PRODUCT_ID = "567280";
-const TEE_VARIATION_ID_MAP = {
-  s: "567884", // Small
-  l: "567883", // Large
-};
-
 const MerchProductModal = ({ isOpen, onClose, product }) => {
   // Use the product data passed from parent component
   const currentProduct = product;
@@ -45,13 +31,11 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
     care: true,
   });
   const previousProductIdRef = useRef(null);
-  const [variations, setVariations] = useState([]);
-  const [loadingVariations, setLoadingVariations] = useState(false);
 
   const isShirt =
-    currentProduct?.slug?.includes("rocky-essential-tee") || false;
-  const isHoodieProduct = currentProduct?.productId === HOODIE_PRODUCT_ID;
-  const isTeeProduct = currentProduct?.productId === TEE_PRODUCT_ID;
+    currentProduct?.slug?.includes("rocky-essential-tee") ||
+    currentProduct?.name?.toLowerCase().includes("tee") ||
+    false;
 
   // Get product images
   const productImages = useMemo(() => {
@@ -80,16 +64,13 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
     return sizes.sort((a, b) => order.indexOf(a) - order.indexOf(b));
   };
 
-  // Get sizes and colors from product attributes (for variable products)
+  // Get sizes and colors from product data (already transformed)
   const sizes = useMemo(() => {
-    const rawSizes =
-      currentProduct?.attributes?.find((attr) =>
-        attr.name.toLowerCase().includes("size")
-      )?.options ||
-      currentProduct?.sizes ||
-      [];
-    return sortSizes([...rawSizes]);
-  }, [currentProduct?.attributes, currentProduct?.sizes]);
+    if (currentProduct?.sizes && Array.isArray(currentProduct.sizes)) {
+      return sortSizes([...currentProduct.sizes]);
+    }
+    return [];
+  }, [currentProduct?.sizes]);
 
   const sizeChart = currentProduct?.sizeChart || {
     S: 'Chest: 39"',
@@ -99,13 +80,10 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
   };
 
   const colors = useMemo(() => {
-    return (
-      currentProduct?.colors || [
-        { name: "black", value: "#000000" },
-        { name: "white", value: "#FFFFFF" },
-        { name: "green", value: "#2D5016" },
-      ]
-    );
+    if (currentProduct?.colors && Array.isArray(currentProduct.colors)) {
+      return currentProduct.colors;
+    }
+    return [];
   }, [currentProduct?.colors]);
 
   // Calculate price
@@ -129,9 +107,13 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
 
           // Update selected color when product changes
           if (currentProduct?.colors?.length > 0) {
-            setSelectedColor(currentProduct.colors[0].name);
+            setSelectedColor(
+              currentProduct.colors[0].name || currentProduct.colors[0]
+            );
           } else if (colors.length > 0) {
-            setSelectedColor(colors[0].name);
+            setSelectedColor(colors[0].name || colors[0]);
+          } else {
+            setSelectedColor("black");
           }
 
           setOpenSections({
@@ -151,58 +133,77 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
     };
   }, [isOpen, currentProduct, colors]);
 
-  // Fetch variations for variable products
-  useEffect(() => {
-    const fetchVariations = async () => {
-      if (!currentProduct?.isVariable || !currentProduct?.productId) {
-        setVariations([]);
-        return;
-      }
+  // Get variations from product variationData (already fetched during transformation)
+  const variations = useMemo(() => {
+    if (currentProduct?.variationData?.variationDetails) {
+      return Object.values(currentProduct.variationData.variationDetails);
+    }
+    return [];
+  }, [currentProduct?.variationData]);
 
-      setLoadingVariations(true);
-      try {
-        const response = await fetch(
-          `/api/products/debug?id=${currentProduct.productId}`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setVariations(data.formatted_variations || []);
-        } else {
-          console.warn("Failed to fetch variations");
-          setVariations([]);
-        }
-      } catch (error) {
-        console.error("Error fetching variations:", error);
-        setVariations([]);
-      } finally {
-        setLoadingVariations(false);
-      }
+  // Helper function to normalize size for comparison
+  const normalizeSize = useCallback((size) => {
+    if (!size) return "";
+    // Convert to string, lowercase, remove spaces and dashes
+    let normalized = String(size)
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "")
+      .replace(/-/g, "");
+
+    // Handle common size abbreviations
+    const sizeMap = {
+      xs: "xs",
+      s: "s",
+      small: "s",
+      m: "m",
+      medium: "m",
+      l: "l",
+      large: "l",
+      xl: "xl",
+      extralarge: "xl",
+      "extra large": "xl",
+      xxl: "xxl",
+      xxxl: "xxxl",
+      onesize: "onesize",
+      "one size": "onesize",
+      "one size fits all": "onesize",
     };
 
-    if (isOpen && currentProduct?.isVariable) {
-      fetchVariations();
-    }
-  }, [isOpen, currentProduct?.productId, currentProduct?.isVariable]);
+    return sizeMap[normalized] || normalized;
+  }, []);
 
   // Helper function to find variation by size and color
   const findVariationBySizeAndColor = useCallback(
     (size, color) => {
       if (!variations || variations.length === 0) return null;
 
+      const normalizedSize = normalizeSize(size);
+
       return variations.find((variation) => {
-        const attrs = variation.attributes || {};
-        const hasSize = Object.entries(attrs).some(([key, value]) => {
-          if (key.toLowerCase().includes("size")) {
-            return value.toLowerCase() === size.toLowerCase();
+        const attrs = variation.attributes || [];
+
+        // Check for size match - attributes is now an array
+        const hasSize = attrs.some((attr) => {
+          if (attr.name?.toLowerCase().includes("size")) {
+            const normalizedValue = normalizeSize(attr.option);
+            return normalizedValue === normalizedSize;
           }
           return false;
         });
-        const hasColor = Object.entries(attrs).some(([key, value]) => {
-          if (key.toLowerCase().includes("color")) {
-            return value.toLowerCase() === color.toLowerCase();
-          }
-          return false;
-        });
+
+        // Check for color match (only if product has colors)
+        let hasColor = true; // Default to true if no colors
+        if (colors.length > 0) {
+          hasColor = attrs.some((attr) => {
+            if (attr.name?.toLowerCase().includes("color")) {
+              const normalizedValue = String(attr.option).toLowerCase().trim();
+              const normalizedColor = String(color).toLowerCase().trim();
+              return normalizedValue === normalizedColor;
+            }
+            return false;
+          });
+        }
 
         // If product has color attribute, both must match
         // If product doesn't have color, only size needs to match
@@ -212,16 +213,40 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
         return hasSize;
       });
     },
-    [variations, colors]
+    [variations, colors, normalizeSize]
   );
 
   // Helper function to get variation info for a specific size
   const getVariationInfoForSize = useCallback(
     (size) => {
-      if (!selectedColor || !size) return null;
+      if (!size) return null;
+      const normalizedSize = normalizeSize(size);
+
+      // If no colors, just match by size
+      if (colors.length === 0) {
+        if (!variations || variations.length === 0) return null;
+        return variations.find((variation) => {
+          const attrs = variation.attributes || [];
+          return attrs.some((attr) => {
+            if (attr.name?.toLowerCase().includes("size")) {
+              const normalizedValue = normalizeSize(attr.option);
+              return normalizedValue === normalizedSize;
+            }
+            return false;
+          });
+        });
+      }
+      // If colors exist, require selectedColor
+      if (!selectedColor) return null;
       return findVariationBySizeAndColor(size, selectedColor);
     },
-    [selectedColor, findVariationBySizeAndColor]
+    [
+      selectedColor,
+      findVariationBySizeAndColor,
+      colors,
+      variations,
+      normalizeSize,
+    ]
   );
 
   // Auto-select size if only one size is available
@@ -235,13 +260,13 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
 
   // Reset selected size if it becomes sold out when color changes
   useEffect(() => {
-    if (selectedSize && selectedColor && variations.length > 0) {
+    if (selectedSize && selectedColor) {
       const variationInfo = getVariationInfoForSize(selectedSize);
       if (variationInfo && variationInfo.stock_status === "outofstock") {
         setSelectedSize(null);
       }
     }
-  }, [selectedColor, selectedSize, variations, getVariationInfoForSize]);
+  }, [selectedColor, selectedSize, getVariationInfoForSize]);
 
   // Swipe functionality for image navigation
   const minSwipeDistance = 50;
@@ -309,8 +334,10 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
   };
 
   const handleBuyNow = async () => {
+    if (!currentProduct) return;
+
     // For variable products, require size selection
-    if (currentProduct.isVariable) {
+    if (currentProduct.isVariable || currentProduct.type === "variable") {
       if (!selectedSize) {
         alert("Please select a size");
         return;
@@ -324,82 +351,104 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
       }
 
       // Only require color if the product has color options
-      // Tee (567280) requires color, Hoodie (592501) doesn't have color attribute
       if (colors.length > 0 && !selectedColor) {
         alert("Please select a color");
         return;
       }
     }
 
-    if (!currentProduct.productId) {
-      return;
-    }
-
     setIsProcessing(true);
 
     try {
-      const cartItem = {
-        productId: currentProduct.productId,
-        quantity: quantity,
-      };
+      let productId = currentProduct.id || currentProduct.productId;
+      let variationId = null;
 
-      // For variable products, add size (required) and color (if product has colors)
-      if (currentProduct.isVariable) {
+      // For variable products, find the variation ID
+      if (
+        (currentProduct.isVariable || currentProduct.type === "variable") &&
+        currentProduct.variations &&
+        currentProduct.variations.length > 0
+      ) {
         if (!selectedSize) {
           alert("Please select a size before adding to cart.");
           setIsProcessing(false);
           return;
         }
 
-        // Check stock status again before proceeding
+        // Try to find variation using variationData
         const variationInfo = getVariationInfoForSize(selectedSize);
-        if (variationInfo && variationInfo.stock_status === "outofstock") {
-          alert("This size is currently sold out.");
-          setIsProcessing(false);
-          return;
+        if (variationInfo) {
+          variationId =
+            variationInfo.id ||
+            variationInfo.variation_id ||
+            variationInfo.variationId;
         }
 
-        const normalizedSize = selectedSize.toLowerCase().trim();
-        if (isHoodieProduct || isTeeProduct) {
-          const fallbackMap = isHoodieProduct
-            ? HOODIE_VARIATION_ID_MAP
-            : TEE_VARIATION_ID_MAP;
-
-          const resolvedVariationId =
-            (variationInfo?.id && String(variationInfo.id)) ||
-            fallbackMap[normalizedSize];
-
-          if (!resolvedVariationId) {
-            alert(
-              "Unable to find the selected product variation. Please try again."
-            );
-            setIsProcessing(false);
-            return;
+        // Fallback: Try to find variation by matching size index with variations array
+        if (!variationId && currentProduct.sizes) {
+          const sizeIndex = currentProduct.sizes.indexOf(selectedSize);
+          if (sizeIndex !== -1 && currentProduct.variations[sizeIndex]) {
+            variationId = currentProduct.variations[sizeIndex];
           }
-
-          // For variable products (hoodie/tee), use variation ID as the product ID
-          cartItem.productId = resolvedVariationId;
-          cartItem.variationId = resolvedVariationId;
         }
 
-        // CRITICAL: Normalize size to lowercase
-        // WooCommerce default_attributes use lowercase (e.g., "m", "l", "s", "xl")
-        cartItem.size = normalizedSize;
-
-        // Color handling:
-        // - Only add color if product has color options AND one is selected
-        // - Hoodie (592501) doesn't have Color attribute, so colors.length will be 0
-        // - Tee (567280) has Color attribute, so colors.length > 0 and selectedColor is required
-        if (colors.length > 0) {
-          if (!selectedColor) {
-            alert("Please select a color before adding to cart.");
-            setIsProcessing(false);
-            return;
+        // If still no variation ID found, try to get first matching variation from variationDetails
+        if (!variationId && currentProduct.variationData?.variationDetails) {
+          const allVariations = Object.values(
+            currentProduct.variationData.variationDetails
+          );
+          const normalizedSelectedSize = normalizeSize(selectedSize);
+          const matchingVariation = allVariations.find((variation) => {
+            const attrs = variation.attributes || [];
+            return attrs.some((attr) => {
+              if (attr.name?.toLowerCase().includes("size")) {
+                const normalizedAttrSize = normalizeSize(attr.option);
+                return normalizedAttrSize === normalizedSelectedSize;
+              }
+              return false;
+            });
+          });
+          if (matchingVariation) {
+            variationId =
+              matchingVariation.id ||
+              matchingVariation.variation_id ||
+              matchingVariation.variationId;
           }
-          // Normalize color to lowercase (WooCommerce default_attributes use lowercase)
-          cartItem.color = selectedColor.toLowerCase().trim();
         }
-        // If colors.length === 0 (like Hoodie), we don't add color to cartItem
+      }
+
+      const cartItem = {
+        productId: variationId || productId, // Use variation ID as product ID for variable products
+        variationId: variationId,
+        quantity: quantity,
+        name: currentProduct.name,
+        price: currentProduct.price || currentProduct.priceDisplay || 0,
+        image:
+          currentProduct.images?.[0] ||
+          currentProduct.images?.[selectedImageIndex] ||
+          currentProduct.image ||
+          "",
+        product_type: currentProduct.type || "simple",
+        variation: [
+          {
+            name: "Size",
+            value: selectedSize || "",
+          },
+        ],
+      };
+
+      // Add color to variation if product has colors and color is selected
+      if (colors.length > 0 && selectedColor) {
+        cartItem.variation.push({
+          name: "Color",
+          value: selectedColor,
+        });
+        cartItem.color = selectedColor.toLowerCase().trim();
+      }
+
+      // Add size to cart item for variable products
+      if (selectedSize) {
+        cartItem.size = selectedSize.toLowerCase().trim();
       }
 
       console.log("[MerchProductModal] Adding to cart:", cartItem);
@@ -412,7 +461,11 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
       // Reset state before closing
       setQuantity(1);
       setSelectedSize(null);
-      setSelectedColor("black");
+      if (colors.length > 0) {
+        setSelectedColor(colors[0].name || colors[0] || "black");
+      } else {
+        setSelectedColor("black");
+      }
       setSelectedImageIndex(0);
       setOpenSections({
         description: true,
@@ -445,9 +498,28 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
     selectedSizeVariationInfo &&
     selectedSizeVariationInfo.stock_status === "outofstock";
 
-  const canBuyNow =
-    selectedSize && !isSelectedSizeSoldOut && (!colors.length || selectedColor);
-  const totalPrice = priceValue > 0 ? priceValue * quantity : 0;
+  // For variable products, require size selection. For simple products, size is optional
+  const isVariable =
+    currentProduct?.isVariable || currentProduct?.type === "variable";
+  const canBuyNow = isVariable
+    ? selectedSize &&
+      !isSelectedSizeSoldOut &&
+      (!colors.length || selectedColor)
+    : !isSelectedSizeSoldOut && (!colors.length || selectedColor);
+
+  // Calculate total price dynamically from variation if available
+  const totalPrice = useMemo(() => {
+    if (selectedSize) {
+      const variationInfo = getVariationInfoForSize(selectedSize);
+      if (variationInfo) {
+        const variationPrice =
+          variationInfo.price || variationInfo.regular_price || 0;
+        return variationPrice * quantity;
+      }
+    }
+    // Fallback to product price
+    return priceValue > 0 ? priceValue * quantity : 0;
+  }, [selectedSize, selectedColor, quantity, priceValue, variations]);
 
   return (
     <>
@@ -459,7 +531,7 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
           overflow: hidden !important;
         }
       `}</style>
-      <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden z-[9999]">
+      <div className="fixed inset-0 z-9999 flex items-center justify-center overflow-hidden">
         {/* Backdrop */}
         <div
           className="absolute inset-0 bg-black/40 cursor-pointer"
@@ -632,12 +704,14 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
                       const isSoldOut =
                         variationInfo &&
                         variationInfo.stock_status === "outofstock";
+                      const isDisabled = isProcessing || isSoldOut;
 
                       return (
                         <button
                           key={size}
                           onClick={() => {
                             if (isSoldOut) {
+                              // Optionally handle sold out size click (e.g., show notify popup)
                               return;
                             } else {
                               setSelectedSize(size);
@@ -813,13 +887,13 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
                     <button
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
                       disabled={
-                        !selectedSize ||
+                        (isVariable && !selectedSize) ||
                         isProcessing ||
                         isSelectedSizeSoldOut ||
                         quantity <= 1
                       }
                       className={`flex items-center justify-center w-4 h-4 text-lg text-center ${
-                        selectedSize &&
+                        (!isVariable || selectedSize) &&
                         !isProcessing &&
                         !isSelectedSizeSoldOut &&
                         quantity > 1
@@ -837,13 +911,13 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
                         setQuantity(Math.min(quantity + 1, MAX_QUANTITY))
                       }
                       disabled={
-                        !selectedSize ||
+                        (isVariable && !selectedSize) ||
                         isProcessing ||
                         isSelectedSizeSoldOut ||
                         quantity >= MAX_QUANTITY
                       }
                       className={`flex items-center justify-center w-4 h-4 text-lg text-center ${
-                        selectedSize &&
+                        (!isVariable || selectedSize) &&
                         !isProcessing &&
                         !isSelectedSizeSoldOut &&
                         quantity < MAX_QUANTITY
@@ -857,13 +931,13 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
                   <button
                     onClick={handleBuyNow}
                     disabled={
-                      !selectedSize ||
+                      (isVariable && !selectedSize) ||
                       isProcessing ||
                       isSelectedSizeSoldOut ||
                       !currentProduct.productId
                     }
                     className={`flex-1 h-[52px] w-[222px] py-3 rounded-full font-medium ${
-                      selectedSize &&
+                      (!isVariable || selectedSize) &&
                       !isProcessing &&
                       !isSelectedSizeSoldOut &&
                       currentProduct.productId
@@ -889,13 +963,13 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   disabled={
-                    !selectedSize ||
+                    (isVariable && !selectedSize) ||
                     isProcessing ||
                     isSelectedSizeSoldOut ||
                     quantity <= 1
                   }
                   className={`px-3 py-2 ${
-                    selectedSize &&
+                    (!isVariable || selectedSize) &&
                     !isProcessing &&
                     !isSelectedSizeSoldOut &&
                     quantity > 1
@@ -913,13 +987,13 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
                     setQuantity(Math.min(quantity + 1, MAX_QUANTITY))
                   }
                   disabled={
-                    !selectedSize ||
+                    (isVariable && !selectedSize) ||
                     isProcessing ||
                     isSelectedSizeSoldOut ||
                     quantity >= MAX_QUANTITY
                   }
                   className={`px-3 py-2 ${
-                    selectedSize &&
+                    (!isVariable || selectedSize) &&
                     !isProcessing &&
                     !isSelectedSizeSoldOut &&
                     quantity < MAX_QUANTITY
@@ -933,13 +1007,13 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
               <button
                 onClick={handleBuyNow}
                 disabled={
-                  !selectedSize ||
+                  (isVariable && !selectedSize) ||
                   isProcessing ||
                   isSelectedSizeSoldOut ||
                   !currentProduct.productId
                 }
                 className={`flex-1 py-3 px-6 rounded-full font-medium sm:text-base text-sm ${
-                  selectedSize &&
+                  (!isVariable || selectedSize) &&
                   !isProcessing &&
                   !isSelectedSizeSoldOut &&
                   currentProduct.productId
