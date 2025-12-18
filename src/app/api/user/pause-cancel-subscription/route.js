@@ -26,6 +26,7 @@ export async function POST(request) {
     const cookieHeader = request.headers.get("cookie") || "";
     let wpUserID = null;
     let crmUserID = null;
+    console.log("cookieHeader", wpUserID, crmUserID);
 
     if (cookieHeader) {
       const wpUserIdMatch = cookieHeader.match(/wp_user_id=([^;]+)/);
