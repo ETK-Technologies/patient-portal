@@ -8,6 +8,9 @@ import ProductCardSkeleton from "@/components/utils/skeletons/ProductCardSkeleto
 import { shopData } from "./shopData";
 import { transformProductsArray } from "./utils/productTransformer";
 
+// Merchandise product IDs - used to identify merch products for modal selection
+const MERCHANDISE_PRODUCT_IDS = [620712, 592501, 567280, 353755]; // Hoodie, Tee, Cap
+
 export default function ShopSection() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,7 +22,7 @@ export default function ShopSection() {
     const fetchMerchandiseProducts = async () => {
       try {
         setLoadingMerchandise(true);
-        const productIds = [620712,592501, 567280, 353755]; // Hoodie, Tee, Cap
+        const productIds = MERCHANDISE_PRODUCT_IDS;
 
         const productPromises = productIds.map(async (id) => {
           try {
@@ -47,75 +50,23 @@ export default function ShopSection() {
 
         // If we got some products, use them; otherwise fall back to static data
         if (validProducts.length > 0) {
-          // Transform products to our format
-          const transformedProducts = transformProductsArray(
+          // Transform products to our format with variations
+          const transformedProducts = await transformProductsArray(
             validProducts,
             true
           );
 
-          // Format for ShopBanner: ensure price is numeric and image is string
-          const formattedForShopBanner = transformedProducts.map((product) => {
-            const numericPrice =
-              typeof product.price === "number"
-                ? product.price
-                : product.priceDisplay
-                ? parseFloat(
-                    product.priceDisplay.replace("$", "").replace(",", "")
-                  )
-                : null;
-
-            // Format price display with $ if we have a numeric price
-            const displayPrice = numericPrice
-              ? `$${numericPrice.toFixed(2)}`
-              : product.priceDisplay || "Varies";
-
-            return {
-              ...product,
-              // Use formatted price with $ for display (ProductCard uses this)
-              price: displayPrice,
-              // Keep numeric price for calculations (ShopBanner might use this)
-              priceNumeric: numericPrice,
-              // Ensure image is string (ShopBanner expects single image URL)
-              image: Array.isArray(product.image)
-                ? product.image[0]
-                : product.image || product.images?.[0] || "",
-            };
-          });
-
-          setMerchandiseProducts(formattedForShopBanner);
+          // Use transformed products directly
+          setMerchandiseProducts(transformedProducts);
         } else {
-          // Fallback to static merchandise data if API fails
-          console.warn(
-            "WooCommerce API unavailable, using static merchandise data"
-          );
-
-          // Format static data for ShopBanner
-          const formattedStatic = shopData.merchandise.map((product) => {
-            const numericPrice =
-              product.price && product.price !== "Varies"
-                ? parseFloat(product.price.replace("$", "").replace(",", ""))
-                : null;
-
-            // Ensure price has $ if it's not "Varies"
-            const displayPrice = numericPrice
-              ? `$${numericPrice.toFixed(2)}`
-              : product.price || "Varies";
-
-            return {
-              ...product,
-              price: displayPrice, // Use formatted price with $
-              image: Array.isArray(product.image)
-                ? product.image[0]
-                : product.image || "",
-            };
-          });
-
-          setMerchandiseProducts(formattedStatic);
+          // No products fetched from API
+          console.warn("No merchandise products fetched from WooCommerce API");
+          setMerchandiseProducts([]);
         }
       } catch (error) {
         console.error("Error fetching merchandise products:", error);
-        // Fallback to static merchandise data
-        setMerchandiseProducts(shopData.merchandise);
+        // Set empty array on error since we're using dynamic data only
+        setMerchandiseProducts([]);
       } finally {
         setLoadingMerchandise(false);
       }
@@ -162,32 +113,48 @@ export default function ShopSection() {
               <ProductCardSkeleton />
               <ProductCardSkeleton />
               <ProductCardSkeleton />
+              <ProductCardSkeleton />
             </div>
           </div>
         ) : (
-          <ProductSection
-            title="Rocky Merch"
-            products={merchandiseProducts}
-            showScrollIndicator={false}
-            onProductClick={handleProductClick}
-          />
+          merchandiseProducts.length > 0 && (
+            <ProductSection
+              title="Rocky Merch"
+              products={merchandiseProducts}
+              showScrollIndicator={false}
+              onProductClick={handleProductClick}
+            />
+          )
         )}
       </div>
 
       {/* Render appropriate modal based on product type */}
-      {selectedProduct?.isVariable ? (
-        <MerchProductModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          product={selectedProduct}
-        />
-      ) : (
-        <SimpleProductModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          product={selectedProduct}
-        />
-      )}
+      {(() => {
+        // Check if product is a merchandise product
+        const isMerchProduct = selectedProduct?.productId
+          ? MERCHANDISE_PRODUCT_IDS.includes(Number(selectedProduct.productId))
+          : false;
+
+        // Merchandise products always use MerchProductModal
+        if (isMerchProduct) {
+          return (
+            <MerchProductModal
+              isOpen={isModalOpen}
+              onClose={handleCloseModal}
+              product={selectedProduct}
+            />
+          );
+        }
+
+        // Other products use SimpleProductModal
+        return (
+          <SimpleProductModal
+            isOpen={isModalOpen}
+            onClose={handleCloseModal}
+            product={selectedProduct}
+          />
+        );
+      })()}
     </>
   );
 }
