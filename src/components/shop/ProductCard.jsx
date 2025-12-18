@@ -8,7 +8,16 @@ export default function ProductCard({ product, onClick }) {
     ? product.image[0]
     : product.image;
 
-  if (product.price && product.price !== "Varies") {
+  // Get the display price (formatted with $) or format the numeric price
+  const displayPrice =
+    product.priceDisplay ||
+    (product.price &&
+    product.price !== "Varies" &&
+    typeof product.price === "number"
+      ? `$${product.price.toFixed(2)}`
+      : product.price);
+
+  if (displayPrice && displayPrice !== "Varies") {
     // Return card with price (wellness and merchandise products)
     return (
       <div>
@@ -24,7 +33,7 @@ export default function ProductCard({ product, onClick }) {
           <h3 className="text-[14px] font-[500] pb-1 max-w-[140px] break-words">
             {product.name}
           </h3>
-          <p className="text-sm font-medium text-gray-900">{product.price}</p>
+          <p className="text-sm font-medium text-gray-900">{displayPrice}</p>
         </div>
       </div>
     );
