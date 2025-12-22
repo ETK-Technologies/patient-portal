@@ -61,6 +61,34 @@ const storeUserData = (user) => {
   }
 };
 
+const setUserEmailCookie = (user) => {
+  if (typeof window === "undefined" || !user) return;
+
+  const userEmail = user?.email;
+  if (!userEmail) {
+    console.warn("[UserContext] No email found in user data to set cookie");
+    return;
+  }
+
+  try {
+    const isProduction = process.env.NODE_ENV === "production";
+    const userEmailCookieOptions = [
+      `userEmail=${encodeURIComponent(userEmail)}`,
+      "path=/",
+      `max-age=${60 * 60 * 24 * 7}`, // 7 days
+      isProduction ? "SameSite=Strict" : "",
+      isProduction ? "Secure" : "",
+    ]
+      .filter(Boolean)
+      .join("; ");
+
+    document.cookie = userEmailCookieOptions;
+    console.log(`[UserContext] userEmail cookie set: ${userEmail}`);
+  } catch (err) {
+    console.warn("[UserContext] Error setting userEmail cookie:", err);
+  }
+};
+
 export function UserProvider({ children }) {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -74,6 +102,7 @@ export function UserProvider({ children }) {
         const storedUser = getStoredUserData();
         if (storedUser) {
           setUserData(storedUser);
+          setUserEmailCookie(storedUser);
           setLoading(false);
           setError(null);
           // Still fetch from API in background to ensure data is fresh
@@ -114,6 +143,7 @@ export function UserProvider({ children }) {
       // Store the user data
       setUserData(extractedUser);
       storeUserData(extractedUser);
+      setUserEmailCookie(extractedUser);
     } catch (err) {
       console.error("[UserContext] Error fetching user data:", err);
 
@@ -124,6 +154,7 @@ export function UserProvider({ children }) {
           "[UserContext] Using stored data as fallback after API error"
         );
         setUserData(storedUser);
+        setUserEmailCookie(storedUser);
         setError(null);
       } else {
         setError(err.message);

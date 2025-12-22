@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../utils/crmAuth";
+import { getTokenFromCookie } from "../../utils/getTokenFromCookie";
 
 /**
  * GET /api/user/subscriptions
@@ -50,7 +50,7 @@ export async function GET(request) {
     console.log(`[SUBSCRIPTIONS] Using wp_user_id from cookies: ${wpUserID}`);
 
     // Fetch subscriptions from CRM
-    const subscriptionsData = await fetchSubscriptions(wpUserID);
+    const subscriptionsData = await fetchSubscriptions(wpUserID, request);
 
     return NextResponse.json({
       success: true,
@@ -73,18 +73,11 @@ export async function GET(request) {
  * Fetch subscriptions from CRM API
  * Uses the subscriptions endpoint: /api/user/subscriptions/{wpUserID}
  */
-async function fetchSubscriptions(wpUserID) {
+async function fetchSubscriptions(wpUserID, request) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[SUBSCRIPTIONS] Missing CRM credentials:");
-    console.error({
-      crmHost: crmHost || "MISSING",
-      apiUsername: apiUsername ? "SET" : "MISSING",
-      apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-    });
+  if (!crmHost) {
+    console.error("[SUBSCRIPTIONS] Missing CRM_HOST");
     return {
       status: false,
       message: "CRM configuration missing",
@@ -95,62 +88,22 @@ async function fetchSubscriptions(wpUserID) {
   }
 
   console.log(`[SUBSCRIPTIONS] CRM Host: ${crmHost}`);
-  console.log(`[SUBSCRIPTIONS] CRM Username: ${apiUsername}`);
 
   try {
-    // Decode the password - try base64 first, fallback to plain text
-    let apiPassword;
-    try {
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[SUBSCRIPTIONS] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[SUBSCRIPTIONS] Using password as plain text");
-      }
-    } catch (decodeError) {
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[SUBSCRIPTIONS] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    // Step 1: Authenticate with CRM to get auth token
-    console.log("[SUBSCRIPTIONS] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[SUBSCRIPTIONS] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(
-          `[SUBSCRIPTIONS] Failed endpoint: ${authResult.endpoint}`
-        );
-      }
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[SUBSCRIPTIONS] No token found in cookie");
       return {
         status: false,
-        message: "CRM authentication failed",
+        message: "Authentication token not found",
         data: {
           subscriptions: [],
         },
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[SUBSCRIPTIONS] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[SUBSCRIPTIONS] Using token from cookie");
 
     // Step 2: Fetch subscriptions from CRM
     // Endpoint: /api/user/subscriptions/{wpUserID}
@@ -163,7 +116,6 @@ async function fetchSubscriptions(wpUserID) {
       method: "GET",
       headers: {
         Authorization: `Bearer ${authToken}`,
-        "Content-Type": "application/json",
         "is-patient-portal": "true",
       },
     });

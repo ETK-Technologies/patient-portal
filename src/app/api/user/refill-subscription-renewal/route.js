@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../utils/crmAuth";
+import { getTokenFromCookie } from "../../utils/getTokenFromCookie";
 
 /**
  * POST /api/user/refill-subscription-renewal
@@ -65,7 +65,7 @@ export async function POST(request) {
       `[REFILL_SUBSCRIPTION] Requesting refill for subscription ${subscription_id}`
     );
 
-    const result = await requestRefillInCRM(wpUserID, subscription_id);
+    const result = await requestRefillInCRM(wpUserID, subscription_id, request);
 
     return NextResponse.json({
       success: true,
@@ -88,19 +88,13 @@ export async function POST(request) {
  * Request refill in CRM API
  * @param {string} wpUserID - WordPress user ID
  * @param {number} subscriptionId - Subscription ID
+ * @param {Request} request - The request object to get token from cookie
  */
-async function requestRefillInCRM(wpUserID, subscriptionId) {
+async function requestRefillInCRM(wpUserID, subscriptionId, request) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[REFILL_SUBSCRIPTION] Missing CRM credentials:");
-    console.error({
-      crmHost: crmHost || "MISSING",
-      apiUsername: apiUsername ? "SET" : "MISSING",
-      apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-    });
+  if (!crmHost) {
+    console.error("[REFILL_SUBSCRIPTION] Missing CRM_HOST");
     return {
       status: false,
       message: "CRM configuration missing",
@@ -110,54 +104,17 @@ async function requestRefillInCRM(wpUserID, subscriptionId) {
   console.log(`[REFILL_SUBSCRIPTION] CRM Host: ${crmHost}`);
 
   try {
-    let apiPassword;
-    try {
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[REFILL_SUBSCRIPTION] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[REFILL_SUBSCRIPTION] Using password as plain text");
-      }
-    } catch (decodeError) {
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[REFILL_SUBSCRIPTION] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    console.log("[REFILL_SUBSCRIPTION] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[REFILL_SUBSCRIPTION] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(
-          `[REFILL_SUBSCRIPTION] Failed endpoint: ${authResult.endpoint}`
-        );
-      }
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[REFILL_SUBSCRIPTION] No token found in cookie");
       return {
         status: false,
-        message: "CRM authentication failed",
+        message: "Authentication token not found",
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[REFILL_SUBSCRIPTION] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[REFILL_SUBSCRIPTION] Using token from cookie");
 
     const refillUrl = `${crmHost}/api/user/refill-subscription-renewal`;
     console.log(
