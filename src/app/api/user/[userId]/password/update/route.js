@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../../../utils/crmAuth";
+import { getTokenFromCookie } from "../../../../utils/getTokenFromCookie";
 
 /**
  * POST /api/user/[userId]/password/update
@@ -135,7 +135,8 @@ export async function POST(request, { params }) {
       userId,
       wp_username,
       old_password,
-      new_password
+      new_password,
+      request
     );
 
     return NextResponse.json({
@@ -161,24 +162,19 @@ export async function POST(request, { params }) {
  * @param {string} wp_username - WordPress username (email)
  * @param {string} oldPassword - Old password
  * @param {string} newPassword - New password
+ * @param {Request} request - The request object to get token from cookie
  */
 async function updatePasswordInCRM(
   userId,
   wp_username,
   oldPassword,
-  newPassword
+  newPassword,
+  request
 ) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[PASSWORD_UPDATE] Missing CRM credentials:");
-    console.error({
-      crmHost: crmHost || "MISSING",
-      apiUsername: apiUsername ? "SET" : "MISSING",
-      apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-    });
+  if (!crmHost) {
+    console.error("[PASSWORD_UPDATE] Missing CRM_HOST");
     return {
       status: false,
       message: "CRM configuration missing",
@@ -188,54 +184,17 @@ async function updatePasswordInCRM(
   console.log(`[PASSWORD_UPDATE] CRM Host: ${crmHost}`);
 
   try {
-    let apiPassword;
-    try {
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[PASSWORD_UPDATE] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[PASSWORD_UPDATE] Using password as plain text");
-      }
-    } catch (decodeError) {
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[PASSWORD_UPDATE] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    console.log("[PASSWORD_UPDATE] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[PASSWORD_UPDATE] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(
-          `[PASSWORD_UPDATE] Failed endpoint: ${authResult.endpoint}`
-        );
-      }
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[PASSWORD_UPDATE] No token found in cookie");
       return {
         status: false,
-        message: "CRM authentication failed",
+        message: "Authentication token not found",
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[PASSWORD_UPDATE] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[PASSWORD_UPDATE] Using token from cookie");
 
     const updatePasswordUrl = `${crmHost}/api/user/${userId}/password/update`;
     console.log(

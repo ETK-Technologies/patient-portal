@@ -57,20 +57,29 @@ export default function SubscriptionCard({ subscription, onAction }) {
   const handleRequestRefillConfirm = async () => {
     try {
       setIsLoading(true);
-      // TODO: Replace with actual API endpoint when available
-      // const response = await fetch(`/api/subscriptions/${subscription.id}/refill`, {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      // });
+      
+      const subscriptionId = subscription.id || subscription.subscription_id;
+      
+      if (!subscriptionId) {
+        throw new Error("Subscription ID not found");
+      }
 
-      // if (!response.ok) {
-      //   throw new Error("Failed to request refill");
-      // }
+      const response = await fetch("/api/user/refill-subscription-renewal", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          subscription_id: subscriptionId,
+        }),
+      });
 
-      // Simulate API call for now
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || result.message || "Failed to request refill");
+      }
 
       toast.success("Refill order has been placed successfully");
       setIsRequestRefillModalOpen(false);

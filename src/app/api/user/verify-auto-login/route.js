@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { verifyAutoLoginToken } from "../auto-login-link/route";
-import { authenticateWithCRM } from "../../utils/crmAuth";
 
 /**
  * GET /api/user/verify-auto-login
@@ -83,7 +82,7 @@ export async function GET(request) {
     }
 
     // Fetch user data from CRM or database
-    const userData = await fetchUserData(wpUserId);
+    const userData = await fetchUserData(wpUserId, request, token);
 
     return NextResponse.json({
       success: true,
@@ -104,16 +103,17 @@ export async function GET(request) {
 
 /**
  * Fetch user data from CRM API
- * Uses the personal profile endpoint: /api/crm-users/{userId}/edit/personal-profile
+ * Uses the personal profile endpoint: /api/user/{userId}/profile
+ * @param {string} userId - The user ID
+ * @param {Request} request - The request object
+ * @param {string} token - The token from URL parameter (auto-login token)
  */
-async function fetchUserData(userId) {
+async function fetchUserData(userId, request, token) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
+  if (!crmHost) {
     console.warn(
-      "[USERDATA] Missing CRM credentials, returning basic user info"
+      "[USERDATA] Missing CRM_HOST, returning basic user info"
     );
     return {
       crm_user_id: userId,
@@ -121,57 +121,16 @@ async function fetchUserData(userId) {
   }
 
   try {
-    // Decode the password - try base64 first, fallback to plain text
-    let apiPassword;
-    try {
-      // Try to decode as base64
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      // Check if decoded value is valid and reasonable
-      // If the decoded string is the same as input or contains many non-printable chars, use plain text
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[USERDATA] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[USERDATA] Using password as plain text");
-      }
-    } catch (decodeError) {
-      // If base64 decode fails, use as plain text
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[USERDATA] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    // Step 1: Authenticate with CRM to get auth token
-    console.log("[USERDATA] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[USERDATA] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(`[USERDATA] Failed endpoint: ${authResult.endpoint}`);
-      }
+    const authToken = token;
+    
+    if (!authToken) {
+      console.error("[USERDATA] No token provided");
       return {
         crm_user_id: userId,
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[USERDATA] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[USERDATA] Using token from URL parameter");
 
     // Step 2: Fetch user profile from CRM
     // Use the same endpoint as the profile route: /api/user/{userId}/profile

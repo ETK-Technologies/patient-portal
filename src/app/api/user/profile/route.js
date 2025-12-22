@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../utils/crmAuth";
+import { getTokenFromCookie } from "../../utils/getTokenFromCookie";
 import FormData from "form-data";
 
 /**
@@ -51,7 +51,7 @@ export async function GET(request) {
     console.log(`[USER_PROFILE] Fetching profile for user: ${wpUserID}`);
 
     // Fetch user data from CRM
-    const userData = await fetchUserData(wpUserID);
+    const userData = await fetchUserData(wpUserID, request);
 
     return NextResponse.json({
       status: true,
@@ -76,78 +76,29 @@ export async function GET(request) {
  * Fetch user data from CRM API
  * Uses the personal profile endpoint: /api/user/profile?wp_user_id={wpUserID}
  */
-async function fetchUserData(wpUserID) {
+async function fetchUserData(wpUserID, request) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[USER_PROFILE] Missing CRM credentials:");
-    console.error({
-      crmHost: crmHost || "MISSING",
-      apiUsername: apiUsername ? "SET" : "MISSING",
-      apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-    });
+  if (!crmHost) {
+    console.error("[USER_PROFILE] Missing CRM_HOST");
     return {
       wp_user_id: wpUserID,
     };
   }
 
   console.log(`[USER_PROFILE] CRM Host: ${crmHost}`);
-  console.log(`[USER_PROFILE] CRM Username: ${apiUsername}`);
 
   try {
-    // Decode the password - try base64 first, fallback to plain text
-    let apiPassword;
-    try {
-      // Try to decode as base64
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      // Check if decoded value is valid and reasonable
-      // If the decoded string is the same as input or contains many non-printable chars, use plain text
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[USER_PROFILE] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[USER_PROFILE] Using password as plain text");
-      }
-    } catch (decodeError) {
-      // If base64 decode fails, use as plain text
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[USER_PROFILE] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    // Step 1: Authenticate with CRM to get auth token
-    console.log("[USER_PROFILE] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[USER_PROFILE] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(`[USER_PROFILE] Failed endpoint: ${authResult.endpoint}`);
-      }
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[USER_PROFILE] No token found in cookie");
       return {
         wp_user_id: wpUserID,
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[USER_PROFILE] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[USER_PROFILE] Using token from cookie");
 
     // Step 2: Fetch user profile from CRM
     const profileUrl = `${crmHost}/api/user/profile?wp_user_id=${wpUserID}`;
@@ -374,7 +325,7 @@ export async function POST(request) {
     console.log(`[USER_PROFILE_UPDATE] Update data:`, updateData);
 
     // Update profile in CRM
-    const updateResult = await updateUserProfile(userId, updateData);
+    const updateResult = await updateUserProfile(userId, updateData, request);
 
     if (!updateResult.success) {
       return NextResponse.json(
@@ -408,15 +359,13 @@ export async function POST(request) {
 
 /**
  * Update user profile in CRM API
- * Uses the profile-update endpoint: /api/crm-users/profile-update
+ * Uses the profile-update endpoint: /api/user/{userId}/profile/update
  */
-async function updateUserProfile(userId, updateData) {
+async function updateUserProfile(userId, updateData, request) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[USER_PROFILE_UPDATE] Missing CRM credentials");
+  if (!crmHost) {
+    console.error("[USER_PROFILE_UPDATE] Missing CRM_HOST");
     return {
       success: false,
       error: "CRM configuration missing",
@@ -425,52 +374,18 @@ async function updateUserProfile(userId, updateData) {
   }
 
   try {
-    // Decode the password - try base64 first, fallback to plain text
-    let apiPassword;
-    try {
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[USER_PROFILE_UPDATE] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[USER_PROFILE_UPDATE] Using password as plain text");
-      }
-    } catch (decodeError) {
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[USER_PROFILE_UPDATE] Using password as plain text (base64 decode failed)"
-      );
-    }
-
-    // Step 1: Authenticate with CRM to get auth token
-    console.log("[USER_PROFILE_UPDATE] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[USER_PROFILE_UPDATE] CRM authentication failed: ${authResult.error}`
-      );
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[USER_PROFILE_UPDATE] No token found in cookie");
       return {
         success: false,
-        error: `CRM authentication failed: ${authResult.error}`,
-        status: 500,
+        error: "Authentication token not found",
+        status: 401,
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[USER_PROFILE_UPDATE] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[USER_PROFILE_UPDATE] Using token from cookie");
 
     // Step 2: Update user profile in CRM
     const updateUrl = `${crmHost}/api/user/${userId}/profile/update`;

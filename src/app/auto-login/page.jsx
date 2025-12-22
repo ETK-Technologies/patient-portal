@@ -20,8 +20,26 @@ function AutoLoginContent() {
         const crmUserId = searchParams.get("crm_user_id");
         const redirectPage = searchParams.get("redirect") || "home";
 
+        const isProduction = process.env.NODE_ENV === "production";
+
+        if (token) {
+          const tokenCookieOptions = [
+            `token=${encodeURIComponent(token)}`,
+            "path=/",
+            `max-age=${60 * 60 * 24 * 7}`, // 7 days
+            isProduction ? "SameSite=Strict" : "",
+            isProduction ? "Secure" : "",
+          ]
+            .filter(Boolean)
+            .join("; ");
+
+          document.cookie = tokenCookieOptions;
+          console.log(
+            `[AUTO-LOGIN] token cookie set immediately`
+          );
+        }
+
         if (crmUserId) {
-          const isProduction = process.env.NODE_ENV === "production";
           const userIdCookieOptions = [
             `userId=${crmUserId}`,
             "path=/",
@@ -40,7 +58,6 @@ function AutoLoginContent() {
 
         // Set wp_user_id cookie immediately if present
         if (wpUserId) {
-          const isProduction = process.env.NODE_ENV === "production";
           const wpUserIdCookieOptions = [
             `wp_user_id=${wpUserId}`,
             "path=/",

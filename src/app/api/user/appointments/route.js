@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../utils/crmAuth";
+import { getTokenFromCookie } from "../../utils/getTokenFromCookie";
 
 /**
  * GET /api/user/appointments
@@ -51,7 +51,7 @@ export async function GET(request) {
 
     console.log(`[APPOINTMENTS] Using wp_user_id from cookies: ${wpUserID}`);
 
-    const inviteeEmail="questionnaire@test.com";
+    // const inviteeEmail="questionnaire@test.com";
 
     if (!inviteeEmail) {
       return NextResponse.json(
@@ -135,70 +135,25 @@ export async function GET(request) {
  * Fetch user email from CRM API
  * Uses the personal profile endpoint: /api/crm-users/{wpUserID}/edit/personal-profile
  */
-async function fetchUserEmailFromCRM(wpUserID) {
+async function fetchUserEmailFromCRM(wpUserID, request) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[APPOINTMENTS] Missing CRM credentials:");
-    console.error({
-      crmHost: crmHost || "MISSING",
-      apiUsername: apiUsername ? "SET" : "MISSING",
-      apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-    });
+  if (!crmHost) {
+    console.error("[APPOINTMENTS] Missing CRM_HOST");
     return null;
   }
 
   console.log(`[APPOINTMENTS] CRM Host: ${crmHost}`);
-  console.log(`[APPOINTMENTS] CRM Username: ${apiUsername}`);
 
   try {
-    let apiPassword;
-    try {
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[APPOINTMENTS] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[APPOINTMENTS] Using password as plain text");
-      }
-    } catch (decodeError) {
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[APPOINTMENTS] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    console.log("[APPOINTMENTS] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[APPOINTMENTS] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(
-          `[APPOINTMENTS] Failed endpoint: ${authResult.endpoint}`
-        );
-      }
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[APPOINTMENTS] No token found in cookie");
       return null;
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[APPOINTMENTS] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[APPOINTMENTS] Using token from cookie");
 
     const profileUrl = `${crmHost}/api/user/profile?wp_user_id=${wpUserID}`;
     console.log(
