@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../../utils/crmAuth";
+import { getTokenFromCookie } from "../../../utils/getTokenFromCookie";
 
 /**
  * GET /api/user/dashboard/states
@@ -74,7 +74,7 @@ export async function GET(request) {
     );
 
     // Fetch dashboard states from CRM
-    const dashboardStates = await fetchDashboardStates(crmUserID);
+    const dashboardStates = await fetchDashboardStates(crmUserID, request);
 
     if (dashboardStates.error) {
       return NextResponse.json(
@@ -111,88 +111,37 @@ export async function GET(request) {
 
 /**
  * Fetch dashboard states from CRM API
- * Uses the dashboard states endpoint: /api/user/{crmUserID}/dashboard/states
+ * Uses the dashboard states endpoint: /api/user/dashboard/stats
  */
-async function fetchDashboardStates(userId) {
+async function fetchDashboardStates(userId, request) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[DASHBOARD_STATES] Missing CRM credentials:");
-    console.error({
-      crmHost: crmHost || "MISSING",
-      apiUsername: apiUsername ? "SET" : "MISSING",
-      apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-    });
+  if (!crmHost) {
+    console.error("[DASHBOARD_STATES] Missing CRM_HOST");
     return {
       subscriptions_count: 0,
       orders_count: 0,
       crm_user_id: userId,
-      error: "Missing CRM credentials",
+      error: "Missing CRM configuration",
     };
   }
 
   console.log(`[DASHBOARD_STATES] CRM Host: ${crmHost}`);
-  console.log(`[DASHBOARD_STATES] CRM Username: ${apiUsername}`);
 
   try {
-    // Decode the password - try base64 first, fallback to plain text
-    let apiPassword;
-    try {
-      // Try to decode as base64
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      // Check if decoded value is valid and reasonable
-      // If the decoded string is the same as input or contains many non-printable chars, use plain text
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[DASHBOARD_STATES] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[DASHBOARD_STATES] Using password as plain text");
-      }
-    } catch (decodeError) {
-      // If base64 decode fails, use as plain text
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[DASHBOARD_STATES] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    // Step 1: Authenticate with CRM to get auth token
-    console.log("[DASHBOARD_STATES] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[DASHBOARD_STATES] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(
-          `[DASHBOARD_STATES] Failed endpoint: ${authResult.endpoint}`
-        );
-      }
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[DASHBOARD_STATES] No token found in cookie");
       return {
         subscriptions_count: 0,
         orders_count: 0,
         crm_user_id: userId,
-        error: `CRM authentication failed: ${authResult.error}`,
+        error: "Authentication token not found",
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[DASHBOARD_STATES] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[DASHBOARD_STATES] Using token from cookie");
 
     // Step 2: Fetch dashboard states from CRM
     const dashboardStatesUrl = `${crmHost}/api/user/dashboard/stats`;
@@ -204,7 +153,6 @@ async function fetchDashboardStates(userId) {
       method: "GET",
       headers: {
         Authorization: `Bearer ${authToken}`,
-        "Content-Type": "application/json",
         "is-patient-portal": "true",
       },
     });

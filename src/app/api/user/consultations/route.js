@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../utils/crmAuth";
+import { getTokenFromCookie } from "../../utils/getTokenFromCookie";
 
 /**
  * GET /api/user/consultations
@@ -48,7 +48,7 @@ export async function GET(request) {
         console.log(`[USER_CONSULTATIONS] Fetching consultations for user: ${wpUserID}`);
 
         // Fetch consultations from CRM
-        const consultationsData = await fetchConsultations(wpUserID);
+        const consultationsData = await fetchConsultations(wpUserID, request);
 
         return NextResponse.json({
             status: true,
@@ -75,18 +75,11 @@ export async function GET(request) {
  * Fetch consultations from CRM API
  * Uses the consultations endpoint: /api/user/consultations?wp_user_id={wpUserID}
  */
-async function fetchConsultations(userId) {
+async function fetchConsultations(userId, request) {
     const crmHost = process.env.CRM_HOST;
-    const apiUsername = process.env.CRM_API_USERNAME;
-    const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-    if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-        console.error("[USER_CONSULTATIONS] Missing CRM credentials:");
-        console.error({
-            crmHost: crmHost || "MISSING",
-            apiUsername: apiUsername ? "SET" : "MISSING",
-            apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-        });
+    if (!crmHost) {
+        console.error("[USER_CONSULTATIONS] Missing CRM_HOST");
         return {
             consultations: [],
             id: userId,
@@ -94,61 +87,19 @@ async function fetchConsultations(userId) {
     }
 
     console.log(`[USER_CONSULTATIONS] CRM Host: ${crmHost}`);
-    console.log(`[USER_CONSULTATIONS] CRM Username: ${apiUsername}`);
 
     try {
-        // Decode the password - try base64 first, fallback to plain text
-        let apiPassword;
-        try {
-            // Try to decode as base64
-            const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-                "utf8"
-            );
-            // Check if decoded value is valid and reasonable
-            // If the decoded string is the same as input or contains many non-printable chars, use plain text
-            const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-            const isSameAsInput = decoded === apiPasswordEncoded;
-
-            if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-                apiPassword = decoded;
-                console.log("[USER_CONSULTATIONS] Password decoded from base64");
-            } else {
-                apiPassword = apiPasswordEncoded;
-                console.log("[USER_CONSULTATIONS] Using password as plain text");
-            }
-        } catch (decodeError) {
-            // If base64 decode fails, use as plain text
-            apiPassword = apiPasswordEncoded;
-            console.log(
-                "[USER_CONSULTATIONS] Base64 decode failed, using password as plain text"
-            );
-        }
-
-        // Step 1: Authenticate with CRM to get auth token
-        console.log("[USER_CONSULTATIONS] Authenticating with CRM...");
-        const authResult = await authenticateWithCRM(
-            crmHost,
-            apiUsername,
-            apiPassword
-        );
-
-        if (!authResult.success) {
-            console.error(
-                `[USER_CONSULTATIONS] CRM authentication failed: ${authResult.error}`
-            );
-            if (authResult.endpoint) {
-                console.error(`[USER_CONSULTATIONS] Failed endpoint: ${authResult.endpoint}`);
-            }
+        const authToken = getTokenFromCookie(request);
+        
+        if (!authToken) {
+            console.error("[USER_CONSULTATIONS] No token found in cookie");
             return {
                 consultations: [],
                 id: userId,
             };
         }
 
-        const authToken = authResult.token;
-        console.log(
-            `[USER_CONSULTATIONS] Successfully obtained CRM auth token from ${authResult.endpoint}`
-        );
+        console.log("[USER_CONSULTATIONS] Using token from cookie");
 
         // Step 2: Fetch consultations from CRM
         // Uses the consultations endpoint: /api/user/consultations?wp_user_id={wpUserID}

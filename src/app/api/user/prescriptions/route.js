@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../utils/crmAuth";
+import { getTokenFromCookie } from "../../utils/getTokenFromCookie";
 import https from "https";
 import http from "http";
 
@@ -48,7 +48,8 @@ export async function GET(request) {
     const prescriptionsData = await fetchPrescriptions(
       crmUserId,
       perPage,
-      crmOrderId
+      crmOrderId,
+      request
     );
 
     if (prescriptionsData.error) {
@@ -84,18 +85,11 @@ export async function GET(request) {
  * Uses the prescriptions endpoint: /api/user/prescriptions
  * with query parameters: per_page, crm_user_id, crm_order_id
  */
-async function fetchPrescriptions(crmUserId, perPage, crmOrderId = null) {
+async function fetchPrescriptions(crmUserId, perPage, crmOrderId = null, request) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[PRESCRIPTIONS] Missing CRM credentials:");
-    console.error({
-      crmHost: crmHost || "MISSING",
-      apiUsername: apiUsername ? "SET" : "MISSING",
-      apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-    });
+  if (!crmHost) {
+    console.error("[PRESCRIPTIONS] Missing CRM_HOST");
     return {
       status: false,
       message: "CRM configuration missing",
@@ -105,59 +99,21 @@ async function fetchPrescriptions(crmUserId, perPage, crmOrderId = null) {
   }
 
   console.log(`[PRESCRIPTIONS] CRM Host: ${crmHost}`);
-  console.log(`[PRESCRIPTIONS] CRM Username: ${apiUsername}`);
 
   try {
-    let apiPassword;
-    try {
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[PRESCRIPTIONS] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[PRESCRIPTIONS] Using password as plain text");
-      }
-    } catch (decodeError) {
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[PRESCRIPTIONS] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    console.log("[PRESCRIPTIONS] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[PRESCRIPTIONS] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(
-          `[PRESCRIPTIONS] Failed endpoint: ${authResult.endpoint}`
-        );
-      }
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[PRESCRIPTIONS] No token found in cookie");
       return {
         status: false,
-        message: "CRM authentication failed",
-        error: `CRM authentication failed: ${authResult.error}`,
+        message: "Authentication failed",
+        error: "No authentication token found",
         status: 401,
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[PRESCRIPTIONS] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[PRESCRIPTIONS] Using token from cookie");
 
     const requestPayload = {
       per_page: parseInt(perPage, 10) || 10,
