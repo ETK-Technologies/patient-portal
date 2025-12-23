@@ -29,6 +29,7 @@ export default function ChangeRefillDateModal({
     new Date(tomorrow.getFullYear(), tomorrow.getMonth(), 1)
   );
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Handle mount/unmount animation
   useEffect(() => {
@@ -253,22 +254,31 @@ export default function ChangeRefillDateModal({
     setCurrentMonth(monthDate);
   };
 
-  const handleSave = () => {
-    if (selectedDate) {
-      const year = selectedDate.getFullYear();
-      const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
-      const day = String(selectedDate.getDate()).padStart(2, "0");
-      const apiDateFormat = `${year}-${month}-${day}`;
-      
-      // Also format for display
-      const formattedDate = selectedDate.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-      onSave(apiDateFormat, formattedDate);
-      // Show success modal
-      setShowSuccessModal(true);
+  const handleSave = async () => {
+    if (selectedDate && !isSaving) {
+      setIsSaving(true);
+      try {
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+        const day = String(selectedDate.getDate()).padStart(2, "0");
+        const apiDateFormat = `${year}-${month}-${day}`;
+        
+        const formattedDate = selectedDate.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+        
+        const result = onSave(apiDateFormat, formattedDate);
+        if (result && typeof result.then === "function") {
+          await result;
+        }
+        setShowSuccessModal(true);
+      } catch (error) {
+        console.error("Error in handleSave:", error);
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -498,14 +508,14 @@ export default function ChangeRefillDateModal({
             <div className="mt-6">
               <button
                 onClick={handleSave}
-                disabled={!selectedDate}
+                disabled={!selectedDate || isSaving}
                 className={`w-full px-4 py-3 rounded-lg font-medium transition-colors ${
-                  selectedDate
+                  selectedDate && !isSaving
                     ? "bg-black text-white hover:bg-gray-800 cursor-pointer"
                     : "bg-[#00000033] text-white hover:bg-gray-400 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 }`}
               >
-                Save
+                {isSaving ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

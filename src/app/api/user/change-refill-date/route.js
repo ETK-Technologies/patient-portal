@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../utils/crmAuth";
+import { getTokenFromCookie } from "../../utils/getTokenFromCookie";
 
 /**
  * POST /api/user/change-refill-date
@@ -90,7 +90,8 @@ export async function POST(request) {
     const result = await changeRefillDateInCRM(
       wpUserID,
       subscription_id,
-      refill_date
+      refill_date,
+      request
     );
 
     return NextResponse.json({
@@ -115,19 +116,13 @@ export async function POST(request) {
  * @param {string} wpUserID - WordPress user ID
  * @param {number} subscriptionId - Subscription ID
  * @param {string} refillDate - Refill date in yyyy-mm-dd format
+ * @param {Request} request - The request object to get token from cookie
  */
-async function changeRefillDateInCRM(wpUserID, subscriptionId, refillDate) {
+async function changeRefillDateInCRM(wpUserID, subscriptionId, refillDate, request) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[CHANGE_REFILL_DATE] Missing CRM credentials:");
-    console.error({
-      crmHost: crmHost || "MISSING",
-      apiUsername: apiUsername ? "SET" : "MISSING",
-      apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-    });
+  if (!crmHost) {
+    console.error("[CHANGE_REFILL_DATE] Missing CRM_HOST");
     return {
       status: false,
       message: "CRM configuration missing",
@@ -137,54 +132,17 @@ async function changeRefillDateInCRM(wpUserID, subscriptionId, refillDate) {
   console.log(`[CHANGE_REFILL_DATE] CRM Host: ${crmHost}`);
 
   try {
-    let apiPassword;
-    try {
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[CHANGE_REFILL_DATE] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[CHANGE_REFILL_DATE] Using password as plain text");
-      }
-    } catch (decodeError) {
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[CHANGE_REFILL_DATE] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    console.log("[CHANGE_REFILL_DATE] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[CHANGE_REFILL_DATE] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(
-          `[CHANGE_REFILL_DATE] Failed endpoint: ${authResult.endpoint}`
-        );
-      }
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[CHANGE_REFILL_DATE] No token found in cookie");
       return {
         status: false,
-        message: "CRM authentication failed",
+        message: "Authentication token not found",
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[CHANGE_REFILL_DATE] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[CHANGE_REFILL_DATE] Using token from cookie");
 
     const changeRefillDateUrl = `${crmHost}/api/user/change-refill-date`;
     console.log(

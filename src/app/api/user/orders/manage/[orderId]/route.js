@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../../../utils/crmAuth";
+import { getTokenFromCookie } from "../../../../utils/getTokenFromCookie";
 
 /**
  * GET /api/user/orders/manage/[orderId]
@@ -88,7 +88,7 @@ export async function GET(request, { params }) {
     );
 
     // Fetch order management data from CRM
-    const orderData = await fetchOrderManage(orderId);
+    const orderData = await fetchOrderManage(orderId, request);
 
     // Return in the expected format
     // Expected: { status: true, message: "...", data: { order: {...} } }
@@ -116,79 +116,33 @@ export async function GET(request, { params }) {
 /**
  * Fetch order management data from CRM API
  * Uses the order manage endpoint: /api/user/order/manage/{orderId}
+ * @param {string} orderId - Order ID
+ * @param {Request} request - The request object to get token from cookie
  */
-async function fetchOrderManage(orderId) {
+async function fetchOrderManage(orderId, request) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[ORDER_MANAGE] Missing CRM credentials:");
-    console.error({
-      crmHost: crmHost || "MISSING",
-      apiUsername: apiUsername ? "SET" : "MISSING",
-      apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-    });
+  if (!crmHost) {
+    console.error("[ORDER_MANAGE] Missing CRM configuration (CRM_HOST)");
     return {
       orderId: orderId,
     };
   }
 
   console.log(`[ORDER_MANAGE] CRM Host: ${crmHost}`);
-  console.log(`[ORDER_MANAGE] CRM Username: ${apiUsername}`);
 
   try {
-    // Decode the password - try base64 first, fallback to plain text
-    let apiPassword;
-    try {
-      // Try to decode as base64
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      // Check if decoded value is valid and reasonable
-      // If the decoded string is the same as input or contains many non-printable chars, use plain text
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[ORDER_MANAGE] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[ORDER_MANAGE] Using password as plain text");
-      }
-    } catch (decodeError) {
-      // If base64 decode fails, use as plain text
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[ORDER_MANAGE] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    // Step 1: Authenticate with CRM to get auth token
-    console.log("[ORDER_MANAGE] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[ORDER_MANAGE] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(`[ORDER_MANAGE] Failed endpoint: ${authResult.endpoint}`);
-      }
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[ORDER_MANAGE] No token found in cookie");
       return {
         orderId: orderId,
+        error: "Authentication token not found",
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[ORDER_MANAGE] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[ORDER_MANAGE] Using token from cookie");
 
     // Step 2: Fetch order management data from CRM
     // Uses the order manage endpoint: /api/user/order/manage/{orderId}

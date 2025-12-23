@@ -93,6 +93,9 @@ export function UserProvider({ children }) {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
+  const [subscriptionsError, setSubscriptionsError] = useState(null);
 
   // Fetch user data from API
   const fetchUserData = useCallback(async (useStoredData = false) => {
@@ -165,10 +168,97 @@ export function UserProvider({ children }) {
     }
   }, []);
 
+  const fetchSubscriptions = useCallback(async () => {
+    try {
+      setSubscriptionsLoading(true);
+      setSubscriptionsError(null);
+
+      const response = await fetch("/api/user/subscriptions");
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to fetch subscriptions");
+      }
+
+      const responseData = result.data;
+      let subscriptionsArray = [];
+
+      if (responseData?.subscriptions) {
+        subscriptionsArray = Array.isArray(responseData.subscriptions)
+          ? responseData.subscriptions
+          : [];
+      } else if (responseData?.data?.subscriptions) {
+        subscriptionsArray = Array.isArray(responseData.data.subscriptions)
+          ? responseData.data.subscriptions
+          : [];
+      }
+
+      const mappedSubscriptions = subscriptionsArray.map((sub) => {
+        const firstItem = sub.line_items?.[0] || {};
+
+        let mappedStatus = sub.status?.toLowerCase() || "active";
+        if (mappedStatus === "on-hold") {
+          mappedStatus = "paused";
+        } else if (mappedStatus === "cancelled") {
+          mappedStatus = "canceled";
+        }
+
+        const productName = firstItem.product_name || "Unknown Product";
+
+        const tabsFrequency = firstItem.tabs_frequency || "";
+        const subscriptionType = firstItem.subscription_type || "";
+        const dosage =
+          tabsFrequency && subscriptionType
+            ? `${tabsFrequency} | ${subscriptionType}`
+            : tabsFrequency || subscriptionType || "Not available";
+
+        let nextRefillDate = "Not scheduled";
+        if (sub.next_refill) {
+          nextRefillDate = sub.next_refill;
+        } else if (sub.next_payment_date) {
+          nextRefillDate = new Date(sub.next_payment_date).toLocaleDateString(
+            "en-US",
+            {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }
+          );
+        }
+
+        return {
+          id: sub.id,
+          category: "Sexual Health",
+          status: mappedStatus,
+          productName: productName,
+          productSubtitle: null,
+          dosage: dosage,
+          nextRefill: nextRefillDate,
+          productImage:
+            firstItem.image?.src ||
+            "https://myrocky.b-cdn.net/WP%20Images/patient-portal/order-card-1.png",
+          _raw: sub,
+        };
+      });
+
+      setSubscriptions(mappedSubscriptions);
+    } catch (err) {
+      console.error("[UserContext] Error fetching subscriptions:", err);
+      setSubscriptionsError(err.message || "Failed to load subscriptions");
+      setSubscriptions([]);
+    } finally {
+      setSubscriptionsLoading(false);
+    }
+  }, []);
+
   // Refresh user data (force API call)
   const refreshUserData = useCallback(() => {
     return fetchUserData(false);
   }, [fetchUserData]);
+
+  const refreshSubscriptions = useCallback(() => {
+    return fetchSubscriptions();
+  }, [fetchSubscriptions]);
 
   // Initialize user data on mount
   useEffect(() => {
@@ -177,11 +267,21 @@ export function UserProvider({ children }) {
     fetchUserData(true);
   }, [fetchUserData]);
 
+  useEffect(() => {
+    if (userData && !loading) {
+      fetchSubscriptions();
+    }
+  }, [userData, loading, fetchSubscriptions]);
+
   const value = {
     userData,
     loading,
     error,
     refreshUserData,
+    subscriptions,
+    subscriptionsLoading,
+    subscriptionsError,
+    refreshSubscriptions,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
