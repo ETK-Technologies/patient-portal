@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "@/app/api/utils/crmAuth";
+import { getTokenFromCookie } from "@/app/api/utils/getTokenFromCookie";
 
 /**
  * GET /api/user/[userId]/documents
@@ -25,7 +25,7 @@ export async function GET(request, { params }) {
 
         console.log(`[USER_DOCUMENTS] Fetching documents for user ID: ${userId}`);
 
-        const documentsData = await fetchDocuments(userId);
+        const documentsData = await fetchDocuments(userId, request);
 
         return NextResponse.json({
             success: true,
@@ -68,7 +68,7 @@ export async function POST(request, { params }) {
             `[USER_DOCUMENTS_UPDATE] Updating documents for user: ${userId}`
         );
 
-        const updateResult = await updateDocuments(userId, body);
+        const updateResult = await updateDocuments(userId, body, request);
 
         if (!updateResult.success) {
             return NextResponse.json(
@@ -111,77 +111,34 @@ export async function PUT(request, { params }) {
 /**
  * Fetch documents from CRM API
  * Uses the documents endpoint: /api/user/{crmUserID}/documents
+ * @param {string} crmUserID - CRM User ID
+ * @param {Request} request - The request object to get token from cookie
  */
-async function fetchDocuments(crmUserID) {
+async function fetchDocuments(crmUserID, request) {
     const crmHost = process.env.CRM_HOST;
-    const apiUsername = process.env.CRM_API_USERNAME;
-    const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-    if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-        console.error("[USER_DOCUMENTS] Missing CRM credentials:");
-        console.error({
-            crmHost: crmHost || "MISSING",
-            apiUsername: apiUsername ? "SET" : "MISSING",
-            apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-        });
+    if (!crmHost) {
+        console.error("[USER_DOCUMENTS] Missing CRM_HOST");
         return {
             id: crmUserID,
-            error: "Missing CRM credentials",
+            error: "Missing CRM configuration",
         };
     }
 
     console.log(`[USER_DOCUMENTS] CRM Host: ${crmHost}`);
-    console.log(`[USER_DOCUMENTS] CRM Username: ${apiUsername}`);
 
     try {
-        let apiPassword;
-        try {
-            const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-                "utf8"
-            );
-            const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-            const isSameAsInput = decoded === apiPasswordEncoded;
-
-            if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-                apiPassword = decoded;
-                console.log("[USER_DOCUMENTS] Password decoded from base64");
-            } else {
-                apiPassword = apiPasswordEncoded;
-                console.log("[USER_DOCUMENTS] Using password as plain text");
-            }
-        } catch (decodeError) {
-            apiPassword = apiPasswordEncoded;
-            console.log(
-                "[USER_DOCUMENTS] Base64 decode failed, using password as plain text"
-            );
-        }
-
-        console.log("[USER_DOCUMENTS] Authenticating with CRM...");
-        const authResult = await authenticateWithCRM(
-            crmHost,
-            apiUsername,
-            apiPassword
-        );
-
-        if (!authResult.success) {
-            console.error(
-                `[USER_DOCUMENTS] CRM authentication failed: ${authResult.error}`
-            );
-            if (authResult.endpoint) {
-                console.error(
-                    `[USER_DOCUMENTS] Failed endpoint: ${authResult.endpoint}`
-                );
-            }
+        const authToken = getTokenFromCookie(request);
+        
+        if (!authToken) {
+            console.error("[USER_DOCUMENTS] No token found in cookie");
             return {
                 id: crmUserID,
-                error: `CRM authentication failed: ${authResult.error}`,
+                error: "Authentication token not found",
             };
         }
 
-        const authToken = authResult.token;
-        console.log(
-            `[USER_DOCUMENTS] Successfully obtained CRM auth token from ${authResult.endpoint}`
-        );
+        console.log("[USER_DOCUMENTS] Using token from cookie");
 
         const documentsUrl = `${crmHost}/api/user/${crmUserID}/documents`;
         console.log(`[USER_DOCUMENTS] Fetching documents from: ${documentsUrl}`);
@@ -230,66 +187,35 @@ async function fetchDocuments(crmUserID) {
 /**
  * Update documents in CRM API
  * Uses the documents endpoint: /api/user/{crmUserID}/documents
+ * @param {string} crmUserID - CRM User ID
+ * @param {object} updateData - Data to update
+ * @param {Request} request - The request object to get token from cookie
  */
-async function updateDocuments(crmUserID, updateData) {
+async function updateDocuments(crmUserID, updateData, request) {
     const crmHost = process.env.CRM_HOST;
-    const apiUsername = process.env.CRM_API_USERNAME;
-    const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-    if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-        console.error("[USER_DOCUMENTS_UPDATE] Missing CRM credentials");
+    if (!crmHost) {
+        console.error("[USER_DOCUMENTS_UPDATE] Missing CRM_HOST");
         return {
             success: false,
-            error: "CRM configuration missing",
+            error: "Missing CRM configuration",
             status: 500,
         };
     }
 
     try {
-        let apiPassword;
-        try {
-            const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-                "utf8"
-            );
-            const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-            const isSameAsInput = decoded === apiPasswordEncoded;
-
-            if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-                apiPassword = decoded;
-                console.log("[USER_DOCUMENTS_UPDATE] Password decoded from base64");
-            } else {
-                apiPassword = apiPasswordEncoded;
-                console.log("[USER_DOCUMENTS_UPDATE] Using password as plain text");
-            }
-        } catch (decodeError) {
-            apiPassword = apiPasswordEncoded;
-            console.log(
-                "[USER_DOCUMENTS_UPDATE] Using password as plain text (base64 decode failed)"
-            );
-        }
-
-        console.log("[USER_DOCUMENTS_UPDATE] Authenticating with CRM...");
-        const authResult = await authenticateWithCRM(
-            crmHost,
-            apiUsername,
-            apiPassword
-        );
-
-        if (!authResult.success) {
-            console.error(
-                `[USER_DOCUMENTS_UPDATE] CRM authentication failed: ${authResult.error}`
-            );
+        const authToken = getTokenFromCookie(request);
+        
+        if (!authToken) {
+            console.error("[USER_DOCUMENTS_UPDATE] No token found in cookie");
             return {
                 success: false,
-                error: `CRM authentication failed: ${authResult.error}`,
-                status: 500,
+                error: "Authentication token not found",
+                status: 401,
             };
         }
 
-        const authToken = authResult.token;
-        console.log(
-            `[USER_DOCUMENTS_UPDATE] Successfully obtained CRM auth token from ${authResult.endpoint}`
-        );
+        console.log("[USER_DOCUMENTS_UPDATE] Using token from cookie");
 
         const updateUrl = `${crmHost}/api/user/${crmUserID}/documents`;
         console.log(`[USER_DOCUMENTS_UPDATE] Updating documents at: ${updateUrl}`);

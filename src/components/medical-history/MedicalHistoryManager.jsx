@@ -169,7 +169,10 @@ export default function MedicalHistoryManager() {
         );
 
         const response = await fetch(
-          `/api/user/medical-profile?crmUserID=${crmUserID}`
+          `/api/user/medical-profile?crmUserID=${crmUserID}`,
+          {
+            credentials: "include",
+          }
         );
 
         if (!response.ok) {
@@ -280,6 +283,7 @@ export default function MedicalHistoryManager() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(requestBody),
       });
 
@@ -322,7 +326,10 @@ export default function MedicalHistoryManager() {
       });
       
       const refreshResponse = await fetch(
-        `/api/user/medical-profile?crmUserID=${crmUserID}`
+        `/api/user/medical-profile?crmUserID=${crmUserID}`,
+        {
+          credentials: "include",
+        }
       );
       if (refreshResponse.ok) {
         const refreshData = await refreshResponse.json();
