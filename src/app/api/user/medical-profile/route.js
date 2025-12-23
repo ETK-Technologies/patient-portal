@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../utils/crmAuth";
+import { getTokenFromCookie } from "../../utils/getTokenFromCookie";
 
 /**
  * GET /api/user/medical-profile
@@ -70,7 +70,7 @@ export async function GET(request) {
     }
 
     // Fetch medical profile data from CRM
-    const medicalProfileData = await fetchMedicalProfile(crmUserID);
+    const medicalProfileData = await fetchMedicalProfile(crmUserID, request);
 
     // Ensure we always return a valid structure, even if there's an error
     if (medicalProfileData.error) {
@@ -112,87 +112,38 @@ export async function GET(request) {
 /**
  * Fetch medical profile data from CRM API
  * Uses the medical profile endpoint: /api/user/{crmUserID}/medical-profile
+ * @param {string} crmUserID - CRM User ID
+ * @param {Request} request - The request object to get token from cookie
  */
-async function fetchMedicalProfile(crmUserID) {
+async function fetchMedicalProfile(crmUserID, request) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[MEDICAL_PROFILE] Missing CRM credentials:");
-    console.error({
-      crmHost: crmHost || "MISSING",
-      apiUsername: apiUsername ? "SET" : "MISSING",
-      apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-    });
+  if (!crmHost) {
+    console.error("[MEDICAL_PROFILE] Missing CRM_HOST");
     return {
       crmUserID: crmUserID,
       medicalProfile: [],
       medicalProfiles: [],
-      error: "Missing CRM credentials",
+      error: "Missing CRM configuration",
     };
   }
 
   console.log(`[MEDICAL_PROFILE] CRM Host: ${crmHost}`);
-  console.log(`[MEDICAL_PROFILE] CRM Username: ${apiUsername}`);
 
   try {
-    // Decode the password - try base64 first, fallback to plain text
-    let apiPassword;
-    try {
-      // Try to decode as base64
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      // Check if decoded value is valid and reasonable
-      // If the decoded string is the same as input or contains many non-printable chars, use plain text
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[MEDICAL_PROFILE] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[MEDICAL_PROFILE] Using password as plain text");
-      }
-    } catch (decodeError) {
-      // If base64 decode fails, use as plain text
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[MEDICAL_PROFILE] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    // Step 1: Authenticate with CRM to get auth token
-    console.log("[MEDICAL_PROFILE] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[MEDICAL_PROFILE] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(
-          `[MEDICAL_PROFILE] Failed endpoint: ${authResult.endpoint}`
-        );
-      }
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[MEDICAL_PROFILE] No token found in cookie");
       return {
         crmUserID: crmUserID,
         medicalProfile: [],
         medicalProfiles: [],
-        error: `CRM authentication failed: ${authResult.error}`,
+        error: "Authentication token not found",
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[MEDICAL_PROFILE] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[MEDICAL_PROFILE] Using token from cookie");
 
     // Step 2: Fetch medical profile data from CRM
     // Uses the medical profile endpoint: /api/user/{crmUserID}/medical-profile
@@ -336,7 +287,8 @@ export async function POST(request) {
       crmUserID,
       slug,
       metaValue,
-      id
+      id,
+      request
     );
 
     if (updateResult.error) {
@@ -372,59 +324,33 @@ export async function POST(request) {
  * Update medical profile data in CRM API
  * Uses the medical profile endpoint: PATCH /api/user/medical-profile/update
  * Request body: { id (optional), crm_user_id, slug, meta_value }
+ * @param {string} crmUserID - CRM User ID
+ * @param {string} slug - Type of medical data
+ * @param {string} meta_value - Comma-separated values
+ * @param {number|null} id - Optional ID for updates
+ * @param {Request} request - The request object to get token from cookie
  */
-async function updateMedicalProfile(crmUserID, slug, meta_value, id = null) {
+async function updateMedicalProfile(crmUserID, slug, meta_value, id = null, request) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[MEDICAL_PROFILE_UPDATE] Missing CRM credentials");
+  if (!crmHost) {
+    console.error("[MEDICAL_PROFILE_UPDATE] Missing CRM_HOST");
     return {
-      error: "Missing CRM credentials",
+      error: "Missing CRM configuration",
     };
   }
 
   try {
-    // Decode the password - try base64 first, fallback to plain text
-    let apiPassword;
-    try {
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-      } else {
-        apiPassword = apiPasswordEncoded;
-      }
-    } catch (decodeError) {
-      apiPassword = apiPasswordEncoded;
-    }
-
-    // Step 1: Authenticate with CRM to get auth token
-    console.log("[MEDICAL_PROFILE_UPDATE] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[MEDICAL_PROFILE_UPDATE] CRM authentication failed: ${authResult.error}`
-      );
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[MEDICAL_PROFILE_UPDATE] No token found in cookie");
       return {
-        error: `CRM authentication failed: ${authResult.error}`,
+        error: "Authentication token not found",
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[MEDICAL_PROFILE_UPDATE] Successfully obtained CRM auth token`
-    );
+    console.log("[MEDICAL_PROFILE_UPDATE] Using token from cookie");
 
     // Step 2: Update medical profile data in CRM
     // Endpoint: PATCH /api/user/medical-profile/update

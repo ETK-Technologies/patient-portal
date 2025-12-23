@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "@/app/api/utils/crmAuth";
+import { getTokenFromCookie } from "@/app/api/utils/getTokenFromCookie";
 
 export async function GET(request, { params }) {
     try {
@@ -15,7 +15,7 @@ export async function GET(request, { params }) {
             );
         }
 
-        const paymentData = await fetchPaymentProfiles(userId);
+        const paymentData = await fetchPaymentProfiles(userId, request);
 
         return NextResponse.json({
             success: true,
@@ -34,48 +34,29 @@ export async function GET(request, { params }) {
     }
 }
 
-async function fetchPaymentProfiles(crmUserID) {
+async function fetchPaymentProfiles(crmUserID, request) {
     const crmHost = process.env.CRM_HOST;
-    const apiUsername = process.env.CRM_API_USERNAME;
-    const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-    if (!crmHost || !apiUsername || !apiPasswordEncoded) {
+    if (!crmHost) {
+        console.error("[USER_PAYMENT_PROFILES] Missing CRM_HOST");
         return {
             id: crmUserID,
-            error: "Missing CRM credentials",
+            error: "Missing CRM configuration",
         };
     }
 
     try {
-        let apiPassword;
-        try {
-            const decoded = Buffer.from(apiPasswordEncoded, "base64").toString("utf8");
-            const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-            const isSameAsInput = decoded === apiPasswordEncoded;
-
-            if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-                apiPassword = decoded;
-            } else {
-                apiPassword = apiPasswordEncoded;
-            }
-        } catch (decodeError) {
-            apiPassword = apiPasswordEncoded;
-        }
-
-        const authResult = await authenticateWithCRM(
-            crmHost,
-            apiUsername,
-            apiPassword
-        );
-
-        if (!authResult.success) {
+        const authToken = getTokenFromCookie(request);
+        
+        if (!authToken) {
+            console.error("[USER_PAYMENT_PROFILES] No token found in cookie");
             return {
                 id: crmUserID,
-                error: `CRM authentication failed: ${authResult.error}`,
+                error: "Authentication token not found",
             };
         }
 
-        const authToken = authResult.token;
+        console.log("[USER_PAYMENT_PROFILES] Using token from cookie");
         const paymentProfilesUrl = `${crmHost}/api/user/payment/profiles/${crmUserID}`;
 
         const response = await fetch(paymentProfilesUrl, {
