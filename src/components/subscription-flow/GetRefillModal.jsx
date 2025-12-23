@@ -8,6 +8,7 @@ const ANIMATION_DURATION = 300;
 export default function GetRefillModal({ isOpen, onClose, onConfirm }) {
   const [isMounted, setIsMounted] = useState(isOpen);
   const [isVisible, setIsVisible] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   // Handle mount/unmount animation
   useEffect(() => {
@@ -52,11 +53,21 @@ export default function GetRefillModal({ isOpen, onClose, onConfirm }) {
 
   if (!isMounted) return null;
 
-  const handleConfirm = () => {
-    if (onConfirm) {
-      onConfirm();
+  const handleConfirm = async () => {
+    if (onConfirm && !isConfirming) {
+      setIsConfirming(true);
+      try {
+        const result = onConfirm();
+        if (result && typeof result.then === "function") {
+          await result;
+        }
+        onClose();
+      } catch (error) {
+        console.error("Error in handleConfirm:", error);
+      } finally {
+        setIsConfirming(false);
+      }
     }
-    onClose();
   };
 
   return (
@@ -109,15 +120,17 @@ export default function GetRefillModal({ isOpen, onClose, onConfirm }) {
           <div className="flex gap-3 mt-6">
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-3 bg-white border border-gray-900 text-gray-900 rounded-full font-medium hover:bg-gray-50 transition-colors cursor-pointer"
+              disabled={isConfirming}
+              className="flex-1 px-4 py-3 bg-white border border-gray-900 text-gray-900 rounded-full font-medium hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Not now
             </button>
             <button
               onClick={handleConfirm}
-              className="flex-1 px-4 py-3 bg-black text-white rounded-full font-medium hover:bg-gray-800 transition-colors cursor-pointer"
+              disabled={isConfirming}
+              className="flex-1 px-4 py-3 bg-black text-white rounded-full font-medium hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Get my refill
+              {isConfirming ? "Processing..." : "Get my refill"}
             </button>
           </div>
         </div>

@@ -29,9 +29,13 @@ export default function SubscriptionFlow({
   onBackHandler,
 }) {
   const router = useRouter();
+  const [subscriptionDetails, setSubscriptionDetails] = useState(subscription);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  
   // Initialize flow state - start at null (main view) unless action indicates otherwise
   const initialStep = action === "Manage subscription" ? null : null;
-  const flowState = useSubscriptionFlow(subscription, initialStep);
+  const currentSubscriptionForFlow = subscriptionDetails || subscription;
+  const flowState = useSubscriptionFlow(currentSubscriptionForFlow, initialStep);
   const { stepIndex, handleNavigate, handleBack } = flowState;
   const [isChattingProvider, setIsChattingProvider] = useState(false);
 
@@ -63,8 +67,9 @@ export default function SubscriptionFlow({
 
   // Helper function to extract initial values from subscription
   const getInitialValues = () => {
-    if (subscription?._raw) {
-      const rawSub = subscription._raw;
+    const currentSub = subscriptionDetails || subscription;
+    if (currentSub?._raw) {
+      const rawSub = currentSub._raw;
       const firstLineItem = rawSub.line_items?.[0];
 
       // Quantity
@@ -168,20 +173,20 @@ export default function SubscriptionFlow({
       };
     }
 
-    // Fallback to mapped subscription data (dummy data)
     return {
-      quantity: subscription?.quantity || "Not available",
-      shippingFreq: subscription?.shippingFrequency || "Not available",
-      shippingAddr: subscription?.shippingAddress || "Not available",
+      quantity: currentSub?.quantity || "Not available",
+      shippingFreq: currentSub?.shippingFrequency || "Not available",
+      shippingAddr: currentSub?.shippingAddress || "Not available",
       shippingDataObj: null,
-      paymentMethod: subscription?.paymentMethod || "Not available",
+      paymentMethod: currentSub?.paymentMethod || "Not available",
     };
   };
 
   // Helper to get initial values - will be recalculated when subscription changes
   const getInitialValuesForState = () => {
-    if (subscription?._raw) {
-      const rawSub = subscription._raw;
+    const currentSub = subscriptionDetails || subscription;
+    if (currentSub?._raw) {
+      const rawSub = currentSub._raw;
       const firstLineItem = rawSub.line_items?.[0];
 
       let quantity = "Not available";
@@ -234,12 +239,11 @@ export default function SubscriptionFlow({
       return { quantity, shippingFreq, shippingAddr, paymentMethod };
     }
 
-    // Fallback to dummy data
     return {
-      quantity: subscription?.quantity || "Not available",
-      shippingFreq: subscription?.shippingFrequency || "Not available",
-      shippingAddr: subscription?.shippingAddress || "Not available",
-      paymentMethod: subscription?.paymentMethod || "Not available",
+      quantity: currentSub?.quantity || "Not available",
+      shippingFreq: currentSub?.shippingFrequency || "Not available",
+      shippingAddr: currentSub?.shippingAddress || "Not available",
+      paymentMethod: currentSub?.paymentMethod || "Not available",
     };
   };
 
@@ -290,23 +294,51 @@ export default function SubscriptionFlow({
       "Not available"
     );
   });
-  const { userData } = useUser();
+  const { userData, refreshSubscriptions } = useUser();
+  const [isRequestingRefill, setIsRequestingRefill] = useState(false);
+  const [isChangingRefillDate, setIsChangingRefillDate] = useState(false);
 
   const handleChatWithProvider = async () => {
-    if (!subscription?.id) {
-      toast.error("Subscription ID not found");
+    const currentSub = subscriptionDetails || subscription;
+    
+    const getUserIdFromCookies = () => {
+      if (typeof document === "undefined") return null;
+      const cookies = document.cookie.split(";");
+      for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split("=");
+        if (name === "userId") {
+          return decodeURIComponent(value);
+        }
+      }
+      return null;
+    };
+
+    const userId = getUserIdFromCookies();
+    
+    if (!userId) {
+      toast.error("User ID not found. Please log in again.");
+      return;
+    }
+
+    const prescriptionCrmUserId = currentSub?._raw?.prescription?.crm_user_id;
+    
+    if (!prescriptionCrmUserId) {
+      toast.error("Provider information not found for this subscription");
       return;
     }
 
     setIsChattingProvider(true);
     try {
+      const participantIds = `${prescriptionCrmUserId},${userId}`;
+      
       const response = await fetch(
-        `/api/messenger/threads/search?subscriptionId=${subscription.id}`,
+        `/api/messenger/threads/search-by-participants?participantIds=${participantIds}`,
         {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
           },
+          credentials: "include",
         }
       );
 
@@ -317,11 +349,11 @@ export default function SubscriptionFlow({
 
       const data = await response.json();
 
-      if (data.success) {
-        router.push("/messages");
-        toast.success("Opening messenger...");
+      if (data.success && data.chatUrl) {
+        window.open(data.chatUrl, "_blank", "noopener,noreferrer");
+        toast.success("Opening chat with provider...");
       } else {
-        throw new Error(data.error || "Failed to search for thread");
+        throw new Error(data.error || "Failed to get chat URL");
       }
     } catch (error) {
       console.error("Error chatting with provider:", error);
@@ -330,6 +362,113 @@ export default function SubscriptionFlow({
       setIsChattingProvider(false);
     }
   };
+
+  useEffect(() => {
+    const fetchSubscriptionDetails = async () => {
+      if (action === "Manage subscription" && subscription?.id) {
+        setIsLoadingDetails(true);
+        try {
+          const subscriptionId = subscription.id || subscription._raw?.id;
+          
+          if (!subscriptionId) {
+            console.warn("[SubscriptionFlow] No subscription ID found, using existing data");
+            setIsLoadingDetails(false);
+            return;
+          }
+
+          const response = await fetch(`/api/user/subscription/${subscriptionId}`, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+          });
+
+          const result = await response.json();
+
+          if (response.ok && result.success && result.data) {
+            const subscriptionData = result.data?.subscription || result.data;
+            
+            if (!subscriptionData) {
+              console.warn("[SubscriptionFlow] No subscription data in response, using existing data");
+              setIsLoadingDetails(false);
+              return;
+            }
+
+            const firstLineItem = subscriptionData.line_items?.[0] || {};
+            
+            const tabsFrequency = firstLineItem.tabs_frequency || "";
+            const subscriptionType = firstLineItem.subscription_type || "";
+            const dosage =
+              tabsFrequency && subscriptionType
+                ? `${tabsFrequency} | ${subscriptionType}`
+                : tabsFrequency || subscriptionType || subscription.dosage || "Not available";
+
+            const quantity = firstLineItem.quantity || 1;
+            const billingPeriod = subscriptionData.billing_period || "";
+            const billingInterval = subscriptionData.billing_interval || "";
+            let quantityFrequency = subscription.quantity || "Not available";
+            if (tabsFrequency) {
+              quantityFrequency = `${tabsFrequency} / month`;
+            } else if (billingPeriod && billingInterval) {
+              const interval = parseInt(billingInterval);
+              quantityFrequency = `${quantity} ${quantity === 1 ? "item" : "items"} / ${interval === 1 ? billingPeriod : `${interval} ${billingPeriod}s`}`;
+            }
+
+            const shipping = subscriptionData.shipping || {};
+            let shippingAddress = "Not available";
+            if (shipping.address_1) {
+              const addressParts = [
+                shipping.address_1,
+                shipping.address_2,
+                shipping.city,
+                shipping.state,
+                shipping.postcode,
+              ].filter(Boolean);
+              shippingAddress = addressParts.join(", ");
+            }
+
+            const paymentData = subscriptionData.payment_data || {};
+            let paymentMethod = "Not available";
+            if (paymentData.card_number) {
+              const last4 = paymentData.card_number.replace(/X/g, "").slice(-4);
+              paymentMethod = `•••• •••• •••• ${last4}`;
+            } else if (paymentData.card_type) {
+              paymentMethod = paymentData.card_type;
+            }
+
+            const mappedSubscription = {
+              id: subscriptionData.id || subscriptionId,
+              category: firstLineItem.category_name || "Sexual Health",
+              status: subscriptionData.status?.toLowerCase() || subscription.status,
+              productName: firstLineItem.product_name || subscription.productName,
+              productSubtitle: subscription.productSubtitle || firstLineItem.brand || "",
+              dosage: dosage,
+              nextRefill: subscriptionData.next_refill || subscription.nextRefill,
+              productImage: firstLineItem.product_image || subscription.productImage,
+              quantity: quantityFrequency,
+              shippingFrequency: billingPeriod && billingInterval 
+                ? (parseInt(billingInterval) === 1 ? `1 ${billingPeriod}` : `${billingInterval} ${billingPeriod}s`)
+                : subscription.shippingFrequency || "Not available",
+              shippingAddress: shippingAddress,
+              paymentMethod: paymentMethod,
+              _raw: subscriptionData,
+            };
+
+            setSubscriptionDetails(mappedSubscription);
+          } else {
+            console.warn("[SubscriptionFlow] Failed to fetch subscription details, using existing data");
+           }
+        } catch (error) {
+          console.error("[SubscriptionFlow] Error fetching subscription details:", error);
+          } finally {
+          setIsLoadingDetails(false);
+        }
+      }
+    };
+
+    fetchSubscriptionDetails();
+  }, [action, subscription?.id]);
 
   useEffect(() => {
     // Keep header visible; switch variant based on whether we're on the main details panel
@@ -342,9 +481,9 @@ export default function SubscriptionFlow({
   }, [stepIndex, setShowHeader, setHeaderVariant]);
 
   useEffect(() => {
-    // Extract data from subscription._raw (API response)
-    if (subscription?._raw) {
-      const rawSub = subscription._raw;
+    const currentSubscription = subscriptionDetails || subscription;
+    if (currentSubscription?._raw) {
+      const rawSub = currentSubscription._raw;
 
       // Extract quantity from line_items
       const firstLineItem = rawSub.line_items?.[0];
@@ -442,39 +581,49 @@ export default function SubscriptionFlow({
               ? shipping.state
               : "",
         });
-      }
-
-      // Extract payment method
-      if (rawSub.payment_method_title) {
-        setDisplayPaymentMethod(rawSub.payment_method_title);
-      } else if (rawSub.payment_method) {
-        setDisplayPaymentMethod(rawSub.payment_method);
-      }
-    } else {
-      // Fallback to mapped subscription data if _raw is not available (dummy data)
-      if (subscription?.quantity) {
-        setLocalQuantity(subscription.quantity);
-      } else {
-        setLocalQuantity("Not available");
-      }
-      if (subscription?.shippingFrequency) {
-        setLocalShippingFrequency(subscription.shippingFrequency);
-      } else {
-        setLocalShippingFrequency("Not available");
-      }
-      if (subscription?.shippingAddress) {
-        setLocalShippingAddress(subscription.shippingAddress);
       } else {
         setLocalShippingAddress("Not available");
       }
-      if (subscription?.paymentMethod) {
+
+      const paymentData = rawSub.payment_data || {};
+      if (paymentData.card_number) {
+       const cardNumber = paymentData.card_number.replace(/X/g, "");
+        const last4 = cardNumber.slice(-4);
+        setDisplayPaymentMethod(`•••• •••• •••• ${last4}`);
+      } else if (paymentData.card_type) {
+        setDisplayPaymentMethod(paymentData.card_type);
+      } else if (rawSub.payment_method_title) {
+        setDisplayPaymentMethod(rawSub.payment_method_title);
+      } else if (rawSub.payment_method) {
+        setDisplayPaymentMethod(rawSub.payment_method);
+      } else {
+        setDisplayPaymentMethod("Not available");
+      }
+    } else {
+      // Fallback to mapped subscription data if _raw is not available (dummy data)
+      if (currentSubscription?.quantity) {
+        setLocalQuantity(currentSubscription.quantity);
+      } else {
+        setLocalQuantity("Not available");
+      }
+      if (currentSubscription?.shippingFrequency) {
+        setLocalShippingFrequency(currentSubscription.shippingFrequency);
+      } else {
+        setLocalShippingFrequency("Not available");
+      }
+      if (currentSubscription?.shippingAddress) {
+        setLocalShippingAddress(currentSubscription.shippingAddress);
+      } else {
+        setLocalShippingAddress("Not available");
+      }
+      if (currentSubscription?.paymentMethod) {
         // Payment method is already formatted (e.g., "**** **** **** 3344")
-        setDisplayPaymentMethod(subscription.paymentMethod);
+        setDisplayPaymentMethod(currentSubscription.paymentMethod);
       } else {
         setDisplayPaymentMethod("Not available");
       }
     }
-  }, [subscription]);
+  }, [subscriptionDetails, subscription]);
 
   // Fetch shipping data when modal opens (if not already set from subscription)
   useEffect(() => {
@@ -515,6 +664,8 @@ export default function SubscriptionFlow({
     }
   }, [isShippingAddressModalOpen, shippingData]);
 
+  const currentSubscription = subscriptionDetails || subscription;
+  
   const {
     productName,
     productSubtitle,
@@ -523,13 +674,13 @@ export default function SubscriptionFlow({
     dosage,
     status,
     category,
-  } = subscription || {};
+  } = currentSubscription || {};
 
   const quantityText = localQuantity;
   const shippingFrequencyText = localShippingFrequency;
   const shippingAddress = localShippingAddress;
   const treatmentInstructions =
-    subscription?.treatmentInstructions ||
+    currentSubscription?.treatmentInstructions ||
     "Take 1 tablet by mouth as needed 2 hours before sex. Do not take more than 1 tablet daily.";
 
   // If we're in a flow step, render the step renderer
@@ -647,8 +798,8 @@ export default function SubscriptionFlow({
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <div className="text-sm text-[#5E5E5E]">{quantityText}</div>
-                    {subscription?.status && (
-                      <StatusBadge status={subscription.status} />
+                    {currentSubscription?.status && (
+                      <StatusBadge status={currentSubscription.status} />
                     )}
                   </div>
                 </div>
@@ -811,10 +962,66 @@ export default function SubscriptionFlow({
           isOpen={isQuantityModalOpen}
           onClose={() => setIsQuantityModalOpen(false)}
           currentValue={localQuantity}
-          onSave={(data) => {
-            setLocalQuantity(data.quantityFrequency);
-            // Handle provider message if needed
-            console.log("Provider message:", data.providerMessage);
+          onSave={async (data) => {
+            try {
+              const currentSub = subscriptionDetails || subscription;
+              const subscriptionId = currentSub?.id || currentSub?._raw?.id;
+              const firstLineItem = currentSub?._raw?.line_items?.[0];
+              const lineItemId = firstLineItem?.id;
+
+              if (!subscriptionId) {
+                throw new Error("Subscription ID not found");
+              }
+
+              if (!lineItemId) {
+                throw new Error("Line item ID not found");
+              }
+
+             const quantityMatch = data.quantityFrequency.match(/^(\d+)/);
+              if (!quantityMatch) {
+                throw new Error("Invalid quantity format");
+              }
+              const quantity = parseInt(quantityMatch[1], 10);
+
+              const response = await fetch(
+                `/api/user/subscription/update/quantity/${subscriptionId}`,
+                {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  credentials: "include",
+                  body: JSON.stringify({
+                    line_item_id: lineItemId,
+                    quantity: quantity,
+                  }),
+                }
+              );
+
+              const result = await response.json();
+
+              if (!response.ok || !result.success) {
+                throw new Error(
+                  result.error || result.message || "Failed to update quantity"
+                );
+              }
+
+              setLocalQuantity(data.quantityFrequency);
+              toast.success("Quantity & frequency updated successfully");
+
+              if (refreshSubscriptions) {
+                await refreshSubscriptions();
+              }
+
+             if (data.providerMessage) {
+                console.log("Provider message:", data.providerMessage);
+              }
+            } catch (error) {
+              console.error("Error updating quantity & frequency:", error);
+              toast.error(
+                error.message || "Failed to update quantity & frequency"
+              );
+            }
           }}
         />
         <UpdateModal
@@ -831,36 +1038,59 @@ export default function SubscriptionFlow({
           onClose={() => setIsShippingAddressModalOpen(false)}
           onSave={async (updatedData) => {
             try {
-              // Update shipping address via API
-              const response = await fetch("/api/user/shipping-address", {
+              const currentSub = subscriptionDetails || subscription;
+              const subscriptionId = currentSub?.id || currentSub?._raw?.id;
+
+              if (!subscriptionId) {
+                throw new Error("Subscription ID not found");
+              }
+
+              const response = await fetch("/api/user/update-refill-shipping-address", {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
                 },
-                body: JSON.stringify(updatedData),
+                credentials: "include",
+                body: JSON.stringify({
+                  subscription_id: subscriptionId,
+                  shipping_address: {
+                    first_name: updatedData.first_name || "",
+                    last_name: updatedData.last_name || "",
+                    email: updatedData.email || "",
+                    address_1: updatedData.address_1 || "",
+                    address_2: updatedData.address_2 || "",
+                    city: updatedData.city || "",
+                    state: updatedData.state || "",
+                    postcode: updatedData.postcode || "",
+                    country: updatedData.country || "CA",
+                  },
+                }),
               });
 
               const result = await response.json();
 
-              if (result.success) {
-                // Update display address
-                const addressParts = [
-                  updatedData.address_1,
-                  updatedData.address_2,
-                  updatedData.city,
-                  updatedData.state,
-                  updatedData.postcode,
-                ].filter(Boolean);
-                setLocalShippingAddress(addressParts.join(", "));
-                toast.success("Shipping address updated successfully");
-              } else {
-                toast.error(
-                  result.error || "Failed to update shipping address"
+              if (!response.ok || !result.success) {
+                throw new Error(
+                  result.error || result.message || "Failed to update shipping address"
                 );
+              }
+
+              const addressParts = [
+                updatedData.address_1,
+                updatedData.address_2,
+                updatedData.city,
+                updatedData.state,
+                updatedData.postcode,
+              ].filter(Boolean);
+              setLocalShippingAddress(addressParts.join(", "));
+              toast.success("Shipping address updated successfully");
+
+              if (refreshSubscriptions) {
+                await refreshSubscriptions();
               }
             } catch (error) {
               console.error("Error updating shipping address:", error);
-              toast.error("Failed to update shipping address");
+              toast.error(error.message || "Failed to update shipping address");
             }
           }}
           shippingData={shippingData}
@@ -883,21 +1113,96 @@ export default function SubscriptionFlow({
         <GetRefillModal
           isOpen={isGetRefillModalOpen}
           onClose={() => setIsGetRefillModalOpen(false)}
-          onConfirm={() => {
-            // Handle refill confirmation
-            console.log("Refill confirmed");
-            toast.success("Refill order has been placed successfully");
+          onConfirm={async () => {
+            try {
+              setIsRequestingRefill(true);
+              
+              const currentSub = subscriptionDetails || subscription;
+              const subscriptionId = currentSub?.id || currentSub?._raw?.id;
+              
+              if (!subscriptionId) {
+                throw new Error("Subscription ID not found");
+              }
+
+              const response = await fetch("/api/user/refill-subscription-renewal", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                credentials: "include",
+                body: JSON.stringify({
+                  subscription_id: subscriptionId,
+                }),
+              });
+
+              const result = await response.json();
+
+              if (!response.ok || !result.success) {
+                throw new Error(result.error || result.message || "Failed to request refill");
+              }
+
+              toast.success("Refill order has been placed successfully");
+              setIsGetRefillModalOpen(false);
+              
+              if (refreshSubscriptions) {
+                await refreshSubscriptions();
+              }
+            } catch (error) {
+              console.error("Error requesting refill:", error);
+              toast.error(error.message || "Failed to request refill");
+            } finally {
+              setIsRequestingRefill(false);
+            }
           }}
         />
         <ChangeRefillDateModal
           isOpen={isChangeRefillDateModalOpen}
           onClose={() => setIsChangeRefillDateModalOpen(false)}
           currentRefillDate={nextRefill}
-          onSave={(newDate) => {
-            // Update the refill date
-            console.log("New refill date:", newDate);
-            toast.success("Refill date updated successfully");
-            // You can update the subscription's nextRefill here if needed
+          onSave={async (apiDateFormat, formattedDate) => {
+            try {
+              setIsChangingRefillDate(true);
+              
+              const currentSub = subscriptionDetails || subscription;
+              const subscriptionId = currentSub?.id || currentSub?._raw?.id;
+              
+              if (!subscriptionId) {
+                throw new Error("Subscription ID not found");
+              }
+
+              if (!apiDateFormat) {
+                throw new Error("Refill date is required");
+              }
+
+              const response = await fetch("/api/user/change-refill-date", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                credentials: "include",
+                body: JSON.stringify({
+                  subscription_id: subscriptionId,
+                  refill_date: apiDateFormat,
+                }),
+              });
+
+              const result = await response.json();
+
+              if (!response.ok || !result.success) {
+                throw new Error(result.error || result.message || "Failed to change refill date");
+              }
+
+              toast.success("Refill date updated successfully");
+              
+              if (refreshSubscriptions) {
+                await refreshSubscriptions();
+              }
+            } catch (error) {
+              console.error("Error changing refill date:", error);
+              toast.error(error.message || "Failed to change refill date");
+            } finally {
+              setIsChangingRefillDate(false);
+            }
           }}
         />
       </Section>

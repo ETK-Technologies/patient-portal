@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../../../../utils/crmAuth";
+import { getTokenFromCookie } from "../../../../../utils/getTokenFromCookie";
 
 /**
  * PUT /api/user/subscription/update/quantity/[subscriptionId]
@@ -103,7 +103,8 @@ export async function PUT(request, { params }) {
       wpUserID,
       subscriptionId,
       line_item_id,
-      quantityNum
+      quantityNum,
+      request
     );
 
     return NextResponse.json({
@@ -129,24 +130,19 @@ export async function PUT(request, { params }) {
  * @param {string} subscriptionId - Subscription ID
  * @param {number} lineItemId - Line item ID
  * @param {number} quantity - New quantity
+ * @param {Request} request - The request object to get token from cookie
  */
 async function updateQuantityInCRM(
   wpUserID,
   subscriptionId,
   lineItemId,
-  quantity
+  quantity,
+  request
 ) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[UPDATE_QUANTITY] Missing CRM credentials:");
-    console.error({
-      crmHost: crmHost || "MISSING",
-      apiUsername: apiUsername ? "SET" : "MISSING",
-      apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-    });
+  if (!crmHost) {
+    console.error("[UPDATE_QUANTITY] Missing CRM_HOST");
     return {
       status: false,
       message: "CRM configuration missing",
@@ -156,54 +152,17 @@ async function updateQuantityInCRM(
   console.log(`[UPDATE_QUANTITY] CRM Host: ${crmHost}`);
 
   try {
-    let apiPassword;
-    try {
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[UPDATE_QUANTITY] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[UPDATE_QUANTITY] Using password as plain text");
-      }
-    } catch (decodeError) {
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[UPDATE_QUANTITY] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    console.log("[UPDATE_QUANTITY] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[UPDATE_QUANTITY] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(
-          `[UPDATE_QUANTITY] Failed endpoint: ${authResult.endpoint}`
-        );
-      }
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[UPDATE_QUANTITY] No token found in cookie");
       return {
         status: false,
-        message: "CRM authentication failed",
+        message: "Authentication token not found",
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[UPDATE_QUANTITY] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[UPDATE_QUANTITY] Using token from cookie");
 
     const updateQuantityUrl = `${crmHost}/api/user/subscription/update/quantity/${subscriptionId}`;
     console.log(

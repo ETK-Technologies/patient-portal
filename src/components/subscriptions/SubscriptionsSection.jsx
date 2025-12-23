@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback } from "react";
 import SubscriptionCard from "./SubscriptionCard";
 import ScrollIndicator from "../utils/ScrollIndicator";
 import ScrollArrows from "../utils/ScrollArrows";
@@ -10,6 +10,7 @@ import { FiArrowLeft, FiChevronLeft } from "react-icons/fi";
 import { FaArrowLeft } from "react-icons/fa";
 import EmptyState from "../utils/EmptyState";
 import { subscriptionsData as dummySubscriptionsData } from "./subscriptionsData";
+import { useUser } from "../../contexts/UserContext";
 
 export default function SubscriptionsSection() {
   const [activeTab, setActiveTab] = useState("all");
@@ -17,9 +18,13 @@ export default function SubscriptionsSection() {
   const [showHeader, setShowHeader] = useState(true);
   const [headerVariant, setHeaderVariant] = useState("full"); // 'full' | 'backOnly'
   const [flowBackHandler, setFlowBackHandler] = useState(null); // { handleBack, stepIndex }
-  const [subscriptionsData, setSubscriptionsData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  
+  const {
+    subscriptions: subscriptionsData,
+    subscriptionsLoading: loading,
+    subscriptionsError: error,
+    refreshSubscriptions,
+  } = useUser();
 
   // Store the back handler from the flow
   // Must be defined at top level (not conditionally) to follow Rules of Hooks
@@ -35,98 +40,6 @@ export default function SubscriptionsSection() {
     });
   }, []);
 
-  useEffect(() => {
-    const fetchSubscriptions = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await fetch("/api/user/subscriptions");
-        const result = await response.json();
-
-        if (!response.ok || !result.success) {
-          throw new Error(result.error || "Failed to fetch subscriptions");
-        }
-
-        const responseData = result.data;
-        let subscriptionsArray = [];
-
-        if (responseData?.subscriptions) {
-          subscriptionsArray = Array.isArray(responseData.subscriptions)
-            ? responseData.subscriptions
-            : [];
-        } else if (responseData?.data?.subscriptions) {
-          subscriptionsArray = Array.isArray(responseData.data.subscriptions)
-            ? responseData.data.subscriptions
-            : [];
-        } else {
-        }
-        
-        const mappedSubscriptions = subscriptionsArray.map((sub) => {
-          const firstItem = sub.line_items?.[0] || {};
-
-          let mappedStatus = sub.status?.toLowerCase() || "active";
-          if (mappedStatus === "on-hold") {
-            mappedStatus = "paused";
-          } else if (mappedStatus === "cancelled") {
-            mappedStatus = "canceled";
-          }
-
-          const productName = firstItem.product_name || "Unknown Product";
-
-          const tabsFrequency = firstItem.tabs_frequency || "";
-          const subscriptionType = firstItem.subscription_type || "";
-          const dosage =
-            tabsFrequency && subscriptionType
-              ? `${tabsFrequency} | ${subscriptionType}`
-              : tabsFrequency || subscriptionType || "Not available";
-
-          let nextRefillDate = "Not scheduled";
-          if (sub.next_refill) {
-            nextRefillDate = sub.next_refill;
-          } else if (sub.next_payment_date) {
-            nextRefillDate = new Date(sub.next_payment_date).toLocaleDateString(
-              "en-US",
-              {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              }
-            );
-          }
-
-          return {
-            id: sub.id,
-            category: "Sexual Health",
-            status: mappedStatus,
-            productName: productName,
-            productSubtitle: null,
-            dosage: dosage,
-            nextRefill: nextRefillDate,
-            productImage:
-              firstItem.image?.src ||
-              "https://myrocky.b-cdn.net/WP%20Images/patient-portal/order-card-1.png",
-            _raw: sub,
-          };
-        });
-        setSubscriptionsData(mappedSubscriptions);
-      } catch (err) {
-        console.error("[SUBSCRIPTIONS] Error details:", {
-          message: err.message,
-          stack: err.stack,
-        });
-        setError(err.message || "Failed to load subscriptions");
-        setSubscriptionsData([]);
-      } finally {
-        setLoading(false);
-        console.log("[SUBSCRIPTIONS] 🏁 Fetch complete");
-      }
-    };
-
-    fetchSubscriptions();
-  }, []);
-  //   }, 100);
-  // }, []);
 
   const tabs = [
     { id: "all", label: "All" },
