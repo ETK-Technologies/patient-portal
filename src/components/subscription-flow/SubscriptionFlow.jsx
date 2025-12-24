@@ -701,6 +701,7 @@ export default function SubscriptionFlow({
           handleNavigate={flowState.handleNavigate}
           submitCurrentStepData={flowState.submitCurrentStepData}
           submitFormData={flowState.submitFormData}
+          initialAction={flowState.initialAction}
           onComplete={(data) => {
             // Handle flow completion if needed
             console.log("Flow completed with data:", data);
@@ -922,7 +923,7 @@ export default function SubscriptionFlow({
             <button
               onClick={() => {
                 flowState.setInitialAction("skip");
-                handleNavigate("pauseCancel");
+                handleNavigate("pauseInstead");
               }}
               className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 mt-4 cursor-pointer transition-colors"
             >
