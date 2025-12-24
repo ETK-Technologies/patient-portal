@@ -65,6 +65,19 @@ export default function SubscriptionsSection() {
     return acc;
   }, {});
 
+  const categoryOrder = ["Sexual Health", "Smoking Cessation", "Body Optimization"];
+  const sortedCategories = Object.keys(groupedSubscriptions).sort((a, b) => {
+    const indexA = categoryOrder.indexOf(a);
+    const indexB = categoryOrder.indexOf(b);
+    
+    if (indexA !== -1 && indexB !== -1) {
+      return indexA - indexB;
+    }
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    return a.localeCompare(b);
+  });
+
   // FLOW HANDLER
   const handleCardAction = (subscription, action) => {
     // Request refill is handled directly in SubscriptionCard with API call, don't open page
@@ -223,56 +236,55 @@ export default function SubscriptionsSection() {
       </div>
 
       {/* Subscriptions by Category */}
-      {Object.keys(groupedSubscriptions).length > 0 ? (
+      {sortedCategories.length > 0 ? (
         <div className="space-y-6">
-          {Object.entries(groupedSubscriptions).map(
-            ([category, subscriptions]) => {
-              const CategorySection = () => {
-                const scrollContainerRef = useRef(null);
+          {sortedCategories.map((category) => {
+            const subscriptions = groupedSubscriptions[category];
+            const CategorySection = () => {
+              const scrollContainerRef = useRef(null);
 
-                return (
-                  <div key={category}>
-                    <h2 className="text-[18px] md:text-[20px] font-[500] leading-[140%] mb-4">
-                      {category}
-                    </h2>
-                    {/* Horizontal scroll on both mobile and desktop */}
-                    <div className="relative">
-                      <div
-                        ref={scrollContainerRef}
-                        className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide pb-2"
-                      >
-                        {subscriptions.map((subscription) => (
-                          <div key={subscription.id}>
-                            <SubscriptionCard
-                              subscription={subscription}
-                              onAction={handleCardAction}
-                            />
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Scroll Arrows for Desktop */}
-                      <ScrollArrows
-                        containerRef={scrollContainerRef}
-                        scrollAmount={350}
-                        showOnMobile={false}
-                      />
+              return (
+                <div key={category}>
+                  <h2 className="text-[18px] md:text-[20px] font-[500] leading-[140%] mb-4">
+                    {category}
+                  </h2>
+                  {/* Horizontal scroll on both mobile and desktop */}
+                  <div className="relative">
+                    <div
+                      ref={scrollContainerRef}
+                      className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide pb-2"
+                    >
+                      {subscriptions.map((subscription) => (
+                        <div key={subscription.id}>
+                          <SubscriptionCard
+                            subscription={subscription}
+                            onAction={handleCardAction}
+                          />
+                        </div>
+                      ))}
                     </div>
 
-                    {/* Scroll Indicator for Mobile Only */}
-                    <div className="md:hidden">
-                      <ScrollIndicator
-                        containerRef={scrollContainerRef}
-                        totalItems={subscriptions.length}
-                      />
-                    </div>
+                    {/* Scroll Arrows for Desktop */}
+                    <ScrollArrows
+                      containerRef={scrollContainerRef}
+                      scrollAmount={350}
+                      showOnMobile={false}
+                    />
                   </div>
-                );
-              };
 
-              return <CategorySection key={category} />;
-            }
-          )}
+                  {/* Scroll Indicator for Mobile Only */}
+                  <div className="md:hidden">
+                    <ScrollIndicator
+                      containerRef={scrollContainerRef}
+                      totalItems={subscriptions.length}
+                    />
+                  </div>
+                </div>
+              );
+            };
+
+            return <CategorySection key={category} />;
+          })}
         </div>
       ) : loading ? (
         <div className="space-y-6">

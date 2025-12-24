@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../utils/crmAuth";
+import { getTokenFromCookie } from "../../utils/getTokenFromCookie";
 
 /**
  * POST /api/user/update-refill-shipping-address
@@ -7,18 +7,15 @@ import { authenticateWithCRM } from "../../utils/crmAuth";
  * Updates the shipping address for a subscription refill by calling the CRM API.
  * Uses wp_user_id from cookies.
  *
- * Request Body:
+ * Request Body (from frontend):
  * {
  *   "subscription_id": 401204,
  *   "shipping_address": {
- *     "first_name": "John",
- *     "last_name": "Doe",
- *     "email": "john@example.com",
- *     "address_1": "123 Main St",
- *     "address_2": "Apt 4",
+ *     "address_1": "123 New Street",
+ *     "address_2": "Unit 4B",
  *     "city": "Toronto",
  *     "state": "ON",
- *     "postcode": "M5H 2N2",
+ *     "postcode": "M5V 2T6",
  *     "country": "CA"
  *   }
  * }
@@ -83,14 +80,34 @@ export async function POST(request) {
       );
     }
 
+    if (!shipping_address.address_1) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required field: shipping_address.address_1",
+        },
+        { status: 400 }
+      );
+    }
+
     console.log(
       `[UPDATE_REFILL_SHIPPING] Updating shipping address for subscription ${subscription_id}`
     );
 
+    const flattenedAddress = {
+      shipping_address_1: shipping_address.address_1 || "",
+      shipping_address_2: shipping_address.address_2 || "",
+      shipping_city: shipping_address.city || "",
+      shipping_state: shipping_address.state || "",
+      shipping_postcode: shipping_address.postcode || "",
+      shipping_country: shipping_address.country || "CA",
+    };
+
     const result = await updateRefillShippingAddressInCRM(
       wpUserID,
       subscription_id,
-      shipping_address
+      flattenedAddress,
+      request
     );
 
     return NextResponse.json({
@@ -114,24 +131,19 @@ export async function POST(request) {
  * Update refill shipping address in CRM API
  * @param {string} wpUserID - WordPress user ID
  * @param {number} subscriptionId - Subscription ID
- * @param {object} shippingAddress - Shipping address data
+ * @param {object} shippingAddress - Shipping address data with flattened fields
+ * @param {Request} request - The incoming request object to extract token from cookie
  */
 async function updateRefillShippingAddressInCRM(
   wpUserID,
   subscriptionId,
-  shippingAddress
+  shippingAddress,
+  request
 ) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[UPDATE_REFILL_SHIPPING] Missing CRM credentials:");
-    console.error({
-      crmHost: crmHost || "MISSING",
-      apiUsername: apiUsername ? "SET" : "MISSING",
-      apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-    });
+  if (!crmHost) {
+    console.error("[UPDATE_REFILL_SHIPPING] Missing CRM_HOST");
     return {
       status: false,
       message: "CRM configuration missing",
@@ -141,54 +153,17 @@ async function updateRefillShippingAddressInCRM(
   console.log(`[UPDATE_REFILL_SHIPPING] CRM Host: ${crmHost}`);
 
   try {
-    let apiPassword;
-    try {
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
-
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[UPDATE_REFILL_SHIPPING] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[UPDATE_REFILL_SHIPPING] Using password as plain text");
-      }
-    } catch (decodeError) {
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[UPDATE_REFILL_SHIPPING] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    console.log("[UPDATE_REFILL_SHIPPING] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[UPDATE_REFILL_SHIPPING] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(
-          `[UPDATE_REFILL_SHIPPING] Failed endpoint: ${authResult.endpoint}`
-        );
-      }
+    const authToken = getTokenFromCookie(request);
+    
+    if (!authToken) {
+      console.error("[UPDATE_REFILL_SHIPPING] No token found in cookie");
       return {
         status: false,
-        message: "CRM authentication failed",
+        message: "Authentication token not found",
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[UPDATE_REFILL_SHIPPING] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[UPDATE_REFILL_SHIPPING] Using token from cookie");
 
     const updateShippingUrl = `${crmHost}/api/user/update-refill-shipping-address`;
     console.log(
@@ -198,17 +173,12 @@ async function updateRefillShippingAddressInCRM(
     const payload = {
       wp_user_id: parseInt(wpUserID, 10),
       subscription_id: parseInt(subscriptionId, 10),
-      shipping_address: {
-        first_name: shippingAddress.first_name || "",
-        last_name: shippingAddress.last_name || "",
-        email: shippingAddress.email || "",
-        address_1: shippingAddress.address_1 || "",
-        address_2: shippingAddress.address_2 || "",
-        city: shippingAddress.city || "",
-        state: shippingAddress.state || "",
-        postcode: shippingAddress.postcode || "",
-        country: shippingAddress.country || "CA",
-      },
+      shipping_address_1: shippingAddress.shipping_address_1 || "",
+      shipping_address_2: shippingAddress.shipping_address_2 || "",
+      shipping_city: shippingAddress.shipping_city || "",
+      shipping_state: shippingAddress.shipping_state || "",
+      shipping_postcode: shippingAddress.shipping_postcode || "",
+      shipping_country: shippingAddress.shipping_country || "CA",
     };
 
     console.log(
