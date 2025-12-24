@@ -297,11 +297,12 @@ export default function ProfileManager() {
         return updated;
       });
 
-      // Show success message
-      toast.success(`${modalState.field.label} updated successfully`, {
-        position: "top-right",
-        autoClose: 3000,
-      });
+      if (fieldKey !== "password") {
+        toast.success(`${modalState.field.label} updated successfully`, {
+          position: "top-right",
+          autoClose: 3000,
+        });
+      }
     } catch (error) {
       console.error("Error updating profile:", error);
       toast.error(

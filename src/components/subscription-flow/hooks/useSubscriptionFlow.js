@@ -220,8 +220,33 @@ export function useSubscriptionFlow(subscription, initialStep = null) {
             return; // Can't go back from main view
         }
 
-        // Go to previous step
-        const prevStep = stepIndex === 1 ? null : stepIndex - 1;
+        let prevStep = null;
+
+        if (stepIndex === 5 || stepIndex === 6) {
+            prevStep = 4;
+        } else if (stepIndex === 7) {
+            const treatmentWorked = answers?.treatmentWorked;
+            if (treatmentWorked === "yes") {
+                prevStep = 5;
+            } else if (treatmentWorked === "no") {
+                prevStep = 6;
+            } else {
+                if (answers?.cancelReasonText) {
+                    prevStep = 5;
+                } else if (answers?.cancelReasons && Array.isArray(answers.cancelReasons) && answers.cancelReasons.length > 0) {
+                    prevStep = 6;
+                } else {
+                    prevStep = 4;
+                }
+            }
+        } else if (stepIndex === 8) {
+            prevStep = 7;
+        } else if (stepIndex === 1) {
+            prevStep = null;
+        } else {
+            prevStep = stepIndex - 1;
+        }
+
         setStepIndex(prevStep);
         setProgress(getProgress(prevStep));
         // Don't update maxReachedStep when going back
