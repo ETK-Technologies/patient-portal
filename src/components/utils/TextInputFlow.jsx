@@ -16,8 +16,16 @@ export default function TextInputFlow({
   bottomMessage,
   containerClassName = "w-full md:w-[528px] mx-auto md:px-0",
   showBottomBackground = false,
+  initialValue = "",
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialValue);
+
+  // Update text when initialValue changes (e.g., from localStorage restoration)
+  React.useEffect(() => {
+    if (initialValue !== undefined) {
+      setText(initialValue);
+    }
+  }, [initialValue]);
 
   const handleSubmit = () => {
     const trimmedText = text.trim();

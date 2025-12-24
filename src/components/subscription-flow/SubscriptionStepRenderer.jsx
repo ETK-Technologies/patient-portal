@@ -49,7 +49,9 @@ const SubscriptionStepRenderer = ({
 
   // Handle pauseInstead step (step 2)
   if (stepIndex === 2) {
-    const [selected, setSelected] = useState(null);
+    const [selected, setSelected] = useState(() => {
+      return answers?.pauseOption || null;
+    });
     const isSkipFlow = initialAction === "skip";
     
     let options = (stepConfig?.options || []).map((opt) => ({
@@ -61,6 +63,12 @@ const SubscriptionStepRenderer = ({
     if (isSkipFlow) {
       options = options.filter((opt) => opt.value !== "no_thanks");
     }
+
+    React.useEffect(() => {
+      if (answers?.pauseOption !== undefined && answers.pauseOption !== selected) {
+        setSelected(answers.pauseOption);
+      }
+    }, [answers?.pauseOption]);
 
     return (
       <RadioOptionsScreen
@@ -173,12 +181,20 @@ const SubscriptionStepRenderer = ({
 
   // Handle adjustQuantity step (step 3)
   if (stepIndex === 3) {
-    const [selected, setSelected] = useState(null);
+    const [selected, setSelected] = useState(() => {
+      return answers?.quantity || null;
+    });
     const options = (stepConfig?.options || []).map((opt) => ({
       value: opt.id,
       label: opt.label,
       description: opt.description || "",
     }));
+
+    React.useEffect(() => {
+      if (answers?.quantity !== undefined && answers.quantity !== selected) {
+        setSelected(answers.quantity);
+      }
+    }, [answers?.quantity]);
 
     return (
       <RadioOptionsScreen
@@ -205,11 +221,19 @@ const SubscriptionStepRenderer = ({
 
   // Handle treatmentFeedback step (step 4)
   if (stepIndex === 4) {
-    const [selected, setSelected] = useState(null);
+    const [selected, setSelected] = useState(() => {
+      return answers?.treatmentWorked || null;
+    });
     const options = (stepConfig?.options || []).map((opt) => ({
       value: opt.id,
       label: opt.label,
     }));
+
+    React.useEffect(() => {
+      if (answers?.treatmentWorked !== undefined && answers.treatmentWorked !== selected) {
+        setSelected(answers.treatmentWorked);
+      }
+    }, [answers?.treatmentWorked]);
 
     return (
       <RadioOptionsScreen
@@ -243,12 +267,15 @@ const SubscriptionStepRenderer = ({
 
   // Handle cancelReasonText step (step 5)
   if (stepIndex === 5) {
+    const initialValue = answers?.cancelReasonText || "";
+    
     return (
       <TextInputFlow
         title={stepConfig?.title || ""}
         description={stepConfig?.description || ""}
         placeholder={stepConfig?.placeholder || ""}
         buttonLabel="Continue"
+        initialValue={initialValue}
         onComplete={async (text) => {
           // Add answer first to update state
           addAnswer(5, stepConfig?.field || "cancelReasonText", text);
@@ -265,11 +292,26 @@ const SubscriptionStepRenderer = ({
 
   // Handle cancelReasonChecklist step (step 6)
   if (stepIndex === 6) {
-    const [selected, setSelected] = useState(new Set());
+    const [selected, setSelected] = useState(() => {
+      const storedReasons = answers?.cancelReasons;
+      if (Array.isArray(storedReasons) && storedReasons.length > 0) {
+        return new Set(storedReasons);
+      }
+      return new Set();
+    });
     const options = (stepConfig?.options || []).map((opt) => ({
       value: opt.id,
       label: opt.label,
     }));
+
+    React.useEffect(() => {
+      const storedReasons = answers?.cancelReasons;
+      if (Array.isArray(storedReasons)) {
+        setSelected(new Set(storedReasons));
+      } else if (!storedReasons) {
+        setSelected(new Set());
+      }
+    }, [answers?.cancelReasons]);
 
     return (
       <CheckboxOptionsScreen
@@ -314,12 +356,15 @@ const SubscriptionStepRenderer = ({
 
   // Handle cancelFinal step (step 8)
   if (stepIndex === 8) {
+    const initialValue = answers?.finalFeedback || "";
+    
     return (
       <TextInputFlow
         title={stepConfig?.title || ""}
         description={stepConfig?.description || ""}
         placeholder={stepConfig?.placeholder || ""}
         buttonLabel="Submit & Cancel Subscription"
+        initialValue={initialValue}
         onComplete={async (text) => {
           try {
             addAnswer(8, stepConfig?.field || "finalFeedback", text);
