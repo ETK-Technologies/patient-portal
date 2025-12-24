@@ -10,6 +10,8 @@ export const getStatusColor = (status) => {
       return "bg-[#00AB55]";
     case "paused":
       return "bg-yellow-500";
+    case "pending-cancel":
+      return "bg-gray-500";
 
     // Consultation statuses
     case "completed":
@@ -48,6 +50,8 @@ export const getStatusContainerClasses = (status) => {
       return "bg-gradient-to-r from-green-100/30 to-white border-[#C3FACF]";
     case "paused":
       return "bg-gradient-to-r from-yellow-100/30 to-white border-[#FEEFC3]";
+    case "pending-cancel":
+      return "bg-gradient-to-r from-gray-100/30 to-white border-[#E0E0E0]";
 
     // Consultation statuses
     case "completed":

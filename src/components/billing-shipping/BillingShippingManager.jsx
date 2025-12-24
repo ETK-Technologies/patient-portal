@@ -114,7 +114,6 @@ export default function BillingShippingManager() {
                   ? addressParts.join(", ")
                   : "No address set";
             } else if (shippingAddress) {
-              // Fallback: use shipping address as billing address if billing is not set
               billing = shippingAddress;
               setBillingData(billing);
               displayBillingAddress = displayShippingAddress;

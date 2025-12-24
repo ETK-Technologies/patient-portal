@@ -363,6 +363,68 @@ export default function SubscriptionFlow({
     }
   };
 
+  const mapSubscriptionData = (subscriptionData, subscriptionId, existingSubscription = subscription) => {
+    const firstLineItem = subscriptionData.line_items?.[0] || {};
+    
+    const tabsFrequency = firstLineItem.tabs_frequency || "";
+    const subscriptionType = firstLineItem.subscription_type || "";
+    const dosage =
+      tabsFrequency && subscriptionType
+        ? `${tabsFrequency} | ${subscriptionType}`
+        : tabsFrequency || subscriptionType || existingSubscription.dosage || "Not available";
+
+    const quantity = firstLineItem.quantity || 1;
+    const billingPeriod = subscriptionData.billing_period || "";
+    const billingInterval = subscriptionData.billing_interval || "";
+    let quantityFrequency = existingSubscription.quantity || "Not available";
+    if (tabsFrequency) {
+      quantityFrequency = `${tabsFrequency} / month`;
+    } else if (billingPeriod && billingInterval) {
+      const interval = parseInt(billingInterval);
+      quantityFrequency = `${quantity} ${quantity === 1 ? "item" : "items"} / ${interval === 1 ? billingPeriod : `${interval} ${billingPeriod}s`}`;
+    }
+
+    const shipping = subscriptionData.shipping || {};
+    let shippingAddress = "Not available";
+    if (shipping.address_1) {
+      const addressParts = [
+        shipping.address_1,
+        shipping.address_2,
+        shipping.city,
+        shipping.state,
+        shipping.postcode,
+      ].filter(Boolean);
+      shippingAddress = addressParts.join(", ");
+    }
+
+    const paymentData = subscriptionData.payment_data || {};
+    let paymentMethod = "Not available";
+    if (paymentData.card_number) {
+      const last4 = paymentData.card_number.replace(/X/g, "").slice(-4);
+      paymentMethod = `•••• •••• •••• ${last4}`;
+    } else if (paymentData.card_type) {
+      paymentMethod = paymentData.card_type;
+    }
+
+    return {
+      id: subscriptionData.id || subscriptionId,
+      category: firstLineItem.category_name || "Sexual Health",
+      status: subscriptionData.status?.toLowerCase() || existingSubscription.status,
+      productName: firstLineItem.product_name || existingSubscription.productName,
+      productSubtitle: existingSubscription.productSubtitle || firstLineItem.brand || "",
+      dosage: dosage,
+      nextRefill: subscriptionData.next_refill || existingSubscription.nextRefill,
+      productImage: firstLineItem.product_image || existingSubscription.productImage,
+      quantity: quantityFrequency,
+      shippingFrequency: billingPeriod && billingInterval 
+        ? (parseInt(billingInterval) === 1 ? `1 ${billingPeriod}` : `${billingInterval} ${billingPeriod}s`)
+        : existingSubscription.shippingFrequency || "Not available",
+      shippingAddress: shippingAddress,
+      paymentMethod: paymentMethod,
+      _raw: subscriptionData,
+    };
+  };
+
   useEffect(() => {
     const fetchSubscriptionDetails = async () => {
       if (action === "Manage subscription" && subscription?.id) {
@@ -395,66 +457,7 @@ export default function SubscriptionFlow({
               return;
             }
 
-            const firstLineItem = subscriptionData.line_items?.[0] || {};
-            
-            const tabsFrequency = firstLineItem.tabs_frequency || "";
-            const subscriptionType = firstLineItem.subscription_type || "";
-            const dosage =
-              tabsFrequency && subscriptionType
-                ? `${tabsFrequency} | ${subscriptionType}`
-                : tabsFrequency || subscriptionType || subscription.dosage || "Not available";
-
-            const quantity = firstLineItem.quantity || 1;
-            const billingPeriod = subscriptionData.billing_period || "";
-            const billingInterval = subscriptionData.billing_interval || "";
-            let quantityFrequency = subscription.quantity || "Not available";
-            if (tabsFrequency) {
-              quantityFrequency = `${tabsFrequency} / month`;
-            } else if (billingPeriod && billingInterval) {
-              const interval = parseInt(billingInterval);
-              quantityFrequency = `${quantity} ${quantity === 1 ? "item" : "items"} / ${interval === 1 ? billingPeriod : `${interval} ${billingPeriod}s`}`;
-            }
-
-            const shipping = subscriptionData.shipping || {};
-            let shippingAddress = "Not available";
-            if (shipping.address_1) {
-              const addressParts = [
-                shipping.address_1,
-                shipping.address_2,
-                shipping.city,
-                shipping.state,
-                shipping.postcode,
-              ].filter(Boolean);
-              shippingAddress = addressParts.join(", ");
-            }
-
-            const paymentData = subscriptionData.payment_data || {};
-            let paymentMethod = "Not available";
-            if (paymentData.card_number) {
-              const last4 = paymentData.card_number.replace(/X/g, "").slice(-4);
-              paymentMethod = `•••• •••• •••• ${last4}`;
-            } else if (paymentData.card_type) {
-              paymentMethod = paymentData.card_type;
-            }
-
-            const mappedSubscription = {
-              id: subscriptionData.id || subscriptionId,
-              category: firstLineItem.category_name || "Sexual Health",
-              status: subscriptionData.status?.toLowerCase() || subscription.status,
-              productName: firstLineItem.product_name || subscription.productName,
-              productSubtitle: subscription.productSubtitle || firstLineItem.brand || "",
-              dosage: dosage,
-              nextRefill: subscriptionData.next_refill || subscription.nextRefill,
-              productImage: firstLineItem.product_image || subscription.productImage,
-              quantity: quantityFrequency,
-              shippingFrequency: billingPeriod && billingInterval 
-                ? (parseInt(billingInterval) === 1 ? `1 ${billingPeriod}` : `${billingInterval} ${billingPeriod}s`)
-                : subscription.shippingFrequency || "Not available",
-              shippingAddress: shippingAddress,
-              paymentMethod: paymentMethod,
-              _raw: subscriptionData,
-            };
-
+            const mappedSubscription = mapSubscriptionData(subscriptionData, subscriptionId, subscription);
             setSubscriptionDetails(mappedSubscription);
           } else {
             console.warn("[SubscriptionFlow] Failed to fetch subscription details, using existing data");
@@ -1192,11 +1195,35 @@ export default function SubscriptionFlow({
                 throw new Error(result.error || result.message || "Failed to change refill date");
               }
 
+              const [subscriptionResponse, refreshResult] = await Promise.all([
+                fetch(`/api/user/subscription/${subscriptionId}`, {
+                  method: "GET",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  credentials: "include",
+                }),
+                refreshSubscriptions ? refreshSubscriptions() : Promise.resolve(),
+              ]);
+
+              const subscriptionResult = await subscriptionResponse.json();
+
+              if (subscriptionResponse.ok && subscriptionResult.success && subscriptionResult.data) {
+                const subscriptionData = subscriptionResult.data?.subscription || subscriptionResult.data;
+                
+                if (subscriptionData) {
+                  const mappedSubscription = mapSubscriptionData(
+                    subscriptionData,
+                    subscriptionId,
+                    currentSub
+                  );
+                  setSubscriptionDetails(mappedSubscription);
+                }
+              }
+
               toast.success("Refill date updated successfully");
               
-              if (refreshSubscriptions) {
-                await refreshSubscriptions();
-              }
+              setIsChangeRefillDateModalOpen(false);
             } catch (error) {
               console.error("Error changing refill date:", error);
               toast.error(error.message || "Failed to change refill date");

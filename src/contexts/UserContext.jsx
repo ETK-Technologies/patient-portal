@@ -193,6 +193,87 @@ export function UserProvider({ children }) {
           : [];
       }
 
+      const inferCategoryFromProductName = (productName) => {
+        if (!productName) return "Other";
+        const lowerName = productName.toLowerCase();
+        
+        if (
+          lowerName.includes("cream") ||
+          lowerName.includes("serum") ||
+          lowerName.includes("skincare") ||
+          lowerName.includes("beauty") ||
+          lowerName.includes("acne") ||
+          lowerName.includes("hyperpigmentation") ||
+          lowerName.includes("anti-aging") ||
+          lowerName.includes("anti aging")
+        ) {
+          return "Body Optimization";
+        }
+        
+        // Smoking cessation patterns
+        if (
+          lowerName.includes("nicotine") ||
+          lowerName.includes("zonnic") ||
+          lowerName.includes("smoking")
+        ) {
+          return "Smoking Cessation";
+        }
+        
+        if (
+          lowerName.includes("sildenafil") ||
+          lowerName.includes("tadalafil") ||
+          lowerName.includes("viagra") ||
+          lowerName.includes("cialis")
+        ) {
+          return "Sexual Health";
+        }
+        
+        return "Other";
+      };
+
+      const mapCategoryName = (categoryName, productName = "") => {
+        if (!categoryName || categoryName.trim() === "") {
+          return inferCategoryFromProductName(productName);
+        }
+        
+        const normalized = categoryName.trim();
+        
+        const categoryMap = {
+          "ED": "Sexual Health",
+          "ed": "Sexual Health",
+          "sexual health": "Sexual Health",
+          "Sexual Health": "Sexual Health",
+          
+          "Smoking Cessation": "Smoking Cessation",
+          "smoking-cessation": "Smoking Cessation",
+          "smoking cessation": "Smoking Cessation",
+          
+          "Body Optimization": "Body Optimization",
+          "body-optimization": "Body Optimization",
+          "body optimization": "Body Optimization",
+          
+          "Skincare": "Body Optimization",
+          "skincare": "Body Optimization",
+          "Skin Care": "Body Optimization",
+          "skin care": "Body Optimization",
+          "Skincare & Beauty": "Body Optimization",
+          "Beauty": "Body Optimization",
+        };
+        
+        if (categoryMap[normalized]) {
+          return categoryMap[normalized];
+        }
+        
+        const lowerNormalized = normalized.toLowerCase();
+        for (const [key, value] of Object.entries(categoryMap)) {
+          if (key.toLowerCase() === lowerNormalized) {
+            return value;
+          }
+        }
+        
+        return normalized;
+      };
+
       const mappedSubscriptions = subscriptionsArray.map((sub) => {
         const firstItem = sub.line_items?.[0] || {};
 
@@ -201,9 +282,24 @@ export function UserProvider({ children }) {
           mappedStatus = "paused";
         } else if (mappedStatus === "cancelled") {
           mappedStatus = "canceled";
+        } else if (mappedStatus === "pending-cancel") {
+          mappedStatus = "pending-cancel";
         }
 
         const productName = firstItem.product_name || "Unknown Product";
+        const categoryName = firstItem.category_name || firstItem.category_slug || "";
+        const mappedCategory = mapCategoryName(categoryName, productName);
+        
+        if (process.env.NODE_ENV === "development") {
+          console.log("[UserContext] Subscription category mapping:", {
+            productName,
+            categoryName: firstItem.category_name || "(empty)",
+            categorySlug: firstItem.category_slug || "(empty)",
+            finalCategoryName: categoryName || "(empty)",
+            mappedCategory,
+            subscriptionId: sub.id,
+          });
+        }
 
         const tabsFrequency = firstItem.tabs_frequency || "";
         const subscriptionType = firstItem.subscription_type || "";
@@ -228,7 +324,7 @@ export function UserProvider({ children }) {
 
         return {
           id: sub.id,
-          category: "Sexual Health",
+          category: mappedCategory,
           status: mappedStatus,
           productName: productName,
           productSubtitle: null,
