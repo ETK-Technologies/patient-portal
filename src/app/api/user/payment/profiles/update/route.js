@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "@/app/api/utils/crmAuth";
+import { getTokenFromCookie } from "@/app/api/utils/getTokenFromCookie";
 
 /**
  * PATCH /api/user/payment/profiles/update
@@ -52,7 +52,8 @@ export async function PATCH(request) {
       card_number,
       expiry_month,
       expiry_year,
-      cvc
+      cvc,
+      request
     );
 
     if (updateResult.error) {
@@ -95,57 +96,29 @@ async function updatePaymentProfile(
   card_number,
   expiry_month,
   expiry_year,
-  cvc
+  cvc,
+  request
 ) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[PAYMENT_PROFILE_UPDATE] Missing CRM credentials");
+  if (!crmHost) {
+    console.error("[PAYMENT_PROFILE_UPDATE] Missing CRM_HOST");
     return {
-      error: "Missing CRM credentials",
+      error: "Missing CRM configuration",
     };
   }
 
   try {
-    let apiPassword;
-    try {
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
+    const authToken = getTokenFromCookie(request);
 
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-      } else {
-        apiPassword = apiPasswordEncoded;
-      }
-    } catch (decodeError) {
-      apiPassword = apiPasswordEncoded;
-    }
-
-    console.log("[PAYMENT_PROFILE_UPDATE] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[PAYMENT_PROFILE_UPDATE] CRM authentication failed: ${authResult.error}`
-      );
+    if (!authToken) {
+      console.error("[PAYMENT_PROFILE_UPDATE] No token found in cookie");
       return {
-        error: `CRM authentication failed: ${authResult.error}`,
+        error: "Authentication token not found",
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[PAYMENT_PROFILE_UPDATE] Successfully obtained CRM auth token`
-    );
+    console.log("[PAYMENT_PROFILE_UPDATE] Using token from cookie");
 
     const updateUrl = `${crmHost}/api/user/payment/profiles/update`;
     console.log(

@@ -94,7 +94,7 @@ export default function DocumentsManager() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-visible">
       {documents.map((document, index) => (
         <DocumentField
           key={document.id || index}

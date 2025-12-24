@@ -119,6 +119,7 @@ export const subscriptionFlowConfig = {
         // From main view (null)
         null: {
             pauseCancel: 1,
+            pauseInstead: 2,
             cancelReasonText: 5, // For direct navigation from main
             // Other main view actions handled separately
         },

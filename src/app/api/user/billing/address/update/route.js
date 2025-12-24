@@ -16,13 +16,13 @@ export async function PATCH(request) {
             );
         }
 
-        const updateResult = await updateShippingAddress(userId, body, request);
+        const updateResult = await updateBillingAddress(userId, body, request);
 
         if (!updateResult.success) {
             return NextResponse.json(
                 {
                     success: false,
-                    error: updateResult.error || "Failed to update shipping address",
+                    error: updateResult.error || "Failed to update billing address",
                     details: updateResult.details,
                 },
                 { status: updateResult.status || 500 }
@@ -31,15 +31,15 @@ export async function PATCH(request) {
 
         return NextResponse.json({
             success: true,
-            message: "Shipping address updated successfully",
+            message: "Billing address updated successfully",
             data: updateResult.data,
         });
     } catch (error) {
-        console.error("Error updating shipping address:", error);
+        console.error("Error updating billing address:", error);
         return NextResponse.json(
             {
                 success: false,
-                error: "Failed to update shipping address",
+                error: "Failed to update billing address",
                 details: error.message,
             },
             { status: 500 }
@@ -47,7 +47,7 @@ export async function PATCH(request) {
     }
 }
 
-async function updateShippingAddress(userId, updateData, request) {
+async function updateBillingAddress(userId, updateData, request) {
     const crmHost = process.env.CRM_HOST;
 
     if (!crmHost) {
@@ -69,7 +69,7 @@ async function updateShippingAddress(userId, updateData, request) {
             };
         }
 
-        const updateUrl = `${crmHost}/api/user/shipping/address/update`;
+        const updateUrl = `${crmHost}/api/user/billing/address/update`;
 
         const response = await fetch(updateUrl, {
             method: "PATCH",
@@ -92,7 +92,7 @@ async function updateShippingAddress(userId, updateData, request) {
 
             return {
                 success: false,
-                error: `Failed to update shipping address: ${response.status} ${response.statusText}`,
+                error: `Failed to update billing address: ${response.status} ${response.statusText}`,
                 details: errorDetails,
                 status: response.status,
             };
@@ -104,10 +104,10 @@ async function updateShippingAddress(userId, updateData, request) {
             data: responseData,
         };
     } catch (error) {
-        console.error("[SHIPPING_ADDRESS_UPDATE] Error updating shipping address:", error);
+        console.error("[BILLING_ADDRESS_UPDATE] Error updating billing address:", error);
         return {
             success: false,
-            error: `Error updating shipping address: ${error.message}`,
+            error: `Error updating billing address: ${error.message}`,
             status: 500,
         };
     }

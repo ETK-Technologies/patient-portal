@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateWithCRM } from "../../../../../utils/crmAuth";
+import { getTokenFromCookie } from "@/app/api/utils/getTokenFromCookie";
 
 /**
  * GET /api/user/order/invoice/download/[orderId]
@@ -64,7 +64,7 @@ export async function GET(request, { params }) {
     console.log(`[INVOICE_DOWNLOAD] Downloading invoice for order: ${orderId}`);
 
     // Download invoice from CRM
-    const invoiceResponse = await downloadInvoice(orderId);
+    const invoiceResponse = await downloadInvoice(orderId, request);
 
     if (invoiceResponse.error) {
       return NextResponse.json(
@@ -104,82 +104,31 @@ export async function GET(request, { params }) {
  * Download invoice PDF from CRM API
  * Uses the invoice download endpoint: /api/user/order/invoice/download/{orderId}
  */
-async function downloadInvoice(orderId) {
+async function downloadInvoice(orderId, request) {
   const crmHost = process.env.CRM_HOST;
-  const apiUsername = process.env.CRM_API_USERNAME;
-  const apiPasswordEncoded = process.env.CRM_API_PASSWORD;
 
-  if (!crmHost || !apiUsername || !apiPasswordEncoded) {
-    console.error("[INVOICE_DOWNLOAD] Missing CRM credentials:");
-    console.error({
-      crmHost: crmHost || "MISSING",
-      apiUsername: apiUsername ? "SET" : "MISSING",
-      apiPasswordEncoded: apiPasswordEncoded ? "SET" : "MISSING",
-    });
+  if (!crmHost) {
+    console.error("[INVOICE_DOWNLOAD] Missing CRM_HOST");
     return {
-      error: "Missing CRM credentials",
+      error: "Missing CRM configuration",
       statusCode: 500,
     };
   }
 
   console.log(`[INVOICE_DOWNLOAD] CRM Host: ${crmHost}`);
-  console.log(`[INVOICE_DOWNLOAD] CRM Username: ${apiUsername}`);
 
   try {
-    // Decode the password - try base64 first, fallback to plain text
-    let apiPassword;
-    try {
-      // Try to decode as base64
-      const decoded = Buffer.from(apiPasswordEncoded, "base64").toString(
-        "utf8"
-      );
-      // Check if decoded value is valid and reasonable
-      // If the decoded string is the same as input or contains many non-printable chars, use plain text
-      const hasNonPrintable = /[\x00-\x08\x0E-\x1F\x7F-\x9F]/.test(decoded);
-      const isSameAsInput = decoded === apiPasswordEncoded;
+    const authToken = getTokenFromCookie(request);
 
-      if (!hasNonPrintable && !isSameAsInput && decoded.length > 0) {
-        apiPassword = decoded;
-        console.log("[INVOICE_DOWNLOAD] Password decoded from base64");
-      } else {
-        apiPassword = apiPasswordEncoded;
-        console.log("[INVOICE_DOWNLOAD] Using password as plain text");
-      }
-    } catch (decodeError) {
-      // If base64 decode fails, use as plain text
-      apiPassword = apiPasswordEncoded;
-      console.log(
-        "[INVOICE_DOWNLOAD] Base64 decode failed, using password as plain text"
-      );
-    }
-
-    // Step 1: Authenticate with CRM to get auth token
-    console.log("[INVOICE_DOWNLOAD] Authenticating with CRM...");
-    const authResult = await authenticateWithCRM(
-      crmHost,
-      apiUsername,
-      apiPassword
-    );
-
-    if (!authResult.success) {
-      console.error(
-        `[INVOICE_DOWNLOAD] CRM authentication failed: ${authResult.error}`
-      );
-      if (authResult.endpoint) {
-        console.error(
-          `[INVOICE_DOWNLOAD] Failed endpoint: ${authResult.endpoint}`
-        );
-      }
+    if (!authToken) {
+      console.error("[INVOICE_DOWNLOAD] No token found in cookie");
       return {
-        error: `CRM authentication failed: ${authResult.error}`,
-        statusCode: 500,
+        error: "Authentication token not found",
+        statusCode: 401,
       };
     }
 
-    const authToken = authResult.token;
-    console.log(
-      `[INVOICE_DOWNLOAD] Successfully obtained CRM auth token from ${authResult.endpoint}`
-    );
+    console.log("[INVOICE_DOWNLOAD] Using token from cookie");
 
     // Step 2: Download invoice from CRM
     // Uses the invoice download endpoint: /api/user/order/invoice/download/{orderId}

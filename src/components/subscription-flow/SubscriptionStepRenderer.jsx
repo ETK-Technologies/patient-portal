@@ -19,6 +19,7 @@ const SubscriptionStepRenderer = ({
   handleNavigate,
   submitCurrentStepData,
   submitFormData,
+  initialAction,
   onComplete,
 }) => {
   // Main view (stepIndex is null)
@@ -49,11 +50,17 @@ const SubscriptionStepRenderer = ({
   // Handle pauseInstead step (step 2)
   if (stepIndex === 2) {
     const [selected, setSelected] = useState(null);
-    const options = (stepConfig?.options || []).map((opt) => ({
+    const isSkipFlow = initialAction === "skip";
+    
+    let options = (stepConfig?.options || []).map((opt) => ({
       value: opt.id,
       label: opt.label,
       description: opt.description || "",
     }));
+    
+    if (isSkipFlow) {
+      options = options.filter((opt) => opt.value !== "no_thanks");
+    }
 
     return (
       <RadioOptionsScreen
@@ -64,20 +71,100 @@ const SubscriptionStepRenderer = ({
         onChange={setSelected}
         color="#AE7E56"
         containerClassName="w-full md:w-[528px] mx-auto md:px-0"
+        continueText={isSkipFlow ? "Continue and Skip" : "Continue"}
         onContinue={async (value) => {
           // Add answer first to update state
           addAnswer(2, stepConfig?.field || "pauseOption", value);
-          // Submit data with all previous answers included
-          await submitCurrentStepData?.({
-            ...answers, // Include all previous answers
-            [stepConfig?.field || "pauseOption"]: value,
-          });
-          if (value === "no_thanks") {
-            // Go to adjust quantity if user chooses no thanks
-            handleNavigate("adjustQuantity");
+          
+          if (isSkipFlow) {
+            try {
+              const allAnswers = {
+                ...answers,
+                [stepConfig?.field || "pauseOption"]: value,
+              };
+              
+              const getCookie = (name) => {
+                if (typeof document === "undefined") return null;
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) {
+                  return parts.pop().split(";").shift();
+                }
+                return null;
+              };
+
+              const wpUserId = getCookie("wp_user_id");
+              const crmUserId = getCookie("userId");
+              const subscriptionId = subscription?.id || subscription?._raw?.id || "";
+
+              let pauseOptionValue = null;
+              if (value && value !== "no_thanks") {
+                const match = value.toString().match(/pause(\d+)/);
+                if (match) {
+                  pauseOptionValue = parseInt(match[1], 10);
+                } else if (typeof value === "number") {
+                  pauseOptionValue = value;
+                }
+              }
+
+              if (!pauseOptionValue) {
+                throw new Error("Please select a pause option");
+              }
+
+              if (!subscriptionId) {
+                throw new Error("Subscription ID not found");
+              }
+
+              if (!wpUserId || !crmUserId) {
+                throw new Error("User information not found. Please log in again.");
+              }
+
+              const payload = {
+                subscriptionId: subscriptionId.toString(),
+                wpUserId: wpUserId,
+                crmUserId: crmUserId,
+                answers: {
+                  subscriptionAction: {
+                    value: "skip"
+                  },
+                  pauseOption: {
+                    value: pauseOptionValue
+                  }
+                }
+              };
+
+              const response = await fetch("/api/user/pause-cancel-subscription", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                credentials: "include",
+                body: JSON.stringify(payload),
+              });
+
+              const data = await response.json();
+
+              if (!response.ok || !data.success) {
+                throw new Error(data.error || data.message || "Failed to skip subscription");
+              }
+
+              if (typeof window !== "undefined") {
+                window.location.href = "/subscriptions";
+              }
+            } catch (error) {
+              console.error("Error skipping subscription:", error);
+              toast.error(error.message || "Failed to skip subscription. Please try again.");
+            }
           } else {
-            // If user selected a pause option, proceed to adjust quantity
-            handleNavigate("adjustQuantity");
+            await submitCurrentStepData?.({
+              ...answers,
+              [stepConfig?.field || "pauseOption"]: value,
+            });
+            if (value === "no_thanks") {
+              handleNavigate("adjustQuantity");
+            } else {
+              handleNavigate("adjustQuantity");
+            }
           }
         }}
       />
