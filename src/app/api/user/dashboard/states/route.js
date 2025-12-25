@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getTokenFromCookie } from "../../../utils/getTokenFromCookie";
 
 /**
  * GET /api/user/dashboard/states
@@ -129,10 +128,23 @@ async function fetchDashboardStates(userId, request) {
   console.log(`[DASHBOARD_STATES] CRM Host: ${crmHost}`);
 
   try {
-    const authToken = getTokenFromCookie(request);
+    const cookieHeader = request.headers.get("cookie") || "";
+    let authToken = null;
+
+    if (cookieHeader) {
+      const cookies = cookieHeader.split(";").reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split("=");
+        if (key && value) {
+          acc[key] = decodeURIComponent(value);
+        }
+        return acc;
+      }, {});
+
+      authToken = cookies.token;
+    }
     
     if (!authToken) {
-      console.error("[DASHBOARD_STATES] No token found in cookie");
+      console.error("[DASHBOARD_STATES] No token found in cookie (checked: token)");
       return {
         subscriptions_count: 0,
         orders_count: 0,
@@ -141,7 +153,7 @@ async function fetchDashboardStates(userId, request) {
       };
     }
 
-    console.log("[DASHBOARD_STATES] Using token from cookie");
+    console.log("[DASHBOARD_STATES] Using token from cookie (token)");
 
     // Step 2: Fetch dashboard states from CRM
     const dashboardStatesUrl = `${crmHost}/api/user/dashboard/stats`;

@@ -11,7 +11,7 @@ export default function DashboardLayout({ children }) {
   const [sidebarClosing, setSidebarClosing] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
-  const { userData, loading, error, initialLoadComplete } = useUser();
+  const { userData, error } = useUser();
 
   // Get the current page title from the pathname
   const getPageTitle = () => {
@@ -35,20 +35,6 @@ export default function DashboardLayout({ children }) {
   const handleSidebarCollapse = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };
-
-  if (!initialLoadComplete) {
-    return (
-      <div
-        className="h-screen flex items-center justify-center max-w-[1440px] mx-auto"
-        style={{ backgroundColor: "#FBFAF9" }}
-      >
-        <div className="flex flex-col items-center justify-center space-y-4">
-          <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin"></div>
-          <p className="text-gray-600 text-lg">Loading your profile...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (error && !userData) {
     return (

@@ -7,17 +7,23 @@ import { useUser } from "@/contexts/UserContext";
 
 export default function DashboardOverview() {
   const { userData } = useUser();
-  const [subscriptionCount, setSubscriptionCount] = useState("0");
-  const [ordersCount, setOrdersCount] = useState("0");
+  const [subscriptionCount, setSubscriptionCount] = useState(null);
+  const [ordersCount, setOrdersCount] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [hasReceivedResponse, setHasReceivedResponse] = useState(false);
+  const [hasCalledAPI, setHasCalledAPI] = useState(false);
 
   // Fetch dashboard states (counts) from API
-  useEffect(() => {
+ useEffect(() => {
+    if (hasCalledAPI && !userData) {
+      return;
+    }
+
     const fetchDashboardStates = async () => {
       try {
         setLoading(true);
+        setHasCalledAPI(true);
 
-        // Extract CRM user ID from userData
         let crmUserID = null;
         if (userData) {
           // Check for crm_user_id (new format from profile API)
@@ -30,17 +36,12 @@ export default function DashboardOverview() {
           }
         }
 
-        if (!crmUserID) {
-          console.log(
-            "[DASHBOARD_OVERVIEW] No user ID available, waiting for user data..."
-          );
-          setLoading(false);
-          return;
-        }
+        const apiUrl = crmUserID 
+          ? `/api/user/dashboard/states?crmUserID=${crmUserID}`
+          : `/api/user/dashboard/states`;
 
-        const response = await fetch(
-          `/api/user/dashboard/states?crmUserID=${crmUserID}`
-        );
+        console.log("[DASHBOARD_OVERVIEW] Calling stats API:", apiUrl);
+        const response = await fetch(apiUrl);
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -50,6 +51,8 @@ export default function DashboardOverview() {
           );
           setSubscriptionCount("0");
           setOrdersCount("0");
+          setHasReceivedResponse(true);
+          setLoading(false);
           return;
         }
 
@@ -70,10 +73,13 @@ export default function DashboardOverview() {
           setSubscriptionCount("0");
           setOrdersCount("0");
         }
+        
+        setHasReceivedResponse(true);
       } catch (error) {
         console.error("Error fetching dashboard states:", error);
         setSubscriptionCount("0");
         setOrdersCount("0");
+        setHasReceivedResponse(true);
       } finally {
         setLoading(false);
       }
@@ -109,7 +115,7 @@ export default function DashboardOverview() {
     },
   ];
 
-  if (loading) {
+  if (loading || !hasReceivedResponse || subscriptionCount === null || ordersCount === null) {
     return (
       <div className="flex gap-6 overflow-x-auto scrollbar-hide">
         <div className="flex gap-[16px] min-w-max">
