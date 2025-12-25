@@ -310,6 +310,15 @@ export async function verifyAutoLoginToken(token) {
     return null;
   }
 
+  let tokenToVerify = token;
+  if (token && token.includes("|")) {
+    const parts = token.split("|");
+    if (parts.length === 2) {
+      tokenToVerify = parts[1];
+      console.log(`[TOKEN] Token contains userId prefix, extracted token part: ${tokenToVerify.substring(0, 10)}...`);
+    }
+  }
+
   console.log(`[TOKEN] Map size: ${global.autoLoginTokens.size}`);
   console.log(
     `[TOKEN] Map keys (first 3):`,
@@ -318,11 +327,17 @@ export async function verifyAutoLoginToken(token) {
       .map((k) => k.substring(0, 10) + "...")
   );
 
-  const tokenData = global.autoLoginTokens.get(token);
+  let tokenData = global.autoLoginTokens.get(tokenToVerify);
+  
+  if (!tokenData && token !== tokenToVerify) {
+    console.log(`[TOKEN] Token not found with extracted part, trying full token...`);
+    tokenData = global.autoLoginTokens.get(token);
+  }
 
   if (!tokenData) {
     console.error(`[TOKEN] Token not found in Map!`);
-    console.log(`[TOKEN] Looking for: ${token?.substring(0, 20)}...`);
+    console.log(`[TOKEN] Looking for: ${tokenToVerify?.substring(0, 20)}...`);
+    console.log(`[TOKEN] Original token was: ${token?.substring(0, 20)}...`);
     console.log(
       `[TOKEN] Available tokens (first 3):`,
       Array.from(global.autoLoginTokens.keys()).slice(0, 3)
@@ -344,14 +359,13 @@ export async function verifyAutoLoginToken(token) {
         tokenData.expiresAt
       ).toISOString()}, Now: ${new Date(now).toISOString()}`
     );
-    global.autoLoginTokens.delete(token);
+    global.autoLoginTokens.delete(tokenToVerify);
     return null;
   }
 
   console.log(`[TOKEN] Token is valid! Deleting after use (one-time use)`);
 
-  // Delete the token after use (one-time use)
-  global.autoLoginTokens.delete(token);
+  global.autoLoginTokens.delete(tokenToVerify);
 
   return tokenData.userId;
 }
