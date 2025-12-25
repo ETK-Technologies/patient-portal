@@ -100,11 +100,14 @@ function AutoLoginContent() {
         }
 
         // Verify the token with the backend
-        const response = await fetch(
-          `/api/user/verify-auto-login?token=${encodeURIComponent(
-            token
-          )}&wp_user_id=${encodeURIComponent(wpUserId)}`
-        );
+        const verifyUrl = `/api/user/verify-auto-login?token=${encodeURIComponent(
+          token
+        )}&wp_user_id=${encodeURIComponent(wpUserId)}${crmUserId ? `&crm_user_id=${encodeURIComponent(crmUserId)}` : ""}${authToken ? `&authToken=${encodeURIComponent(authToken)}` : ""}`;
+        
+        const response = await fetch(verifyUrl, {
+          credentials: "include",
+          cache: "no-store",
+        });
 
         const data = await response.json();
 
@@ -114,8 +117,9 @@ function AutoLoginContent() {
           return;
         }
 
-        // Store user session
         await storeUserSession(wpUserId, data.userData, crmUserId);
+
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         // Success - redirect immediately without showing any UI
         router.replace(`/${redirectPage}`);

@@ -95,7 +95,7 @@ export async function GET(request) {
     const cookieOptions = {
       path: "/",
       maxAge: 60 * 60 * 24 * 7,
-      sameSite: isProduction ? "lax" : "lax",
+      sameSite: "lax",
       secure: isProduction,
       httpOnly: false,
     };
@@ -110,7 +110,7 @@ export async function GET(request) {
       console.log("[VERIFY] Set authToken cookie server-side");
     }
 
-    response.cookies.set("wp_user_id", wpUserId, cookieOptions);
+    response.cookies.set("wp_user_id", String(wpUserId), cookieOptions);
     console.log(`[VERIFY] Set wp_user_id cookie server-side: ${wpUserId}`);
 
     const userIdForCookie = crmUserId || userData?.crm_user_id || userData?.id || wpUserId;
@@ -119,9 +119,17 @@ export async function GET(request) {
 
     const userEmail = userData?.email || userData?.user?.email || userData?.data?.email;
     if (userEmail) {
-      response.cookies.set("userEmail", userEmail, cookieOptions);
+      response.cookies.set("userEmail", String(userEmail), cookieOptions);
       console.log(`[VERIFY] Set userEmail cookie server-side`);
     }
+
+    console.log("[VERIFY] All cookies set:", {
+      token: token ? "set" : "not set",
+      authToken: authToken ? "set" : "not set",
+      wp_user_id: wpUserId,
+      userId: userIdForCookie,
+      userEmail: userEmail || "not set",
+    });
 
     return response;
   } catch (error) {
