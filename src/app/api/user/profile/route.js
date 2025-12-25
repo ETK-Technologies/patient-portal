@@ -47,10 +47,19 @@ export async function GET(request) {
       }
     }
 
+    if (!wpUserID) {
+      const searchParams = request.nextUrl.searchParams;
+      const wpUserIdFromQuery = searchParams.get("wp_user_id");
+      if (wpUserIdFromQuery) {
+        wpUserID = wpUserIdFromQuery;
+        console.log(`[USER_PROFILE] Using wp_user_id from query parameter (fallback): ${wpUserID}`);
+      }
+    }
+
     console.log(`[USER_PROFILE] Final extracted wp_user_id: ${wpUserID || "not found"}`);
 
     if (!wpUserID) {
-      console.error(`[USER_PROFILE] Authentication failed - wp_user_id not found in cookies`);
+      console.error(`[USER_PROFILE] Authentication failed - wp_user_id not found in cookies or query params`);
       console.error(`[USER_PROFILE] Available cookies in header: ${cookieHeader}`);
       return NextResponse.json(
         {

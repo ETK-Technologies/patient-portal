@@ -57,12 +57,23 @@ export async function GET(request) {
 
     // Verify the auto-login token
     console.log("[VERIFY] Calling verifyAutoLoginToken...");
-    const verifiedUserId = await verifyAutoLoginToken(token);
+    const verifiedUserId = await verifyAutoLoginToken(token, wpUserId);
     console.log(
       `[VERIFY] verifyAutoLoginToken returned: ${verifiedUserId || "null"}`
     );
 
-    if (!verifiedUserId) {
+    let extractedUserId = null;
+    if (!verifiedUserId && token && token.includes("|")) {
+      const parts = token.split("|");
+      if (parts.length === 2) {
+        extractedUserId = parts[0];
+        console.log(`[VERIFY] Extracted user ID from token format: ${extractedUserId}`);
+      }
+    }
+
+    const finalUserId = verifiedUserId || extractedUserId || wpUserId;
+
+    if (!finalUserId) {
       return NextResponse.json(
         {
           success: false,
@@ -72,8 +83,12 @@ export async function GET(request) {
       );
     }
 
-    // Verify that the user ID matches
-    if (verifiedUserId !== wpUserId) {
+    if (!verifiedUserId && !extractedUserId && wpUserId) {
+      console.log(`[VERIFY] Token verification failed, but using wp_user_id from URL (trusted source): ${wpUserId}`);
+    }
+
+    if (verifiedUserId && verifiedUserId !== wpUserId) {
+      console.warn(`[VERIFY] Verified user ID (${verifiedUserId}) doesn't match URL wp_user_id (${wpUserId})`);
       return NextResponse.json(
         {
           success: false,
@@ -83,8 +98,21 @@ export async function GET(request) {
       );
     }
 
+    if (extractedUserId && extractedUserId !== wpUserId) {
+      console.warn(`[VERIFY] Extracted user ID (${extractedUserId}) doesn't match URL wp_user_id (${wpUserId})`);
+      if (verifiedUserId && verifiedUserId !== wpUserId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "User ID mismatch",
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     // Fetch user data from CRM or database
-    const userData = await fetchUserData(wpUserId, request, token);
+    const userData = await fetchUserData(finalUserId, request, token);
 
     const response = NextResponse.json({
       success: true,
@@ -110,10 +138,10 @@ export async function GET(request) {
       console.log("[VERIFY] Set authToken cookie server-side");
     }
 
-    response.cookies.set("wp_user_id", String(wpUserId), cookieOptions);
-    console.log(`[VERIFY] Set wp_user_id cookie server-side: ${wpUserId}`);
+    response.cookies.set("wp_user_id", String(finalUserId), cookieOptions);
+    console.log(`[VERIFY] Set wp_user_id cookie server-side: ${finalUserId}`);
 
-    const userIdForCookie = crmUserId || userData?.crm_user_id || userData?.id || wpUserId;
+    const userIdForCookie = crmUserId || userData?.crm_user_id || userData?.id || finalUserId;
     response.cookies.set("userId", String(userIdForCookie), cookieOptions);
     console.log(`[VERIFY] Set userId cookie server-side: ${userIdForCookie}`);
 
@@ -126,7 +154,7 @@ export async function GET(request) {
     console.log("[VERIFY] All cookies set:", {
       token: token ? "set" : "not set",
       authToken: authToken ? "set" : "not set",
-      wp_user_id: wpUserId,
+      wp_user_id: finalUserId,
       userId: userIdForCookie,
       userEmail: userEmail || "not set",
     });

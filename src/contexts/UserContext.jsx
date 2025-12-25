@@ -10,6 +10,32 @@ import {
 
 const UserContext = createContext(null);
 
+const getWpUserId = () => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const cookies = document.cookie.split(";");
+    for (const cookie of cookies) {
+      const [key, value] = cookie.trim().split("=");
+      if (key === "wp_user_id" && value) {
+        return decodeURIComponent(value);
+      }
+    }
+
+    const stored = localStorage.getItem("userData");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed?.user?.wp_user_id) {
+        return parsed.user.wp_user_id;
+      }
+    }
+  } catch (err) {
+    console.warn("[UserContext] Error getting wp_user_id:", err);
+  }
+
+  return null;
+};
+
 // Get user data from localStorage if available
 const getStoredUserData = () => {
   if (typeof window === "undefined") return null;
@@ -121,8 +147,16 @@ export function UserProvider({ children }) {
       setLoading(true);
       setError(null);
 
-      // Add cache-busting timestamp to ensure we get fresh data
-      const response = await fetch(`/api/user/profile?t=${Date.now()}`, {
+      const wpUserIdFallback = getWpUserId();
+      const queryParams = new URLSearchParams({
+        t: Date.now().toString(),
+      });
+      if (wpUserIdFallback) {
+        queryParams.append("wp_user_id", wpUserIdFallback);
+        console.log(`[UserContext] Adding wp_user_id to query params as fallback: ${wpUserIdFallback}`);
+      }
+
+      const response = await fetch(`/api/user/profile?${queryParams.toString()}`, {
         cache: "no-store",
         credentials: "include",
         headers: {

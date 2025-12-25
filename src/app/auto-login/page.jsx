@@ -119,7 +119,13 @@ function AutoLoginContent() {
 
         await storeUserSession(wpUserId, data.userData, crmUserId);
 
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        const cookiesSet = document.cookie.includes('wp_user_id=');
+        if (!cookiesSet) {
+          console.warn('[AUTO-LOGIN] Cookies not detected, waiting longer...');
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
 
         // Success - redirect immediately without showing any UI
         router.replace(`/${redirectPage}`);
