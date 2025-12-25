@@ -11,7 +11,7 @@ export default function DashboardLayout({ children }) {
   const [sidebarClosing, setSidebarClosing] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
-  const { userData, loading, error } = useUser();
+  const { userData, loading, error, initialLoadComplete } = useUser();
 
   // Get the current page title from the pathname
   const getPageTitle = () => {
@@ -36,7 +36,7 @@ export default function DashboardLayout({ children }) {
     setSidebarCollapsed(!sidebarCollapsed);
   };
 
-  if (loading || !userData) {
+  if (!initialLoadComplete) {
     return (
       <div
         className="h-screen flex items-center justify-center max-w-[1440px] mx-auto"

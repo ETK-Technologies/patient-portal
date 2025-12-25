@@ -96,6 +96,7 @@ export function UserProvider({ children }) {
   const [subscriptions, setSubscriptions] = useState([]);
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
   const [subscriptionsError, setSubscriptionsError] = useState(null);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   // Fetch user data from API
   const fetchUserData = useCallback(async (useStoredData = false) => {
@@ -108,6 +109,7 @@ export function UserProvider({ children }) {
           setUserEmailCookie(storedUser);
           setLoading(false);
           setError(null);
+          setInitialLoadComplete(true);
           // Still fetch from API in background to ensure data is fresh
           fetchUserData(false).catch((err) => {
             console.warn("[UserContext] Background refresh failed:", err);
@@ -147,6 +149,8 @@ export function UserProvider({ children }) {
       setUserData(extractedUser);
       storeUserData(extractedUser);
       setUserEmailCookie(extractedUser);
+      
+      setInitialLoadComplete(true);
     } catch (err) {
       console.error("[UserContext] Error fetching user data:", err);
 
@@ -159,9 +163,11 @@ export function UserProvider({ children }) {
         setUserData(storedUser);
         setUserEmailCookie(storedUser);
         setError(null);
+        setInitialLoadComplete(true);
       } else {
         setError(err.message);
         setUserData(null);
+        setInitialLoadComplete(true);
       }
     } finally {
       setLoading(false);
@@ -338,10 +344,14 @@ export function UserProvider({ children }) {
       });
 
       setSubscriptions(mappedSubscriptions);
+      
+      setInitialLoadComplete(true);
     } catch (err) {
       console.error("[UserContext] Error fetching subscriptions:", err);
       setSubscriptionsError(err.message || "Failed to load subscriptions");
       setSubscriptions([]);
+      
+      setInitialLoadComplete(true);
     } finally {
       setSubscriptionsLoading(false);
     }
@@ -378,6 +388,7 @@ export function UserProvider({ children }) {
     subscriptionsLoading,
     subscriptionsError,
     refreshSubscriptions,
+    initialLoadComplete,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
