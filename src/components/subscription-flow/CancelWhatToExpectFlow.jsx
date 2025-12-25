@@ -2,12 +2,19 @@
 import React from "react";
 import CustomImage from "../utils/CustomImage";
 import { FaArrowRight } from "react-icons/fa6";
-import Link from "next/link";
 import CustomButton from "../utils/CustomButton";
 
-export default function CancelWhatToExpectFlow({ subscription, onDone }) {
+export default function CancelWhatToExpectFlow({ subscription, onDone, onCloseFlow }) {
   const { productImage, category } = subscription || {};
   const reactivationDate = subscription?.reactivationDate || "{date}";
+
+  const handleBackToSubscription = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onCloseFlow) {
+      onCloseFlow();
+    }
+  };
 
   return (
     <div className="pb-24 w-full md:w-[528px] mx-auto md:px-0">
@@ -16,12 +23,13 @@ export default function CancelWhatToExpectFlow({ subscription, onDone }) {
       </h2>
       <p className="mb-6 text-[#595A5A] text-[14px] leading-[140%]">
         Changed your mind? {""}
-        <Link
-          href="/subscriptions"
-          className="underline underline-offset-2 text-[#212121]"
+        <button
+          type="button"
+          onClick={handleBackToSubscription}
+          className="underline underline-offset-2 text-[#212121] cursor-pointer hover:opacity-80 bg-transparent border-none p-0"
         >
           Back to subscription
-        </Link>
+        </button>
       </p>
 
       <div className="rounded-[16px] border border-[#E5E7EB] bg-white mb-4 flex items-center justify-center">
@@ -91,32 +99,6 @@ export default function CancelWhatToExpectFlow({ subscription, onDone }) {
               <div className="flex items-center justify-between mb-4">
                 <div className="text-[16px] font-medium">
                   Contact customer support
-                </div>
-                <FaArrowRight size={18} />
-              </div>
-            </div>
-          </button>
-          <button className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 mt-4">
-            <div className="w-full">
-              <div className="text-xs text-[#5E5E5E] mb-1">
-                Additional options
-              </div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-[16px] font-medium">
-                  Skip your next order
-                </div>
-                <FaArrowRight size={18} />
-              </div>
-            </div>
-          </button>
-          <button className="w-full text-left hover:bg-[#F9FAFB] h-auto p-0 mt-4">
-            <div className="w-full">
-              <div className="text-xs text-[#5E5E5E] mb-1">
-                Additional options
-              </div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="text-[16px] font-medium">
-                  Pause/Cancel Subscription
                 </div>
                 <FaArrowRight size={18} />
               </div>

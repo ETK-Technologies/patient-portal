@@ -20,6 +20,8 @@ const SubscriptionStepRenderer = ({
   submitCurrentStepData,
   submitFormData,
   initialAction,
+  clearLocalStorage,
+  onCloseFlow,
   onComplete,
 }) => {
   // Main view (stepIndex is null)
@@ -350,6 +352,7 @@ const SubscriptionStepRenderer = ({
         onDone={() => {
           handleNavigate("cancelFinal");
         }}
+        onCloseFlow={onCloseFlow}
       />
     );
   }
@@ -383,6 +386,9 @@ const SubscriptionStepRenderer = ({
             
             if (result?.success) {
               toast.success("Subscription updated successfully");
+              if (clearLocalStorage) {
+                clearLocalStorage();
+              }
             } else if (result?.error) {
               toast.error(result.error || "Failed to update subscription");
               return;
