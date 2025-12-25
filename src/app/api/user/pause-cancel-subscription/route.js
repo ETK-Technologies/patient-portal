@@ -182,9 +182,24 @@ async function callPauseCancelSubscriptionInCRM(
       console.error(
         `[PAUSE_CANCEL_SUBSCRIPTION] CRM API error: ${errorText}`
       );
+      
+      let errorMessage = `CRM server ${crmResponse.status} error`;
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error) {
+          errorMessage = errorJson.error;
+        } else if (errorJson.message) {
+          errorMessage = errorJson.message;
+        }
+      } catch (parseError) {
+        if (errorText && errorText.length < 200) {
+          errorMessage = errorText;
+        }
+      }
+      
       return {
         status: false,
-        message: `CRM API error: ${crmResponse.status} ${crmResponse.statusText}`,
+        message: errorMessage,
         details: errorText,
       };
     }
@@ -194,6 +209,15 @@ async function callPauseCancelSubscriptionInCRM(
       `[PAUSE_CANCEL_SUBSCRIPTION] CRM response received:`,
       JSON.stringify(responseData, null, 2)
     );
+
+    if (responseData.status === false) {
+      const errorMessage = responseData.error || responseData.message || "Failed to update subscription";
+      return {
+        status: false,
+        message: errorMessage,
+        details: responseData,
+      };
+    }
 
     return responseData;
   } catch (error) {

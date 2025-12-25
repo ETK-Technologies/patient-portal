@@ -4,12 +4,14 @@ import { useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar/Navbar";
 import { usePathname } from "next/navigation";
+import { useUser } from "@/contexts/UserContext";
 
 export default function DashboardLayout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarClosing, setSidebarClosing] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
+  const { userData, loading, error } = useUser();
 
   // Get the current page title from the pathname
   const getPageTitle = () => {
@@ -33,6 +35,41 @@ export default function DashboardLayout({ children }) {
   const handleSidebarCollapse = () => {
     setSidebarCollapsed(!sidebarCollapsed);
   };
+
+  if (loading || !userData) {
+    return (
+      <div
+        className="h-screen flex items-center justify-center max-w-[1440px] mx-auto"
+        style={{ backgroundColor: "#FBFAF9" }}
+      >
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin"></div>
+          <p className="text-gray-600 text-lg">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !userData) {
+    return (
+      <div
+        className="h-screen flex items-center justify-center max-w-[1440px] mx-auto"
+        style={{ backgroundColor: "#FBFAF9" }}
+      >
+        <div className="flex flex-col items-center justify-center space-y-4 max-w-md text-center px-4">
+          <div className="text-red-600 text-4xl mb-2">⚠️</div>
+          <h2 className="text-2xl font-semibold text-gray-800">Unable to Load Profile</h2>
+          <p className="text-gray-600">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
