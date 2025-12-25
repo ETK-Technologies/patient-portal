@@ -26,6 +26,8 @@ export async function GET(request) {
     const searchParams = request.nextUrl.searchParams;
     const token = searchParams.get("token");
     const wpUserId = searchParams.get("wp_user_id");
+    const crmUserId = searchParams.get("crm_user_id");
+    const authToken = searchParams.get("authToken");
 
     console.log("[VERIFY] Received verification request");
     console.log(
@@ -84,10 +86,44 @@ export async function GET(request) {
     // Fetch user data from CRM or database
     const userData = await fetchUserData(wpUserId, request, token);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       userData,
     });
+
+    const isProduction = process.env.NODE_ENV === "production";
+    const cookieOptions = {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+      sameSite: isProduction ? "lax" : "lax",
+      secure: isProduction,
+      httpOnly: false,
+    };
+
+    if (token) {
+      response.cookies.set("token", token, cookieOptions);
+      console.log("[VERIFY] Set token cookie server-side");
+    }
+
+    if (authToken) {
+      response.cookies.set("authToken", authToken, cookieOptions);
+      console.log("[VERIFY] Set authToken cookie server-side");
+    }
+
+    response.cookies.set("wp_user_id", wpUserId, cookieOptions);
+    console.log(`[VERIFY] Set wp_user_id cookie server-side: ${wpUserId}`);
+
+    const userIdForCookie = crmUserId || userData?.crm_user_id || userData?.id || wpUserId;
+    response.cookies.set("userId", String(userIdForCookie), cookieOptions);
+    console.log(`[VERIFY] Set userId cookie server-side: ${userIdForCookie}`);
+
+    const userEmail = userData?.email || userData?.user?.email || userData?.data?.email;
+    if (userEmail) {
+      response.cookies.set("userEmail", userEmail, cookieOptions);
+      console.log(`[VERIFY] Set userEmail cookie server-side`);
+    }
+
+    return response;
   } catch (error) {
     console.error("Error verifying auto-login token:", error);
     return NextResponse.json(

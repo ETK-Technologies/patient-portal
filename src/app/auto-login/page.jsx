@@ -28,7 +28,7 @@ function AutoLoginContent() {
             `token=${encodeURIComponent(token)}`,
             "path=/",
             `max-age=${60 * 60 * 24 * 7}`, // 7 days
-            isProduction ? "SameSite=Strict" : "",
+            isProduction ? "SameSite=Lax" : "",
             isProduction ? "Secure" : "",
           ]
             .filter(Boolean)
@@ -45,7 +45,7 @@ function AutoLoginContent() {
             `authToken=${encodeURIComponent(authToken)}`,
             "path=/",
             `max-age=${60 * 60 * 24 * 7}`,
-            isProduction ? "SameSite=Strict" : "",
+            isProduction ? "SameSite=Lax" : "",
             isProduction ? "Secure" : "",
           ]
             .filter(Boolean)
@@ -62,7 +62,7 @@ function AutoLoginContent() {
             `userId=${crmUserId}`,
             "path=/",
             `max-age=${60 * 60 * 24 * 7}`,
-            isProduction ? "SameSite=Strict" : "",
+            isProduction ? "SameSite=Lax" : "",
             isProduction ? "Secure" : "",
           ]
             .filter(Boolean)
@@ -80,7 +80,7 @@ function AutoLoginContent() {
             `wp_user_id=${wpUserId}`,
             "path=/",
             `max-age=${60 * 60 * 24 * 7}`, // 7 days
-            isProduction ? "SameSite=Strict" : "",
+            isProduction ? "SameSite=Lax" : "",
             isProduction ? "Secure" : "",
           ]
             .filter(Boolean)
@@ -178,7 +178,7 @@ async function storeUserSession(userId, userData = {}, crmUserId = null) {
     `userId=${userIdForCookie}`,
     "path=/",
     `max-age=${60 * 60 * 24 * 7}`,
-    isProduction ? "SameSite=Strict" : "",
+    isProduction ? "SameSite=Lax" : "",
     isProduction ? "Secure" : "",
   ]
     .filter(Boolean)
@@ -190,7 +190,7 @@ async function storeUserSession(userId, userData = {}, crmUserId = null) {
     `wp_user_id=${wpUserId}`,
     "path=/",
     `max-age=${60 * 60 * 24 * 7}`, // 7 days
-    isProduction ? "SameSite=Strict" : "",
+    isProduction ? "SameSite=Lax" : "",
     isProduction ? "Secure" : "",
   ]
     .filter(Boolean)
@@ -203,7 +203,7 @@ async function storeUserSession(userId, userData = {}, crmUserId = null) {
       `userEmail=${encodeURIComponent(userEmail)}`,
       "path=/",
       `max-age=${60 * 60 * 24 * 7}`, // 7 days
-      isProduction ? "SameSite=Strict" : "",
+      isProduction ? "SameSite=Lax" : "",
       isProduction ? "Secure" : "",
     ]
       .filter(Boolean)
