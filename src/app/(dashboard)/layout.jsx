@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar/Navbar";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
 
 export default function DashboardLayout({ children }) {
@@ -11,7 +11,19 @@ export default function DashboardLayout({ children }) {
   const [sidebarClosing, setSidebarClosing] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
   const { userData, error } = useUser();
+
+  useEffect(() => {
+    if (error && error === "User not authenticated" && !userData) {
+      const cookies = document.cookie.split(";");
+      const hasWpUserId = cookies.some((cookie) => cookie.trim().startsWith("wp_user_id="));
+      
+      if (!hasWpUserId) {
+        console.log("[DASHBOARD_LAYOUT] No authentication cookies found, user needs to login via main website");
+      }
+    }
+  }, [error, userData]);
 
   // Get the current page title from the pathname
   const getPageTitle = () => {
@@ -37,6 +49,9 @@ export default function DashboardLayout({ children }) {
   };
 
   if (error && !userData) {
+    const cookies = document.cookie.split(";");
+    const hasWpUserId = cookies.some((cookie) => cookie.trim().startsWith("wp_user_id="));
+    
     return (
       <div
         className="h-screen flex items-center justify-center max-w-[1440px] mx-auto"
@@ -45,13 +60,30 @@ export default function DashboardLayout({ children }) {
         <div className="flex flex-col items-center justify-center space-y-4 max-w-md text-center px-4">
           <div className="text-red-600 text-4xl mb-2">⚠️</div>
           <h2 className="text-2xl font-semibold text-gray-800">Unable to Load Profile</h2>
-          <p className="text-gray-600">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Retry
-          </button>
+          <p className="text-gray-600">
+            {!hasWpUserId 
+              ? "Please access the patient portal through the main website to log in."
+              : error}
+          </p>
+          <div className="flex gap-3 mt-4">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Retry
+            </button>
+            {!hasWpUserId && (
+              <button
+                onClick={() => {
+                  const mainWebsiteUrl = process.env.NEXT_PUBLIC_MAIN_WEBSITE_URL || "https://myrocky.ca";
+                  window.location.href = mainWebsiteUrl;
+                }}
+                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                Go to Main Website
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );

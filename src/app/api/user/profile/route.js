@@ -25,24 +25,38 @@ export async function GET(request) {
     const cookieHeader = request.headers.get("cookie") || "";
     let wpUserID = null;
 
+    console.log(`[USER_PROFILE] Full cookie header: ${cookieHeader}`);
+    console.log(`[USER_PROFILE] Cookie header length: ${cookieHeader.length}`);
+
     if (cookieHeader) {
       const match = cookieHeader.match(/wp_user_id=([^;]+)/);
       if (match) {
         wpUserID = decodeURIComponent(match[1].trim());
+        console.log(`[USER_PROFILE] Found wp_user_id via regex: ${wpUserID}`);
+      } else {
+        const cookies = cookieHeader.split(";").map(c => c.trim());
+        console.log(`[USER_PROFILE] All cookies:`, cookies);
+        
+        for (const cookie of cookies) {
+          if (cookie.startsWith("wp_user_id=")) {
+            wpUserID = decodeURIComponent(cookie.substring("wp_user_id=".length).trim());
+            console.log(`[USER_PROFILE] Found wp_user_id via split: ${wpUserID}`);
+            break;
+          }
+        }
       }
     }
 
-    console.log(
-      `[USER_PROFILE] Cookie header: ${cookieHeader.substring(0, 100)}...`
-    );
-    console.log(`[USER_PROFILE] Extracted wp_user_id: ${wpUserID || "not found"}`);
+    console.log(`[USER_PROFILE] Final extracted wp_user_id: ${wpUserID || "not found"}`);
 
     if (!wpUserID) {
+      console.error(`[USER_PROFILE] Authentication failed - wp_user_id not found in cookies`);
+      console.error(`[USER_PROFILE] Available cookies in header: ${cookieHeader}`);
       return NextResponse.json(
         {
           status: false,
           message: "User not authenticated",
-          error: "User not authenticated",
+          error: "User not authenticated - wp_user_id cookie not found",
         },
         { status: 401 }
       );

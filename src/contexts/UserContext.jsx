@@ -124,6 +124,10 @@ export function UserProvider({ children }) {
       // Add cache-busting timestamp to ensure we get fresh data
       const response = await fetch(`/api/user/profile?t=${Date.now()}`, {
         cache: "no-store",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
       });
 
       if (!response.ok) {
