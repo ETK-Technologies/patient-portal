@@ -641,6 +641,16 @@ export function useSubscriptionFlow(subscription, initialStep = null) {
         return answers[field];
     };
 
+    const clearLocalStorage = () => {
+        if (typeof window === "undefined") return;
+        try {
+            window.localStorage.removeItem(storageKey);
+            window.localStorage.removeItem(storageExpiryKey);
+        } catch (e) {
+            console.error("Error clearing subscription flow localStorage:", e);
+        }
+    };
+
     return {
         stepIndex,
         progress,
@@ -658,6 +668,7 @@ export function useSubscriptionFlow(subscription, initialStep = null) {
         transformAnswersForApi, // Transform answers for API format
         initialAction,
         setInitialAction,
+        clearLocalStorage,
     };
 }
 

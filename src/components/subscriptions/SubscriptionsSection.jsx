@@ -190,6 +190,7 @@ export default function SubscriptionsSection() {
             setShowHeader={setShowHeader}
             setHeaderVariant={setHeaderVariant}
             onBackHandler={handleBackHandler}
+            onCloseFlow={handleCloseFlow}
           />
         </div>
       );

@@ -27,6 +27,7 @@ export default function SubscriptionFlow({
   setShowHeader,
   setHeaderVariant,
   onBackHandler,
+  onCloseFlow,
 }) {
   const router = useRouter();
   const [subscriptionDetails, setSubscriptionDetails] = useState(subscription);
@@ -702,6 +703,8 @@ export default function SubscriptionFlow({
           submitCurrentStepData={flowState.submitCurrentStepData}
           submitFormData={flowState.submitFormData}
           initialAction={flowState.initialAction}
+          clearLocalStorage={flowState.clearLocalStorage}
+          onCloseFlow={onCloseFlow}
           onComplete={(data) => {
             // Handle flow completion if needed
             console.log("Flow completed with data:", data);
