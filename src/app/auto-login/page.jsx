@@ -18,6 +18,7 @@ function AutoLoginContent() {
         const token = searchParams.get("token");
         const wpUserId = searchParams.get("wp_user_id");
         const crmUserId = searchParams.get("crm_user_id");
+        const authToken = searchParams.get("authToken");
         const redirectPage = searchParams.get("redirect") || "home";
 
         const isProduction = process.env.NODE_ENV === "production";
@@ -36,6 +37,23 @@ function AutoLoginContent() {
           document.cookie = tokenCookieOptions;
           console.log(
             `[AUTO-LOGIN] token cookie set immediately`
+          );
+        }
+
+        if (authToken) {
+          const authTokenCookieOptions = [
+            `authToken=${encodeURIComponent(authToken)}`,
+            "path=/",
+            `max-age=${60 * 60 * 24 * 7}`,
+            isProduction ? "SameSite=Strict" : "",
+            isProduction ? "Secure" : "",
+          ]
+            .filter(Boolean)
+            .join("; ");
+
+          document.cookie = authTokenCookieOptions;
+          console.log(
+            `[AUTO-LOGIN] authToken cookie set immediately`
           );
         }
 
