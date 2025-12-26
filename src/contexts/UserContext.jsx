@@ -14,6 +14,7 @@ const getWpUserId = () => {
   if (typeof window === "undefined") return null;
 
   try {
+    // First, try to get from cookies
     const cookies = document.cookie.split(";");
     for (const cookie of cookies) {
       const [key, value] = cookie.trim().split("=");
@@ -22,12 +23,21 @@ const getWpUserId = () => {
       }
     }
 
+    // Second, try to get from localStorage
     const stored = localStorage.getItem("userData");
     if (stored) {
       const parsed = JSON.parse(stored);
       if (parsed?.user?.wp_user_id) {
         return parsed.user.wp_user_id;
       }
+    }
+
+    // Third, try to get from URL parameters (for auto-login page)
+    const urlParams = new URLSearchParams(window.location.search);
+    const wpUserIdFromUrl = urlParams.get("wp_user_id");
+    if (wpUserIdFromUrl) {
+      console.log(`[UserContext] Found wp_user_id in URL params: ${wpUserIdFromUrl}`);
+      return wpUserIdFromUrl;
     }
   } catch (err) {
     console.warn("[UserContext] Error getting wp_user_id:", err);
@@ -147,13 +157,17 @@ export function UserProvider({ children }) {
       setLoading(true);
       setError(null);
 
+      // Get wp_user_id from multiple sources (cookies -> localStorage -> URL params)
       const wpUserIdFallback = getWpUserId();
+      
       const queryParams = new URLSearchParams({
         t: Date.now().toString(),
       });
       if (wpUserIdFallback) {
         queryParams.append("wp_user_id", wpUserIdFallback);
         console.log(`[UserContext] Adding wp_user_id to query params as fallback: ${wpUserIdFallback}`);
+      } else {
+        console.warn(`[UserContext] No wp_user_id found in cookies, localStorage, or URL params`);
       }
 
       const response = await fetch(`/api/user/profile?${queryParams.toString()}`, {
@@ -408,6 +422,7 @@ export function UserProvider({ children }) {
   useEffect(() => {
     // First, try to use stored data immediately for fast UI rendering
     // Then fetch from API to ensure data is fresh
+    // getWpUserId() now checks URL params, so it will find wp_user_id on auto-login page
     fetchUserData(true);
   }, [fetchUserData]);
 
