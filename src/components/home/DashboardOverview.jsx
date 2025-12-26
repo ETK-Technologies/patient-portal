@@ -9,6 +9,7 @@ export default function DashboardOverview() {
   const { userData } = useUser();
   const [subscriptionCount, setSubscriptionCount] = useState(null);
   const [ordersCount, setOrdersCount] = useState(null);
+  const [messagesCount, setMessagesCount] = useState(null);
   const [loading, setLoading] = useState(true);
   const [hasReceivedResponse, setHasReceivedResponse] = useState(false);
   const [hasCalledAPI, setHasCalledAPI] = useState(false);
@@ -51,6 +52,7 @@ export default function DashboardOverview() {
           );
           setSubscriptionCount("0");
           setOrdersCount("0");
+          setMessagesCount("0");
           setHasReceivedResponse(true);
           setLoading(false);
           return;
@@ -59,19 +61,22 @@ export default function DashboardOverview() {
         const data = await response.json();
 
         // Handle both response formats:
-        // New format: { status: true, message: "...", subscriptions_count: 0, orders_count: 0, ... }
+        // New format: { status: true, message: "...", subscriptions_count: 0, orders_count: 0, messages_count: 0, ... }
         // Old format: { success: true, count: 5, ... }
         if (data.status && typeof data.subscriptions_count === "number") {
           setSubscriptionCount(String(data.subscriptions_count));
           setOrdersCount(String(data.orders_count || 0));
+          setMessagesCount(String(data.messages_count || 0));
         } else if (data.success && typeof data.count === "number") {
           // Fallback to old format
           setSubscriptionCount(String(data.count));
           setOrdersCount("0");
+          setMessagesCount("0");
         } else {
           console.error("Invalid response format:", data);
           setSubscriptionCount("0");
           setOrdersCount("0");
+          setMessagesCount("0");
         }
         
         setHasReceivedResponse(true);
@@ -79,6 +84,7 @@ export default function DashboardOverview() {
         console.error("Error fetching dashboard states:", error);
         setSubscriptionCount("0");
         setOrdersCount("0");
+        setMessagesCount("0");
         setHasReceivedResponse(true);
       } finally {
         setLoading(false);
@@ -97,7 +103,7 @@ export default function DashboardOverview() {
     },
     {
       title: "Messages",
-      count: "2",
+      count: messagesCount,
       link: "/messages",
       linkText: "View Messages",
     },
@@ -115,7 +121,7 @@ export default function DashboardOverview() {
     },
   ];
 
-  if (loading || !hasReceivedResponse || subscriptionCount === null || ordersCount === null) {
+  if (loading || !hasReceivedResponse || subscriptionCount === null || ordersCount === null || messagesCount === null) {
     return (
       <div className="flex gap-6 overflow-x-auto scrollbar-hide">
         <div className="flex gap-[16px] min-w-max">
