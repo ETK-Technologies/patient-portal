@@ -10,8 +10,6 @@ import React, {
 import Image from "next/image";
 import { IoClose, IoChevronUp, IoChevronDown } from "react-icons/io5";
 import CustomImage from "@/components/utils/CustomImage";
-import { addItemToCart } from "@/lib/cart/cartService";
-import { redirectToCheckout } from "@/utils/checkout";
 import { formatPrice } from "@/utils/priceFormatter";
 
 const MerchProductModal = ({ isOpen, onClose, product }) => {
@@ -417,46 +415,7 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
         }
       }
 
-      const cartItem = {
-        productId: variationId || productId, // Use variation ID as product ID for variable products
-        variationId: variationId,
-        quantity: quantity,
-        name: currentProduct.name,
-        price: currentProduct.price || currentProduct.priceDisplay || 0,
-        image:
-          currentProduct.images?.[0] ||
-          currentProduct.images?.[selectedImageIndex] ||
-          currentProduct.image ||
-          "",
-        product_type: currentProduct.type || "simple",
-        variation: [
-          {
-            name: "Size",
-            value: selectedSize || "",
-          },
-        ],
-      };
-
-      // Add color to variation if product has colors and color is selected
-      if (colors.length > 0 && selectedColor) {
-        cartItem.variation.push({
-          name: "Color",
-          value: selectedColor,
-        });
-        cartItem.color = selectedColor.toLowerCase().trim();
-      }
-
-      // Add size to cart item for variable products
-      if (selectedSize) {
-        cartItem.size = selectedSize.toLowerCase().trim();
-      }
-
-      console.log("[MerchProductModal] Adding to cart:", cartItem);
-
-      // Add item to cart via API
-      const result = await addItemToCart(cartItem);
-
-      console.log("[MerchProductModal] Item added successfully:", result);
+      const productIdForUrl = variationId || productId;
 
       // Reset state before closing
       setQuantity(1);
@@ -476,12 +435,18 @@ const MerchProductModal = ({ isOpen, onClose, product }) => {
       // Close modal
       onClose();
 
-      // Open checkout in new tab
-      redirectToCheckout(true);
+      const baseUrl =
+        process.env.NEXT_PUBLIC_ROCKY_API_URL ||
+        "https://rocky-headless-git-staging-rocky-health.vercel.app";
+      const checkoutUrl = `${baseUrl}/checkout?onboarding-add-to-cart=${productIdForUrl}`;
+
+      console.log("[MerchProductModal] Redirecting to checkout:", checkoutUrl);
+
+      window.open(checkoutUrl, "_blank");
     } catch (error) {
-      console.error("Error adding to cart:", error);
+      console.error("Error redirecting to checkout:", error);
       alert(
-        error.message || "There was an error adding to cart. Please try again."
+        error.message || "There was an error redirecting to checkout. Please try again."
       );
     } finally {
       setIsProcessing(false);
