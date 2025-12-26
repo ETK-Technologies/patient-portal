@@ -4,8 +4,6 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import { IoClose, IoChevronUp, IoChevronDown } from "react-icons/io5";
 import CustomImage from "@/components/utils/CustomImage";
-import { addItemToCart } from "@/lib/cart/cartService";
-import { redirectToCheckout } from "@/utils/checkout";
 import { formatPrice } from "@/utils/priceFormatter";
 
 const SimpleProductModal = ({ isOpen, onClose, product }) => {
@@ -178,27 +176,7 @@ const SimpleProductModal = ({ isOpen, onClose, product }) => {
     setIsProcessing(true);
 
     try {
-      const cartItem = {
-        productId: currentProduct.productId,
-        quantity: quantity,
-      };
-
-      // For Cap with color/size selections
-      if (isCap) {
-        if (selectedSize) {
-          cartItem.size = selectedSize.toLowerCase().trim();
-        }
-        if (selectedColor) {
-          cartItem.color = selectedColor.toLowerCase().trim();
-        }
-      }
-
-      console.log("[SimpleProductModal] Adding to cart:", cartItem);
-
-      // Add item to cart via API
-      const result = await addItemToCart(cartItem);
-
-      console.log("[SimpleProductModal] Item added successfully:", result);
+      const productId = currentProduct.productId;
 
       // Reset state before closing
       setQuantity(1);
@@ -213,12 +191,18 @@ const SimpleProductModal = ({ isOpen, onClose, product }) => {
       // Close modal
       onClose();
 
+      const baseUrl =
+        process.env.NEXT_PUBLIC_ROCKY_API_URL;
+      const checkoutUrl = `${baseUrl}/checkout?onboarding-add-to-cart=${productId}`;
+
+      console.log("[SimpleProductModal] Redirecting to checkout:", checkoutUrl);
+
       // Open checkout in new tab
-      redirectToCheckout(true);
+      window.open(checkoutUrl, "_blank");
     } catch (error) {
-      console.error("Error adding to cart:", error);
+      console.error("Error redirecting to checkout:", error);
       alert(
-        error.message || "There was an error adding to cart. Please try again."
+        error.message || "There was an error redirecting to checkout. Please try again."
       );
     } finally {
       setIsProcessing(false);
