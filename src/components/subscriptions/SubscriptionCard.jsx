@@ -29,23 +29,63 @@ export default function SubscriptionCard({ subscription, onAction }) {
   const handleMessageProvider = async () => {
     try {
       setIsLoading(true);
-      // TODO: Replace with actual API endpoint when available
-      // const response = await fetch(`/api/subscriptions/${subscription.id}/message-provider`, {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      // });
 
-      // if (!response.ok) {
-      //   throw new Error("Failed to initiate message");
-      // }
+      const subscriptionId = subscription.id || subscription.subscription_id;
+      
+      if (!subscriptionId) {
+        throw new Error("Subscription ID not found");
+      }
 
-      // Simulate API call for now
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Get userId from cookies
+      const getUserIdFromCookies = () => {
+        if (typeof document === "undefined") return null;
+        const cookies = document.cookie.split(";");
+        for (let cookie of cookies) {
+          const [name, value] = cookie.trim().split("=");
+          if (name === "userId") {
+            return decodeURIComponent(value);
+          }
+        }
+        return null;
+      };
 
-      // Navigate to messages page after API call
-      router.push("/messages");
+      const userId = getUserIdFromCookies();
+      
+      if (!userId) {
+        toast.error("User ID not found. Please log in again.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Call API to get the thread and chat URL
+      const response = await fetch(
+        `/api/messenger/subscription-thread?subscriptionId=${subscriptionId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to connect to messenger");
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.loginURL) {
+        window.open(result.loginURL, "_blank", "noopener,noreferrer");
+        toast.success("Opening messenger...");
+      } else if (result.success && result.chatUrl) {
+        // Fallback: if no loginURL, use chatUrl
+        window.open(result.chatUrl, "_blank", "noopener,noreferrer");
+        toast.success("Opening chat with provider...");
+      } else {
+        throw new Error(result.error || "No login URL received");
+      }
     } catch (error) {
       console.error("Error messaging provider:", error);
       toast.error(error.message || "Failed to message provider");

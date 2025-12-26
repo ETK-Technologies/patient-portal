@@ -12,7 +12,6 @@ import { NextResponse } from "next/server";
  *   "message": "Subscriptions count retrieved successfully.",
  *   "subscriptions_count": 0,
  *   "orders_count": 0,
- *   "messages_count": 0,
  *   "crm_user_id": 67867,
  *   "wp_user_id": 68002
  * }
@@ -87,14 +86,11 @@ export async function GET(request) {
       );
     }
 
-    const messagesCount = await fetchUnreadMessagesCount(request);
-
     return NextResponse.json({
       status: true,
       message: "Subscriptions count retrieved successfully.",
       subscriptions_count: dashboardStates.subscriptions_count || 0,
       orders_count: dashboardStates.orders_count || 0,
-      messages_count: messagesCount,
       crm_user_id: dashboardStates.crm_user_id || userId,
       wp_user_id: dashboardStates.wp_user_id || null,
     });
@@ -242,71 +238,5 @@ async function fetchDashboardStates(userId, request) {
       crm_user_id: userId,
       error: error.message,
     };
-  }
-}
-
-/**
- * Fetch unread messages count from messenger API
- * Uses the endpoint: https://messenger.myrocky.ca/api/messages/unread
- */
-async function fetchUnreadMessagesCount(request) {
-  const messengerBaseUrl = process.env.MESSENGER_BASE_URL || "https://messenger.myrocky.ca";
-
-  try {
-    const cookieHeader = request.headers.get("cookie") || "";
-    let authToken = null;
-
-    if (cookieHeader) {
-      const cookies = cookieHeader.split(";").reduce((acc, cookie) => {
-        const [key, value] = cookie.trim().split("=");
-        if (key && value) {
-          acc[key] = decodeURIComponent(value);
-        }
-        return acc;
-      }, {});
-
-      authToken = cookies.token;
-    }
-
-    if (!authToken) {
-      console.error("[DASHBOARD_STATES] No token found for messenger API call");
-      return 0;
-    }
-
-    console.log("[DASHBOARD_STATES] Fetching unread messages count from messenger API...");
-    const unreadMessagesUrl = `${messengerBaseUrl}/api/messages/unread`;
-    console.log(`[DASHBOARD_STATES] Messenger API URL: ${unreadMessagesUrl}`);
-
-    const messagesResponse = await fetch(unreadMessagesUrl, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${authToken}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!messagesResponse.ok) {
-      const errorText = await messagesResponse.text();
-      console.error(
-        `[DASHBOARD_STATES] Failed to fetch unread messages: ${messagesResponse.status} ${messagesResponse.statusText}`
-      );
-      console.error(`[DASHBOARD_STATES] Error details: ${errorText}`);
-      return 0;
-    }
-
-    const messagesData = await messagesResponse.json();
-    console.log("[DASHBOARD_STATES] Unread messages response received");
-    console.log(
-      `[DASHBOARD_STATES] Unread messages count: ${messagesData.count || 0}`
-    );
-
-    // Return the count from the response
-    return messagesData.count || 0;
-  } catch (error) {
-    console.error(
-      "[DASHBOARD_STATES] Error fetching unread messages count:",
-      error
-    );
-    return 0;
   }
 }
