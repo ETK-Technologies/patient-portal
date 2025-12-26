@@ -801,11 +801,11 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
       );
 
       if (!response.ok) {
-        let errorMessage = "Failed to download invoice";
+        let errorMessage = "Failed to open invoice";
         try {
           const errorData = await response.json();
           console.error(
-            "[ORDER_DETAILS_MODAL] Error downloading invoice:",
+            "[ORDER_DETAILS_MODAL] Error opening invoice:",
             errorData
           );
           errorMessage = errorData.message || errorData.error || errorMessage;
@@ -815,7 +815,7 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
             "[ORDER_DETAILS_MODAL] Error parsing error response:",
             parseError
           );
-          errorMessage = `Failed to download invoice: ${response.status} ${response.statusText}`;
+          errorMessage = `Failed to open invoice: ${response.status} ${response.statusText}`;
         }
 
         // Make error message more user-friendly
@@ -828,22 +828,22 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
           errorMessage.includes("401") ||
           errorMessage.includes("Unauthorized")
         ) {
-          errorMessage = "You are not authorized to download this invoice";
+          errorMessage = "You are not authorized to view this invoice";
         } else if (
           errorMessage.includes("403") ||
           errorMessage.includes("Forbidden")
         ) {
-          errorMessage = "Access denied to download this invoice";
+          errorMessage = "Access denied to view this invoice";
         } else if (
           errorMessage.includes("500") ||
           errorMessage.includes("Internal Server Error")
         ) {
           errorMessage = "Server error. Please try again later";
-        } else if (errorMessage.includes("Failed to download invoice:")) {
+        } else if (errorMessage.includes("Failed to open invoice:")) {
           // Extract just the user-friendly part
           errorMessage = errorMessage.replace(
-            /Failed to download invoice:\s*\d+\s*/i,
-            "Failed to download invoice. "
+            /Failed to open invoice:\s*\d+\s*/i,
+            "Failed to open invoice. "
           );
         }
 
@@ -852,23 +852,41 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
         return;
       }
 
-      // Get the PDF blob
+      // Check if response is JSON (URL) or PDF file
+      const contentType = response.headers.get("content-type") || "";
+      const isJson = contentType.includes("application/json");
+
+      if (isJson) {
+        // Response contains a URL - open it in a new tab
+        const data = await response.json();
+        const invoiceUrl = data.url || data.data?.url;
+        
+        if (invoiceUrl) {
+          window.open(invoiceUrl, "_blank", "noopener,noreferrer");
+          console.log("[ORDER_DETAILS_MODAL] Invoice opened in new tab");
+          toast.success("Invoice opened in new tab");
+        } else {
+          console.error("[ORDER_DETAILS_MODAL] No URL found in response:", data);
+          toast.error("Invoice URL not found");
+        }
+        setDownloadingInvoice(false);
+        return;
+      }
+
+      // Response is a PDF file - create blob URL and open in new tab
       const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      // Open the blob URL in a new tab instead of downloading
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+      
+      // Cleanup blob URL after a delay to allow the browser to load it
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 1000);
 
-      // Create a download link
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `invoice-${orderId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-
-      // Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      console.log("[ORDER_DETAILS_MODAL] Invoice downloaded successfully");
-      toast.success("Invoice downloaded successfully");
+      console.log("[ORDER_DETAILS_MODAL] Invoice opened in new tab");
+      toast.success("Invoice opened in new tab");
       setDownloadingInvoice(false);
     } catch (err) {
       console.error("[ORDER_DETAILS_MODAL] Error downloading invoice:", err);
@@ -1058,7 +1076,7 @@ const OrderDetailsModal = ({ isOpen, onClose, order }) => {
               <div>
                 <CustomButton
                   text={
-                    downloadingInvoice ? "Downloading..." : "Download Invoice"
+                    downloadingInvoice ? "Opening..." : "View Invoice"
                   }
                   variant="default"
                   size="medium"

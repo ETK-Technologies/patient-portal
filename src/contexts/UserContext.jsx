@@ -389,6 +389,7 @@ export function UserProvider({ children }) {
           dosage: dosage,
           nextRefill: nextRefillDate,
           productImage:
+            firstItem.product_image ||
             firstItem.image?.src ||
             "https://myrocky.b-cdn.net/WP%20Images/patient-portal/order-card-1.png",
           _raw: sub,

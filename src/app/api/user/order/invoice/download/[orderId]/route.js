@@ -77,6 +77,17 @@ export async function GET(request, { params }) {
       );
     }
 
+    // If response contains a URL, return it as JSON
+    if (invoiceResponse.isUrl && invoiceResponse.url) {
+      return NextResponse.json(
+        {
+          success: true,
+          url: invoiceResponse.url,
+        },
+        { status: 200 }
+      );
+    }
+
     // Return the PDF file with appropriate headers
     return new NextResponse(invoiceResponse.fileBuffer, {
       status: 200,
@@ -155,10 +166,36 @@ async function downloadInvoice(orderId, request) {
       };
     }
 
-    // Get the file buffer and content type
+    // Check if response is JSON (URL) or PDF file
+    const contentType = invoiceResponse.headers.get("content-type") || "";
+    const isJson = contentType.includes("application/json");
+
+    if (isJson) {
+      // Response is JSON with a URL
+      const jsonData = await invoiceResponse.json();
+      const invoiceUrl = jsonData.url || jsonData.invoice_url || jsonData.data?.url || jsonData.data?.invoice_url;
+      
+      if (invoiceUrl) {
+        console.log(
+          `[INVOICE_DOWNLOAD] ✓ Received invoice URL for order: ${orderId}`
+        );
+        console.log(`[INVOICE_DOWNLOAD] Invoice URL: ${invoiceUrl}`);
+        
+        return {
+          url: invoiceUrl,
+          isUrl: true,
+        };
+      } else {
+        console.error("[INVOICE_DOWNLOAD] JSON response but no URL found:", jsonData);
+        return {
+          error: "Invoice URL not found in response",
+          statusCode: 500,
+        };
+      }
+    }
+
+    // Response is a PDF file
     const fileBuffer = await invoiceResponse.arrayBuffer();
-    const contentType =
-      invoiceResponse.headers.get("content-type") || "application/pdf";
     const contentLength = invoiceResponse.headers.get("content-length");
 
     console.log(
@@ -172,8 +209,9 @@ async function downloadInvoice(orderId, request) {
 
     return {
       fileBuffer: Buffer.from(fileBuffer),
-      contentType: contentType,
+      contentType: contentType || "application/pdf",
       contentLength: contentLength || fileBuffer.byteLength,
+      isUrl: false,
     };
   } catch (error) {
     console.error(

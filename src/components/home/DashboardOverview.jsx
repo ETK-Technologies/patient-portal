@@ -37,51 +37,76 @@ export default function DashboardOverview() {
           }
         }
 
-        const apiUrl = crmUserID 
+        const statsApiUrl = crmUserID 
           ? `/api/user/dashboard/states?crmUserID=${crmUserID}`
           : `/api/user/dashboard/states`;
+        const messengerApiUrl = `/api/messenger/unread-count`;
 
-        console.log("[DASHBOARD_OVERVIEW] Calling stats API:", apiUrl);
-        const response = await fetch(apiUrl);
+        console.log("[DASHBOARD_OVERVIEW] Calling both APIs in parallel:");
+        console.log("[DASHBOARD_OVERVIEW] - Stats API:", statsApiUrl);
+        console.log("[DASHBOARD_OVERVIEW] - Messenger API:", messengerApiUrl);
 
-        if (!response.ok) {
-          const errorData = await response.json();
+        const [statsResponse, messengerResponse] = await Promise.all([
+          fetch(statsApiUrl),
+          fetch(messengerApiUrl),
+        ]);
+
+        console.log("[DASHBOARD_OVERVIEW] Both API calls completed");
+
+        if (!statsResponse.ok) {
+          const errorData = await statsResponse.json();
           console.error(
             "Error fetching dashboard states:",
             errorData.error || errorData.message
           );
           setSubscriptionCount("0");
           setOrdersCount("0");
-          setMessagesCount("0");
-          setHasReceivedResponse(true);
-          setLoading(false);
-          return;
+        } else {
+          const statsData = await statsResponse.json();
+          console.log("[DASHBOARD_OVERVIEW] Stats API response received");
+
+          if (statsData.status && typeof statsData.subscriptions_count === "number") {
+            setSubscriptionCount(String(statsData.subscriptions_count));
+            setOrdersCount(String(statsData.orders_count || 0));
+            console.log("[DASHBOARD_OVERVIEW] Stats counts set:", {
+              subscriptions: statsData.subscriptions_count,
+              orders: statsData.orders_count || 0,
+            });
+          } else if (statsData.success && typeof statsData.count === "number") {
+            setSubscriptionCount(String(statsData.count));
+            setOrdersCount("0");
+            console.log("[DASHBOARD_OVERVIEW] Using fallback format for stats");
+          } else {
+            console.error("Invalid stats response format:", statsData);
+            setSubscriptionCount("0");
+            setOrdersCount("0");
+          }
         }
 
-        const data = await response.json();
-
-        // Handle both response formats:
-        // New format: { status: true, message: "...", subscriptions_count: 0, orders_count: 0, messages_count: 0, ... }
-        // Old format: { success: true, count: 5, ... }
-        if (data.status && typeof data.subscriptions_count === "number") {
-          setSubscriptionCount(String(data.subscriptions_count));
-          setOrdersCount(String(data.orders_count || 0));
-          setMessagesCount(String(data.messages_count || 0));
-        } else if (data.success && typeof data.count === "number") {
-          // Fallback to old format
-          setSubscriptionCount(String(data.count));
-          setOrdersCount("0");
+        if (!messengerResponse.ok) {
+          const errorData = await messengerResponse.json();
+          console.error(
+            "Error fetching unread messages count:",
+            errorData.error || errorData.message
+          );
           setMessagesCount("0");
         } else {
-          console.error("Invalid response format:", data);
-          setSubscriptionCount("0");
-          setOrdersCount("0");
-          setMessagesCount("0");
+          const messengerData = await messengerResponse.json();
+          console.log("[DASHBOARD_OVERVIEW] Messenger API response received");
+          
+          if (messengerData.success && typeof messengerData.count === "number") {
+            setMessagesCount(String(messengerData.count));
+            console.log("[DASHBOARD_OVERVIEW] Messages count set:", messengerData.count);
+          } else {
+            console.error("Invalid messenger response format:", messengerData);
+            setMessagesCount("0");
+          }
         }
         
+        console.log("[DASHBOARD_OVERVIEW] All data received and processed from both APIs");
         setHasReceivedResponse(true);
       } catch (error) {
-        console.error("Error fetching dashboard states:", error);
+        console.error("Error fetching dashboard data:", error);
         setSubscriptionCount("0");
         setOrdersCount("0");
         setMessagesCount("0");
