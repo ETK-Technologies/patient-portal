@@ -1,11 +1,17 @@
-import html2pdf from 'html2pdf.js';
-
 /**
  * Converts HTML string to PDF and triggers download
  * @param {string} htmlString - The HTML content to convert to PDF
  * @param {string} filename - The filename for the downloaded PDF (default: 'prescription.pdf')
  */
 export const generatePDFFromHTML = async (htmlString, filename = 'prescription.pdf') => {
+  // Dynamic import to avoid SSR issues - html2pdf.js uses browser-only APIs
+  const html2pdf = (await import('html2pdf.js')).default;
+  
+  // Ensure we're in the browser
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    throw new Error('PDF generation is only available in the browser');
+  }
+
   let container = null;
   
   try {
@@ -67,6 +73,11 @@ export const generatePDFFromHTML = async (htmlString, filename = 'prescription.p
  * @param {string} htmlString - The HTML content to display
  */
 export const openPrescriptionInNewTab = (htmlString) => {
+  // Ensure we're in the browser
+  if (typeof window === 'undefined') {
+    throw new Error('Opening in new tab is only available in the browser');
+  }
+
   try {
     const blob = new Blob([htmlString], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
@@ -96,6 +107,11 @@ export const openPrescriptionInNewTab = (htmlString) => {
  * @param {boolean} options.openInNewTab - If true, opens in new tab instead of downloading
  */
 export const downloadPrescriptionPDF = async (prescriptionId, options = {}) => {
+  // Ensure we're in the browser
+  if (typeof window === 'undefined' || typeof fetch === 'undefined') {
+    throw new Error('PDF download is only available in the browser');
+  }
+
   try {
     const { filename = null, openInNewTab = false } = options;
     
