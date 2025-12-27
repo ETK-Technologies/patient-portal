@@ -1,11 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { FiDownload } from "react-icons/fi";
+import { downloadPrescriptionPDF } from "@/utils/pdfGenerator";
 
 const PrescriptionsTable = ({ prescriptions }) => {
-  const handleDownload = (prescription) => {
-    // TODO: Implement download functionality
-    console.log("Download prescription:", prescription.id);
+  const [downloadingId, setDownloadingId] = useState(null);
+
+  const handleDownload = async (prescription) => {
+    try {
+      setDownloadingId(prescription.id);
+      await downloadPrescriptionPDF(prescription.id, { openInNewTab: true });
+    } catch (error) {
+      console.error("Error opening prescription:", error);
+      alert(error.message || "Failed to open prescription. Please try again.");
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   return (
@@ -70,10 +81,12 @@ const PrescriptionsTable = ({ prescriptions }) => {
                 <td className="py-4 px-5 w-[84px]">
                   <button
                     onClick={() => handleDownload(prescription)}
-                    className="p-2 hover:bg-[#F9F9F9] rounded-[8px] transition-colors cursor-pointer"
+                    disabled={downloadingId === prescription.id}
+                    className="p-2 hover:bg-[#F9F9F9] rounded-[8px] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     aria-label="Download prescription"
+                    title={downloadingId === prescription.id ? "Opening..." : "View prescription"}
                   >
-                    <FiDownload className="w-5 h-5 text-[#212121]" />
+                    <FiDownload className={`w-5 h-5 text-[#212121] ${downloadingId === prescription.id ? 'animate-pulse' : ''}`} />
                   </button>
                 </td>
               </tr>

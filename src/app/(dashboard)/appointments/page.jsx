@@ -24,7 +24,7 @@ function transformMeetingToAppointment(meeting) {
   const formattedTime = startTime.toLocaleTimeString("en-US", timeOptions);
 
   // Get invitee info (use first invitee or default)
-  const invitee = meeting.invitees?.[0] || {};
+  const invitee = meeting.organizer?.[0] || {};
   const doctorImage =
     invitee.avatar ||
     "https://myrocky.b-cdn.net/WP%20Images/patient-portal/Dr-GeorgeMankaryous.png";
@@ -33,7 +33,6 @@ function transformMeetingToAppointment(meeting) {
     id: meeting.eventUuid,
     type: meeting.name || "Appointment",
     doctorName: invitee.name || "Doctor",
-    credentials: "M.D. CCFP", // Default credentials, can be updated if available in API
     date: formattedDate,
     time: formattedTime,
     doctorImage: doctorImage,

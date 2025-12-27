@@ -1,12 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import CustomButton from "../utils/CustomButton";
 import { FiDownload } from "react-icons/fi";
+import { downloadPrescriptionPDF } from "@/utils/pdfGenerator";
 
 const PrescriptionCard = ({ prescription }) => {
-  const handleDownload = () => {
-    // TODO: Implement download functionality
-    console.log("Download prescription:", prescription.id);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true);
+      await downloadPrescriptionPDF(prescription.id, { openInNewTab: true });
+    } catch (error) {
+      console.error("Error opening prescription:", error);
+      alert(error.message || "Failed to open prescription. Please try again.");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -73,13 +84,14 @@ const PrescriptionCard = ({ prescription }) => {
 
       {/* Download Button */}
       <CustomButton
-        text="Download Prescription"
+        text={isDownloading ? "Opening..." : "View Prescription"}
         icon={<FiDownload />}
         size="medium"
         width="full"
         variant="rounded"
-        className="bg-white border border-[#E2E2E1] rounded-[64px] font-medium text-sm leading-[140%] tracking-[0px] align-middle capitalize hover:bg-[#F9F9F9]"
+        className="bg-white border border-[#E2E2E1] rounded-[64px] font-medium text-sm leading-[140%] tracking-[0px] align-middle capitalize hover:bg-[#F9F9F9] disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={handleDownload}
+        disabled={isDownloading}
       />
     </div>
   );
