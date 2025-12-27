@@ -69,6 +69,30 @@ async function updateShippingAddress(userId, updateData, request) {
             };
         }
 
+        const payload = {
+            id: userId,
+            shipping_first_name: updateData.shipping_first_name || "",
+            shipping_last_name: updateData.shipping_last_name || "",
+            shipping_email: updateData.shipping_email || "",
+            shipping_country: updateData.shipping_country || "",
+            shipping_address_1: updateData.shipping_address_1 || "",
+            shipping_address_2: updateData.shipping_address_2 || "",
+            shipping_city: updateData.shipping_city || "",
+            shipping_state: updateData.shipping_state || "",
+            shipping_postcode: updateData.shipping_postcode || "",
+            // Billing address fields from request body
+            billing_first_name: updateData.billing_first_name || "",
+            billing_last_name: updateData.billing_last_name || "",
+            billing_email: updateData.billing_email || "",
+            billing_phone: updateData.billing_phone || "",
+            billing_country: updateData.billing_country || "",
+            billing_address_1: updateData.billing_address_1 || "",
+            billing_address_2: updateData.billing_address_2 || "",
+            billing_city: updateData.billing_city || "",
+            billing_state: updateData.billing_state || "",
+            billing_postcode: updateData.billing_postcode || "",
+        };
+
         const updateUrl = `${crmHost}/api/user/shipping/address/update`;
 
         const response = await fetch(updateUrl, {
@@ -78,7 +102,7 @@ async function updateShippingAddress(userId, updateData, request) {
                 "Content-Type": "application/json",
                 "is-patient-portal": "true",
             },
-            body: JSON.stringify(updateData),
+            body: JSON.stringify(payload),
         });
 
         if (!response.ok) {

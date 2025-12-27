@@ -79,23 +79,6 @@ export default function BillingAddressModal({
     }
   }, [isOpen, billingData]);
 
-  // Handle "same as shipping" checkbox
-  useEffect(() => {
-    if (formData.same_as_shipping && shippingData) {
-      setFormData((prev) => ({
-        ...prev,
-        first_name: shippingData.first_name || prev.first_name,
-        last_name: shippingData.last_name || prev.last_name,
-        email: shippingData.email || prev.email,
-        phone: shippingData.phone || prev.phone,
-        address_1: shippingData.address_1 || prev.address_1,
-        address_2: shippingData.address_2 || prev.address_2,
-        city: shippingData.city || prev.city,
-        state: shippingData.state || prev.state,
-        postcode: shippingData.postcode || prev.postcode,
-      }));
-    }
-  }, [formData.same_as_shipping, shippingData]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {

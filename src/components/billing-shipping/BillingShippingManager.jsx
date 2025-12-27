@@ -376,6 +376,7 @@ export default function BillingShippingManager() {
       }
 
       const existingShipping = shippingData || {};
+      const existingBilling = billingData || {};
       const mergedData = {
         ...existingShipping,
         ...formData,
@@ -392,6 +393,16 @@ export default function BillingShippingManager() {
         shipping_city: mergedData.city || "",
         shipping_state: mergedData.state || "",
         shipping_postcode: mergedData.postcode || "",
+       billing_first_name: existingBilling.first_name || "",
+        billing_last_name: existingBilling.last_name || "",
+        billing_email: existingBilling.email || "",
+        billing_phone: existingBilling.phone || "",
+        billing_country: existingBilling.country || "",
+        billing_address_1: existingBilling.address_1 || "",
+        billing_address_2: existingBilling.address_2 || "",
+        billing_city: existingBilling.city || "",
+        billing_state: existingBilling.state || "",
+        billing_postcode: existingBilling.postcode || "",
       };
 
       const response = await fetch(`/api/user/shipping/address/update`, {
@@ -470,10 +481,13 @@ export default function BillingShippingManager() {
       }
 
       const existingBilling = billingData || {};
+      const existingShipping = shippingData || {};
       const mergedData = {
         ...existingBilling,
         ...formData,
       };
+
+      const shippingAddressData = formData.same_as_shipping ? mergedData : existingShipping;
 
       const requestBody = {
         id: String(userId),
@@ -487,6 +501,15 @@ export default function BillingShippingManager() {
         billing_city: mergedData.city || "",
         billing_state: mergedData.state || "",
         billing_postcode: mergedData.postcode || "",
+        shipping_first_name: shippingAddressData.first_name || "",
+        shipping_last_name: shippingAddressData.last_name || "",
+        shipping_email: shippingAddressData.email || "",
+        shipping_country: shippingAddressData.country || "",
+        shipping_address_1: shippingAddressData.address_1 || "",
+        shipping_address_2: shippingAddressData.address_2 || "",
+        shipping_city: shippingAddressData.city || "",
+        shipping_state: shippingAddressData.state || "",
+        shipping_postcode: shippingAddressData.postcode || "",
       };
 
       const response = await fetch(`/api/user/billing/address/update`, {
@@ -517,6 +540,25 @@ export default function BillingShippingManager() {
       }
 
       setBillingData(mergedData);
+
+      if (formData.same_as_shipping) {
+        setShippingData(mergedData);
+        
+        const shippingAddressParts = [
+          mergedData.address_1,
+          mergedData.address_2,
+          mergedData.city,
+          mergedData.postcode,
+        ].filter(Boolean);
+
+        const displayShippingAddress =
+          shippingAddressParts.length > 0 ? shippingAddressParts.join(", ") : "No address set";
+
+        setBillingShippingData((prev) => ({
+          ...prev,
+          shippingAddress: displayShippingAddress,
+        }));
+      }
 
       const addressParts = [
         mergedData.address_1,
