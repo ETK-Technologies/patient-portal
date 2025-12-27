@@ -15,7 +15,7 @@ export default function AppointmentCard({ appointment }) {
   };
 
   return (
-    <div className="bg-white h-[205px] md:h-[201px] rounded-[16px] p-4 md:p-6 shadow-[0px_0px_16px_0px_#00000014]   hover:shadow-md transition-shadow">
+    <div className="bg-white h-[195px] md:h-[191px] rounded-[16px] p-4 md:p-6 shadow-[0px_0px_16px_0px_#00000014]   hover:shadow-md transition-shadow">
       <div className="flex flex-col md:flex-row-reverse items-start justify-between gap-4">
         {/* Date and Time */}
         <div className="flex items-center gap-2">
@@ -42,11 +42,8 @@ export default function AppointmentCard({ appointment }) {
             <h3 className="text-[#AE7E56] text-[16px] font-[500] leading-[140%] mb-1">
               {appointment.type}
             </h3>
-            <p className="text-[14px] font-[500] leading-[140%] mb-[2px]">
+            <p className="text-[14px] font-[500] leading-[140%]">
               {appointment.doctorName}
-            </p>
-            <p className="text-[12px] font-[400] leading-[140%]">
-              {appointment.credentials}
             </p>
           </div>
         </div>

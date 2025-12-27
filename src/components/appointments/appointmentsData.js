@@ -3,7 +3,6 @@ export const upcomingAppointments = [
     id: 1,
     type: "Weight Loss Appointment",
     doctorName: "Dr. George Mankaryous",
-    credentials: "M.D. CCFP",
     date: "Nov 15, 2025",
     time: "3:30pm",
     doctorImage:
@@ -19,7 +18,6 @@ export const pastAppointments = [
     id: 2,
     type: "Hair Loss Appointment",
     doctorName: "Dr. George Mankaryous",
-    credentials: "M.D. CCFP",
     date: "Oct 20, 2025",
     time: "4:15pm",
     doctorImage:

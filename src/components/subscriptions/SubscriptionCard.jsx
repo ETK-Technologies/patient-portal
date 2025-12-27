@@ -9,12 +9,14 @@ import GetRefillModal from "../subscription-flow/GetRefillModal";
 import { toast } from "react-toastify";
 import { FaArrowRight } from "react-icons/fa";
 import PropTypes from "prop-types";
+import { downloadPrescriptionPDF } from "@/utils/pdfGenerator";
 
 export default function SubscriptionCard({ subscription, onAction }) {
   const router = useRouter();
   const [isRequestRefillModalOpen, setIsRequestRefillModalOpen] =
     useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingPrescription, setIsLoadingPrescription] = useState(false);
 
   const handleAction = (actionLabel) => {
     if (onAction) {
@@ -22,8 +24,23 @@ export default function SubscriptionCard({ subscription, onAction }) {
     }
   };
 
-  const handleSeePrescription = () => {
-    router.push("/prescriptions");
+  const handleSeePrescription = async () => {
+    const prescription = subscription._raw?.prescription;
+    
+    if (!prescription || !prescription.id) {
+      toast.error("Prescription not available for this subscription");
+      return;
+    }
+
+    try {
+      setIsLoadingPrescription(true);
+      await downloadPrescriptionPDF(prescription.id, { openInNewTab: true });
+    } catch (error) {
+      console.error("Error opening prescription:", error);
+      toast.error(error.message || "Failed to open prescription. Please try again.");
+    } finally {
+      setIsLoadingPrescription(false);
+    }
   };
 
   const handleMessageProvider = async () => {
@@ -131,10 +148,14 @@ export default function SubscriptionCard({ subscription, onAction }) {
     }
   };
 
+  const prescription = subscription._raw?.prescription;
+  const isPrescriptionAvailable = prescription && prescription.id;
+
   const actionButtons = [
     {
-      label: "See prescription",
+      label: isLoadingPrescription ? "Opening..." : "See prescription",
       onClick: handleSeePrescription,
+      disabled: !isPrescriptionAvailable || isLoadingPrescription,
     },
     {
       label: "Message provider",
